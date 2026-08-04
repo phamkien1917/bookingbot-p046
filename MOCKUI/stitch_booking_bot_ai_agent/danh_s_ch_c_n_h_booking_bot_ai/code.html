@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Booking Bot AI - Danh sách căn hộ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for left pane */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #d8dadc;
+            border-radius: 20px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#002113",
+                        "on-primary-fixed-variant": "#314865",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "tertiary-container": "#002a1a",
+                        "surface-container-low": "#f2f4f6",
+                        "background": "#f7f9fb",
+                        "on-surface-variant": "#43474d",
+                        "surface-bright": "#f7f9fb",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#001f27",
+                        "inverse-surface": "#2d3133",
+                        "primary-container": "#0a2540",
+                        "on-secondary-container": "#005669",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#d8dadc",
+                        "surface-container": "#eceef0",
+                        "error": "#ba1a1a",
+                        "surface": "#f7f9fb",
+                        "on-secondary-fixed-variant": "#004e5f",
+                        "inverse-primary": "#b0c8eb",
+                        "on-background": "#191c1e",
+                        "on-tertiary-container": "#009e6d",
+                        "primary-fixed": "#d2e4ff",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "secondary": "#00677e",
+                        "on-error-container": "#93000a",
+                        "outline": "#74777e",
+                        "on-primary-fixed": "#001c37",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#49607e",
+                        "on-primary-container": "#768dad",
+                        "secondary-container": "#00d2fd",
+                        "surface-container-high": "#e6e8ea",
+                        "primary": "#000f22",
+                        "tertiary": "#001209",
+                        "secondary-fixed-dim": "#3cd7ff",
+                        "secondary-fixed": "#b4ebff",
+                        "outline-variant": "#c4c6ce",
+                        "primary-fixed-dim": "#b0c8eb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "xxl": "48px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-xl": ["Manrope"],
+                        "headline-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Manrope"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-xl": ["40px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md h-screen overflow-hidden flex flex-col">
+<!-- TopNavBar Component -->
+<nav class="bg-surface/80 dark:bg-surface/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center px-container-margin h-20 w-full max-w-7xl mx-auto">
+<!-- Logo -->
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">real_estate_agent</span>
+<span class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed">Booking Bot AI</span>
+</div>
+<!-- Navigation Links (Desktop) -->
+<div class="hidden md:flex items-center gap-lg">
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary hover:bg-secondary-container/10 transition-colors duration-200 px-3 py-2 rounded-md" href="#">Trang chủ</a>
+<!-- Active Tab -->
+<a class="font-label-md text-label-md text-secondary dark:text-secondary-fixed-dim font-bold border-b-2 border-secondary px-3 py-2 scale-95 transition-transform" href="#">Căn hộ</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary hover:bg-secondary-container/10 transition-colors duration-200 px-3 py-2 rounded-md" href="#">Cách hoạt động</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary hover:bg-secondary-container/10 transition-colors duration-200 px-3 py-2 rounded-md" href="#">Lịch xem của tôi</a>
+</div>
+<!-- Actions -->
+<div class="hidden md:flex items-center gap-md">
+<button class="font-label-md text-label-md text-primary font-semibold hover:bg-secondary-container/10 px-4 py-2 rounded-md transition-colors">Đăng nhập</button>
+<button class="font-label-md text-label-md bg-primary text-on-primary px-6 py-2 rounded-lg font-bold shadow-md shadow-primary/20 hover:opacity-90 transition-opacity">Đặt lịch xem nhà</button>
+</div>
+<!-- Mobile Menu Toggle -->
+<button class="md:hidden text-on-surface">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</nav>
+<!-- Main Layout -->
+<main class="flex-1 flex overflow-hidden w-full max-w-screen-2xl mx-auto">
+<!-- Left Pane: Filters & List -->
+<section class="w-full lg:w-[60%] flex flex-col h-full bg-surface">
+<!-- Filter Header -->
+<div class="p-container-margin border-b border-outline-variant/20 bg-surface-container-lowest z-10 shadow-sm">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-md">Tìm kiếm không gian mơ ước</h1>
+<form class="flex flex-col gap-md">
+<!-- Search Bar -->
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/50 transition-all shadow-inner" placeholder="Tìm theo tên dự án, đường, quận..." type="text"/>
+</div>
+<!-- Filter Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-sm">
+<!-- Lọc giá -->
+<div class="relative">
+<select class="w-full appearance-none bg-surface border border-outline-variant rounded-md px-3 py-2 pr-8 font-body-sm text-body-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/50">
+<option value="">Mức giá</option>
+<option value="1">&lt; 10 Triệu</option>
+<option value="2">10 - 20 Triệu</option>
+<option value="3">&gt; 20 Triệu</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">expand_more</span>
+</div>
+<!-- Loại BĐS -->
+<div class="relative">
+<select class="w-full appearance-none bg-surface border border-outline-variant rounded-md px-3 py-2 pr-8 font-body-sm text-body-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/50">
+<option value="">Loại hình</option>
+<option value="1">Căn hộ dịch vụ</option>
+<option value="2">Chung cư</option>
+<option value="3">Studio</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">expand_more</span>
+</div>
+<!-- Số phòng ngủ -->
+<div class="relative">
+<select class="w-full appearance-none bg-surface border border-outline-variant rounded-md px-3 py-2 pr-8 font-body-sm text-body-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/50">
+<option value="">Phòng ngủ</option>
+<option value="1">1 PN</option>
+<option value="2">2 PN</option>
+<option value="3">3+ PN</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">expand_more</span>
+</div>
+<!-- Diện tích -->
+<div class="relative">
+<select class="w-full appearance-none bg-surface border border-outline-variant rounded-md px-3 py-2 pr-8 font-body-sm text-body-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/50">
+<option value="">Diện tích</option>
+<option value="1">&lt; 50m²</option>
+<option value="2">50 - 80m²</option>
+<option value="3">&gt; 80m²</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">expand_more</span>
+</div>
+<!-- Trạng thái -->
+<div class="relative col-span-2 md:col-span-1">
+<select class="w-full appearance-none bg-surface border border-outline-variant rounded-md px-3 py-2 pr-8 font-body-sm text-body-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/50">
+<option value="">Trạng thái</option>
+<option value="1">Có thể xem</option>
+<option value="2">Đang giữ chỗ</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-[20px] pointer-events-none">expand_more</span>
+</div>
+<!-- Ngày dự kiến -->
+<div class="relative col-span-2 md:col-span-2 flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-outline text-[20px]">calendar_month</span>
+<input class="w-full pl-10 pr-3 py-2 bg-surface border border-outline-variant rounded-md font-body-sm text-body-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/50" placeholder="Ngày xem dự kiến" type="text"/>
+</div>
+<!-- Button Áp dụng -->
+<div class="col-span-2 md:col-span-1">
+<button class="w-full h-full bg-primary text-on-primary font-label-md text-label-md rounded-md hover:bg-primary/90 transition-colors flex justify-center items-center gap-2" type="button">
+<span class="material-symbols-outlined text-[18px]">filter_list</span> Áp dụng
+                            </button>
+</div>
+</div>
+</form>
+</div>
+<!-- Apartment List Area -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-container-margin bg-background">
+<div class="flex justify-between items-center mb-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Tìm thấy 124 kết quả</span>
+<button class="font-label-sm text-label-sm text-secondary flex items-center gap-1 hover:underline"><span class="material-symbols-outlined text-[16px]">sort</span> Mới nhất</button>
+</div>
+<!-- Bento Grid for Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg pb-xl">
+<!-- Card 1 -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-[0_4px_20px_rgb(0,15,34,0.04)] border border-outline-variant/30 overflow-hidden flex flex-col group hover:border-secondary transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,210,253,0.1)]">
+<div class="relative h-56 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A striking modern apartment living room interior featuring a large panoramic window overlooking a sunlit cityscape. The design is minimalist with clean lines, light gray and pristine white furniture, and a sophisticated high-end proptech visual style. Bright, natural light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDevurx91OYTtAI2KsKaI5XIgmKV9hJr0fMga9dzG9rl7sz_5esFEt9yi5UaFfaIv1Hka8PURdLX3oZLljsNhoXthrxrsjN2FOjq8fT1P4sKaT7Hy1Z4w61jvzP2zuRlWmtRB8q8RpUKrGKD2-027Wsj4nGRYihCuX6XtS1oP3u7I1Wi_K-fc5fLwjIY900r2qVHU-FveP4ppdwz4CQDNJjPBB6LNkBzV4YLB5vJgJh5FPy2EuF7XkB"/>
+<!-- Badge Có thể xem -->
+<div class="absolute top-sm left-sm bg-tertiary-fixed/80 backdrop-blur-sm text-on-tertiary-fixed-variant px-3 py-1 rounded font-label-sm text-label-sm font-bold flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Có thể xem
+                            </div>
+<button class="absolute top-sm right-sm p-2 bg-surface/60 backdrop-blur-md rounded-full text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
+</div>
+<div class="p-md flex flex-col gap-sm flex-grow">
+<h3 class="font-headline-md text-headline-md text-on-surface line-clamp-1">The Metropole Thủ Thiêm</h3>
+<div class="text-secondary font-headline-md text-headline-md">35.000.000 VNĐ<span class="font-body-sm text-body-sm text-on-surface-variant font-normal">/tháng</span></div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate"><span class="material-symbols-outlined text-[14px] align-middle mr-1">location_on</span>Quận 2, TP. Hồ Chí Minh</p>
+<div class="flex gap-4 text-on-surface-variant font-body-sm text-body-sm mt-2 pt-2 border-t border-outline-variant/20">
+<span class="flex items-center gap-xs" title="Phòng ngủ"><span class="material-symbols-outlined text-[18px]">bed</span> 2</span>
+<span class="flex items-center gap-xs" title="Phòng tắm"><span class="material-symbols-outlined text-[18px]">shower</span> 2</span>
+<span class="flex items-center gap-xs" title="Diện tích"><span class="material-symbols-outlined text-[18px]">square_foot</span> 85m²</span>
+</div>
+</div>
+<div class="p-md pt-0 flex gap-sm mt-auto">
+<button class="flex-1 py-2.5 border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors">Xem chi tiết</button>
+<button class="flex-[1.5] py-2.5 bg-gradient-to-r from-secondary-container to-tertiary-fixed text-on-secondary-container font-label-md text-label-md rounded-lg font-bold flex items-center justify-center gap-xs hover:shadow-lg hover:shadow-secondary/20 transition-all group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:rotate-12 transition-transform">smart_toy</span> Đặt lịch AI
+                            </button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-[0_4px_20px_rgb(0,15,34,0.04)] border border-outline-variant/30 overflow-hidden flex flex-col group hover:border-secondary transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,210,253,0.1)]">
+<div class="relative h-56 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A cozy yet sophisticated bedroom interior in a modern high-rise apartment. Neutral tones dominate with a warm wooden floor and soft ambient lighting highlighting clean architectural lines. Professional real estate listing photography with a bright, inviting atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYVllO1uuAtLJSx1Tp2lboF_R-DNdsi6cH3kxicOVARFw0PlUjUupmOWZqvDhSefQTm-1umndgF8__HifNAopQwuNG4P2COBcnhbFsGk1oFkk54CVSPLuz53nDFshZ5tOrzv4gB4w_ZEHpCIz-EQ9TPCVRk5V9xIcga_vTknfqSzH8cmXe1_lwRebs9X4T-4z3-JR661w5Ooc7eUMHLi5B6OO7RWinVHDi_TKp9vD5NjkGj6NCovSE"/>
+<!-- Badge Đang giữ -->
+<div class="absolute top-sm left-sm bg-error-container/80 backdrop-blur-sm text-on-error-container px-3 py-1 rounded font-label-sm text-label-sm font-bold flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Đang giữ (12m)
+                            </div>
+<button class="absolute top-sm right-sm p-2 bg-surface/60 backdrop-blur-md rounded-full text-error hover:scale-110 transition-transform"><span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">favorite</span></button>
+</div>
+<div class="p-md flex flex-col gap-sm flex-grow">
+<h3 class="font-headline-md text-headline-md text-on-surface line-clamp-1">Vinhomes Central Park</h3>
+<div class="text-secondary font-headline-md text-headline-md">22.000.000 VNĐ<span class="font-body-sm text-body-sm text-on-surface-variant font-normal">/tháng</span></div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate"><span class="material-symbols-outlined text-[14px] align-middle mr-1">location_on</span>Bình Thạnh, TP. Hồ Chí Minh</p>
+<div class="flex gap-4 text-on-surface-variant font-body-sm text-body-sm mt-2 pt-2 border-t border-outline-variant/20">
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">bed</span> 1</span>
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">shower</span> 1</span>
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">square_foot</span> 54m²</span>
+</div>
+</div>
+<div class="p-md pt-0 flex gap-sm mt-auto">
+<button class="flex-1 py-2.5 border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors">Xem chi tiết</button>
+<button class="flex-[1.5] py-2.5 bg-surface-container-highest text-on-surface-variant font-label-md text-label-md rounded-lg font-bold flex items-center justify-center gap-xs cursor-not-allowed">
+<span class="material-symbols-outlined text-[20px]">lock_clock</span> Tạm khóa
+                            </button>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-[0_4px_20px_rgb(0,15,34,0.04)] border border-outline-variant/30 overflow-hidden flex flex-col group hover:border-secondary transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,210,253,0.1)]">
+<div class="relative h-56 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A luxurious open-plan kitchen and dining area in a premium apartment. Features sleek marble countertops, state-of-the-art stainless steel appliances, and elegant warm ambient lighting. Photorealistic real estate imagery emphasizing space and modern living." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzpeRdO3OvuN09HYNHCAcQCZ_nCi5MUurgLFrqoKuSbfzMqeQeZYZkrHSdOCuv6bCDCQHmpg8LDdN67IZ80PIIEtJwP6ACDRc4gsZAzQt2JpiVIOBJ24P3E0aZwLPXlHORXWUbBxDN2RAbyyo2obLVw3hM2AJIzqAZbTuZRZnegF_ALnfhJUfFCaAUqR9J-dRaOohb5kX6e8SSB59FykSHd5o4PCJjn3ujpbcT3xWDdZjLIAmQakDJ"/>
+<div class="absolute top-sm left-sm bg-tertiary-fixed/80 backdrop-blur-sm text-on-tertiary-fixed-variant px-3 py-1 rounded font-label-sm text-label-sm font-bold flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Có thể xem
+                            </div>
+<button class="absolute top-sm right-sm p-2 bg-surface/60 backdrop-blur-md rounded-full text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
+</div>
+<div class="p-md flex flex-col gap-sm flex-grow">
+<h3 class="font-headline-md text-headline-md text-on-surface line-clamp-1">Masteri Thảo Điền - Tháp T4</h3>
+<div class="text-secondary font-headline-md text-headline-md">28.500.000 VNĐ<span class="font-body-sm text-body-sm text-on-surface-variant font-normal">/tháng</span></div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate"><span class="material-symbols-outlined text-[14px] align-middle mr-1">location_on</span>Quận 2, TP. Hồ Chí Minh</p>
+<div class="flex gap-4 text-on-surface-variant font-body-sm text-body-sm mt-2 pt-2 border-t border-outline-variant/20">
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">bed</span> 2</span>
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">shower</span> 2</span>
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">square_foot</span> 72m²</span>
+</div>
+</div>
+<div class="p-md pt-0 flex gap-sm mt-auto">
+<button class="flex-1 py-2.5 border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors">Xem chi tiết</button>
+<button class="flex-[1.5] py-2.5 bg-gradient-to-r from-secondary-container to-tertiary-fixed text-on-secondary-container font-label-md text-label-md rounded-lg font-bold flex items-center justify-center gap-xs hover:shadow-lg hover:shadow-secondary/20 transition-all group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:rotate-12 transition-transform">smart_toy</span> Đặt lịch AI
+                            </button>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-[0_4px_20px_rgb(0,15,34,0.04)] border border-outline-variant/30 overflow-hidden flex flex-col group hover:border-secondary transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,210,253,0.1)]">
+<div class="relative h-56 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter grayscale-[20%]" data-alt="An expansive apartment balcony at twilight offering a panoramic, breathtaking view of a vibrant city skyline. Features a small, minimalist outdoor seating area with a sleek glass railing. Deep navy skies contrast with bright city lights, cinematic architectural photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCG6e1nUc-tPzAxx6D_2IG4CK7D-cMCBHo-MeXbvjglLYGHqZl8e00Hc81SV9g-Ia5-9_F1GuL-zAeacTwddubl_q_HUKGcCDlGPjfc7LHL3TAw85Cd38R9xBNaSv8e4KY1DUc8Z4yECXbVHLHbcUz9GLrvVFph_7kaMQI2JWLBNu-3ApS3-UEjyC8njqF69KcsJP0PJnpQkzrN_-dYDrvf03M16dLzH1W4s2H25dqu4-t3f7zYwMGU"/>
+<!-- Badge Đã đặt -->
+<div class="absolute top-sm left-sm bg-surface-dim/80 backdrop-blur-sm text-on-surface-variant px-3 py-1 rounded font-label-sm text-label-sm font-bold flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[14px]">event_available</span> Đã đặt hôm nay
+                            </div>
+<button class="absolute top-sm right-sm p-2 bg-surface/60 backdrop-blur-md rounded-full text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">favorite</span></button>
+</div>
+<div class="p-md flex flex-col gap-sm flex-grow opacity-70">
+<h3 class="font-headline-md text-headline-md text-on-surface line-clamp-1">Estella Heights Premium</h3>
+<div class="text-secondary font-headline-md text-headline-md">45.000.000 VNĐ<span class="font-body-sm text-body-sm text-on-surface-variant font-normal">/tháng</span></div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate"><span class="material-symbols-outlined text-[14px] align-middle mr-1">location_on</span>Quận 2, TP. Hồ Chí Minh</p>
+<div class="flex gap-4 text-on-surface-variant font-body-sm text-body-sm mt-2 pt-2 border-t border-outline-variant/20">
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">bed</span> 3</span>
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">shower</span> 2</span>
+<span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">square_foot</span> 105m²</span>
+</div>
+</div>
+<div class="p-md pt-0 flex gap-sm mt-auto">
+<button class="flex-1 py-2.5 border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors">Xem chi tiết</button>
+<button class="flex-[1.5] py-2.5 bg-surface-container-highest text-on-surface-variant font-label-md text-label-md rounded-lg font-bold flex items-center justify-center gap-xs cursor-not-allowed">
+                                Hết suất hôm nay
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Pane: Map Area (Hidden on mobile/tablet) -->
+<section class="hidden lg:block lg:w-[40%] bg-surface-container-high relative border-l border-outline-variant/30 shadow-[-4px_0_24px_rgb(0,15,34,0.05)] z-20">
+<!-- Map Placeholder using data-location -->
+<div class="w-full h-full bg-cover bg-center" data-alt="A highly detailed, modern, interactive digital map interface centered on Ho Chi Minh City. The map style is minimalist, utilizing a light color palette with soft whites, pale grays, and subtle cyan routing lines to signify AI-assisted navigation. High-tech proptech aesthetic." data-location="Ho Chi Minh City" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC4O4__t0Ygmd0ZCs1fg53K0wdsY-vWtoZYKt0NzprGlzBaDOt1P-KNWF_Xo58JGBP6rz6bSQaWX4WL9ii4iQM9HAn8mcrr8U1QuDimBSWHnXeztvDOWHPexWGsdnQZBPMKU2HStUgFNsY83k7hBN65_2fcf9bMWWe9r7yVpFWArn3u1JEDp9cR0dxqlhjOB8um4K4mg0ceNIT-D0_iWNIOVMbklPiGKKT50n3VoxjZE2WGt1IdniT9')"></div>
+<!-- Floating Map Controls -->
+<div class="absolute bottom-container-margin right-container-margin flex flex-col gap-sm">
+<button class="w-10 h-10 bg-surface-container-lowest rounded-full shadow-md text-primary hover:bg-surface-container-low flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<button class="w-10 h-10 bg-surface-container-lowest rounded-full shadow-md text-primary hover:bg-surface-container-low flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<button class="w-10 h-10 bg-surface-container-lowest rounded-full shadow-md text-secondary mt-2 hover:bg-surface-container-low flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[20px]">my_location</span>
+</button>
+</div>
+</section>
+</main>
+</body></html>

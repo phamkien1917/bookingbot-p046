@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard Nhân viên Sale - Booking Bot AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#002113",
+                      "on-primary-fixed-variant": "#314865",
+                      "surface-container-highest": "#e0e3e5",
+                      "surface-container-lowest": "#ffffff",
+                      "on-surface": "#191c1e",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "tertiary-fixed": "#6ffbbe",
+                      "tertiary-container": "#002a1a",
+                      "surface-container-low": "#f2f4f6",
+                      "background": "#f7f9fb",
+                      "on-surface-variant": "#43474d",
+                      "surface-bright": "#f7f9fb",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed": "#001f27",
+                      "inverse-surface": "#2d3133",
+                      "primary-container": "#0a2540",
+                      "on-secondary-container": "#005669",
+                      "error-container": "#ffdad6",
+                      "on-primary": "#ffffff",
+                      "surface-variant": "#e0e3e5",
+                      "inverse-on-surface": "#eff1f3",
+                      "on-error": "#ffffff",
+                      "surface-dim": "#d8dadc",
+                      "surface-container": "#eceef0",
+                      "error": "#ba1a1a",
+                      "surface": "#f7f9fb",
+                      "on-secondary-fixed-variant": "#004e5f",
+                      "inverse-primary": "#b0c8eb",
+                      "on-background": "#191c1e",
+                      "on-tertiary-container": "#009e6d",
+                      "primary-fixed": "#d2e4ff",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "secondary": "#00677e",
+                      "on-error-container": "#93000a",
+                      "outline": "#74777e",
+                      "on-primary-fixed": "#001c37",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#49607e",
+                      "on-primary-container": "#768dad",
+                      "secondary-container": "#00d2fd",
+                      "surface-container-high": "#e6e8ea",
+                      "primary": "#000f22",
+                      "tertiary": "#001209",
+                      "secondary-fixed-dim": "#3cd7ff",
+                      "secondary-fixed": "#b4ebff",
+                      "outline-variant": "#c4c6ce",
+                      "primary-fixed-dim": "#b0c8eb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-margin": "24px",
+                      "lg": "24px",
+                      "xl": "32px",
+                      "xs": "4px",
+                      "sm": "8px",
+                      "xxl": "48px",
+                      "md": "16px",
+                      "gutter": "16px",
+                      "base": "8px"
+              },
+              "fontFamily": {
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "headline-xl": [
+                              "Manrope"
+                      ],
+                      "headline-md": [
+                              "Manrope"
+                      ],
+                      "headline-lg": [
+                              "Manrope"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Manrope"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-xl": [
+                              "40px",
+                              {
+                                      "lineHeight": "52px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 15, 34, 0.05), 0 2px 4px -1px rgba(0, 15, 34, 0.03);
+        }
+        .ai-gradient-text {
+            background: linear-gradient(135deg, #00d2fd 0%, #009e6d 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 15, 34, 0.08), 0 4px 6px -2px rgba(0, 15, 34, 0.04);
+            border-color: #00d2fd;
+        }
+        .urgent-pulse {
+            animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(186, 26, 26, 0.2); }
+            50% { border-color: rgba(186, 26, 26, 0.8); }
+        }
+      </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen flex">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-screen w-72 rounded-r-xl border-r border-outline-variant/20 shadow-md bg-surface-container-low dark:bg-primary-container p-md flex-shrink-0 sticky top-0">
+<!-- Header -->
+<div class="flex items-center gap-md mb-xl px-sm">
+<img alt="Agent Avatar" class="w-12 h-12 rounded-full object-cover shadow-sm" data-alt="A small, professional headshot of an Asian real estate agent in a modern office setting. Bright lighting, minimalist background. The image feels trustworthy and modern." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALXpm3nAQ8XXygcxxkzYUuxR5hJ71NYTvIilUsVkndaPqA9umuTdXcwIH3l-N9bCIsIbmaG9I6P3nEM11c9Qt338kitr2U5UKC4-Y7_XOeZVLoUF-dkWPgtE6SrsM5YjsCKLdKPxH5rya1iitL6wkm6Yun1-MA478p5XfB9xMZZ-5vLryOLkpcwIHxveAfBGqusQ9AA1bEUSoJsKbwv5VdVQf44n0cH2vzEE1Xm_B0FnDXpv5wjgti"/>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed leading-tight">Booking Bot Sale</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Nhân viên kinh doanh</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex-1 space-y-sm">
+<a class="flex items-center gap-md px-md py-sm bg-secondary-container text-on-secondary-container rounded-lg font-semibold hover:bg-surface-container-highest transition-all group" href="#">
+<span class="material-symbols-outlined text-on-secondary-container group-hover:scale-110 transition-transform">dashboard</span>
+<span class="font-label-md text-label-md">Tổng quan</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">notifications_active</span>
+<span class="font-label-md text-label-md">Yêu cầu mới</span>
+<span class="ml-auto bg-error text-on-error font-label-sm text-[10px] px-2 py-0.5 rounded-full">3</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">calendar_month</span>
+<span class="font-label-md text-label-md">Lịch của tôi</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">group</span>
+<span class="font-label-md text-label-md">Khách hàng</span>
+</a>
+</div>
+<!-- Footer -->
+<div class="mt-auto border-t border-outline-variant/20 pt-md space-y-sm">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">help</span>
+<span class="font-label-md text-label-md">Hỗ trợ</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-highest transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">logout</span>
+<span class="font-label-md text-label-md">Đăng xuất</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
+<!-- Header -->
+<header class="px-container-margin py-lg flex justify-between items-center border-b border-outline-variant/20 bg-surface/80 backdrop-blur-md z-10 flex-shrink-0">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Xin chào, Nguyễn Văn A</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Hôm nay bạn có 3 yêu cầu xem nhà mới cần xử lý.</p>
+</div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-full flex items-center gap-sm hover:opacity-90 transition-opacity shadow-sm">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                Tạo lịch xem mới
+            </button>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-container-margin space-y-xl">
+<!-- KPI Cards Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-lg">
+<div class="glass-panel rounded-xl p-lg flex flex-col justify-between hover-lift">
+<div class="flex justify-between items-start mb-md">
+<div class="bg-primary/10 p-sm rounded-lg">
+<span class="material-symbols-outlined text-primary text-[24px]">assignment_late</span>
+</div>
+<span class="bg-error/10 text-error font-label-sm text-label-sm px-2 py-1 rounded-full flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +2 hôm nay
+                        </span>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-xs">Yêu cầu mới</p>
+<h3 class="font-headline-xl text-headline-xl text-primary">12</h3>
+</div>
+</div>
+<div class="glass-panel rounded-xl p-lg flex flex-col justify-between hover-lift">
+<div class="flex justify-between items-start mb-md">
+<div class="bg-tertiary-container/10 p-sm rounded-lg">
+<span class="material-symbols-outlined text-on-tertiary-container text-[24px]">event_available</span>
+</div>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-xs">Lịch đã xác nhận (Tháng)</p>
+<h3 class="font-headline-xl text-headline-xl text-primary">28</h3>
+</div>
+</div>
+<div class="glass-panel rounded-xl p-lg flex flex-col justify-between hover-lift">
+<div class="flex justify-between items-start mb-md">
+<div class="bg-secondary-container/20 p-sm rounded-lg">
+<span class="material-symbols-outlined text-secondary text-[24px]">analytics</span>
+</div>
+<span class="bg-tertiary-container/10 text-on-tertiary-container font-label-sm text-label-sm px-2 py-1 rounded-full flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> +5%
+                        </span>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-xs">Tỷ lệ nhận lịch</p>
+<div class="flex items-end gap-sm">
+<h3 class="font-headline-xl text-headline-xl text-primary">85%</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">/ mục tiêu 80%</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Workspace: Split Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-xl">
+<!-- Left Column: Yêu cầu nhận lịch mới -->
+<section class="lg:col-span-1 space-y-md">
+<div class="flex items-center justify-between mb-sm">
+<h3 class="font-headline-md text-headline-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined text-error animate-pulse">notifications_active</span>
+                            Yêu cầu mới
+                        </h3>
+<span class="bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm px-2 py-1 rounded-full">3 chờ xử lý</span>
+</div>
+<!-- Request Card 1 -->
+<div class="bg-surface rounded-xl border border-outline-variant/30 p-md shadow-sm hover-lift urgent-pulse relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-error"></div>
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-label-md">T</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Trần Thị B</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">090 123 4567</p>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-error">04:12</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Thời gian còn lại</span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-sm mb-md mt-sm border border-outline-variant/20">
+<p class="font-label-md text-label-md text-primary mb-xs">Căn hộ Vinhome Grand Park - 2PN</p>
+<div class="flex items-center gap-xs text-on-surface-variant font-body-sm text-body-sm mb-1">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+                                 Quận 9, TP.HCM
+                             </div>
+<div class="flex items-center gap-xs text-secondary font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">route</span>
+                                 Cách bạn 2.5 km
+                             </div>
+</div>
+<div class="flex items-center gap-xs text-on-surface font-body-sm text-body-sm mb-md">
+<span class="material-symbols-outlined text-[18px] text-primary">schedule</span>
+                             Yêu cầu xem: <strong>14:30 - Hôm nay</strong>
+</div>
+<div class="grid grid-cols-2 gap-sm">
+<button class="bg-surface-container-high text-on-surface hover:bg-surface-dim font-label-md text-label-md py-2 rounded-lg transition-colors border border-outline-variant/30">Từ chối</button>
+<button class="bg-gradient-to-r from-secondary-container to-secondary text-on-secondary font-label-md text-label-md py-2 rounded-lg transition-opacity hover:opacity-90 flex justify-center items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                 Nhận lịch
+                             </button>
+</div>
+</div>
+<!-- Request Card 2 (Normal) -->
+<div class="bg-surface rounded-xl border border-outline-variant/30 p-md shadow-sm hover-lift relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-secondary"></div>
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-label-md">L</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Lê Văn C</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">098 765 4321</p>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md text-on-surface">12:45</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Thời gian còn lại</span>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-sm mb-md mt-sm border border-outline-variant/20">
+<p class="font-label-md text-label-md text-primary mb-xs">Masteri Thảo Điền - 3PN</p>
+<div class="flex items-center gap-xs text-on-surface-variant font-body-sm text-body-sm mb-1">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+                                Quận 2, TP.HCM
+                            </div>
+<div class="flex items-center gap-xs text-secondary font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">route</span>
+                                Cách bạn 8.0 km
+                            </div>
+</div>
+<div class="flex items-center gap-xs text-on-surface font-body-sm text-body-sm mb-md">
+<span class="material-symbols-outlined text-[18px] text-primary">schedule</span>
+                            Yêu cầu xem: <strong>09:00 - Ngày mai</strong>
+</div>
+<div class="grid grid-cols-2 gap-sm">
+<button class="bg-surface-container-high text-on-surface hover:bg-surface-dim font-label-md text-label-md py-2 rounded-lg transition-colors border border-outline-variant/30">Từ chối</button>
+<button class="bg-primary text-on-primary font-label-md text-label-md py-2 rounded-lg transition-opacity hover:opacity-90 flex justify-center items-center gap-xs">
+                                Nhận lịch
+                            </button>
+</div>
+</div>
+</section>
+<!-- Right Column: Calendar -->
+<section class="lg:col-span-2 glass-panel rounded-xl p-lg flex flex-col h-[600px]">
+<div class="flex justify-between items-center mb-lg">
+<h3 class="font-headline-md text-headline-md text-primary flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">calendar_month</span>
+                            Lịch làm việc của tôi
+                        </h3>
+<div class="flex items-center gap-md">
+<button class="p-xs rounded-full hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">chevron_left</span>
+</button>
+<span class="font-label-md text-label-md text-on-surface">Hôm nay, 15 Thg 11</span>
+<button class="p-xs rounded-full hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Calendar Grid (Simplified Daily View) -->
+<div class="flex-1 overflow-y-auto pr-sm relative">
+<!-- Time slots column -->
+<div class="absolute left-0 top-0 bottom-0 w-16 border-r border-outline-variant/20 flex flex-col">
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">08:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">09:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">10:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">11:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">12:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">13:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">14:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">15:00</span></div>
+<div class="h-16 flex items-start justify-end pr-sm pt-xs"><span class="font-label-sm text-label-sm text-on-surface-variant">16:00</span></div>
+</div>
+<!-- Events Area -->
+<div class="ml-16 relative min-h-[576px]">
+<!-- Grid lines -->
+<div class="absolute inset-0 flex flex-col pointer-events-none">
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+<div class="h-16 border-t border-outline-variant/10 w-full"></div>
+</div>
+<!-- Current Time Indicator -->
+<div class="absolute w-full h-[2px] bg-error z-10 top-[112px] flex items-center">
+<div class="w-2 h-2 rounded-full bg-error -ml-1"></div>
+</div>
+<!-- Events -->
+<div class="absolute left-md right-md top-[32px] h-[48px] bg-tertiary-container/10 border-l-4 border-tertiary-container rounded-r-md p-xs flex flex-col justify-center cursor-pointer hover:bg-tertiary-container/20 transition-colors z-0">
+<p class="font-label-md text-label-md text-on-tertiary-container truncate">Dẫn khách xem Vinhome Central Park</p>
+<p class="font-body-sm text-body-sm text-on-tertiary-container/80 truncate">08:30 - 09:15 • Anh Hoàng</p>
+</div>
+<div class="absolute left-md right-md top-[128px] h-[64px] bg-secondary-container/20 border-l-4 border-secondary rounded-r-md p-xs flex flex-col justify-center cursor-pointer hover:bg-secondary-container/30 transition-colors z-0">
+<p class="font-label-md text-label-md text-on-secondary-container truncate">Hẹn ký hợp đồng cọc</p>
+<p class="font-body-sm text-body-sm text-on-secondary-container/80 truncate">10:00 - 11:00 • Chị Lan</p>
+</div>
+<div class="absolute left-md right-md top-[384px] h-[48px] bg-primary/5 border-l-4 border-outline-variant rounded-r-md p-xs flex flex-col justify-center cursor-pointer border-dashed z-0">
+<p class="font-label-md text-label-md text-on-surface-variant truncate italic">Dự kiến: Lịch xem Masteri (chưa chốt)</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant/80 truncate">14:00 - 14:45</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+</body></html>

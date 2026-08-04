@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Chọn thời gian xem căn hộ - Booking Bot AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#002113",
+                      "on-primary-fixed-variant": "#314865",
+                      "surface-container-highest": "#e0e3e5",
+                      "surface-container-lowest": "#ffffff",
+                      "on-surface": "#191c1e",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "tertiary-fixed": "#6ffbbe",
+                      "tertiary-container": "#002a1a",
+                      "surface-container-low": "#f2f4f6",
+                      "background": "#f7f9fb",
+                      "on-surface-variant": "#43474d",
+                      "surface-bright": "#f7f9fb",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed": "#001f27",
+                      "inverse-surface": "#2d3133",
+                      "primary-container": "#0a2540",
+                      "on-secondary-container": "#005669",
+                      "error-container": "#ffdad6",
+                      "on-primary": "#ffffff",
+                      "surface-variant": "#e0e3e5",
+                      "inverse-on-surface": "#eff1f3",
+                      "on-error": "#ffffff",
+                      "surface-dim": "#d8dadc",
+                      "surface-container": "#eceef0",
+                      "error": "#ba1a1a",
+                      "surface": "#f7f9fb",
+                      "on-secondary-fixed-variant": "#004e5f",
+                      "inverse-primary": "#b0c8eb",
+                      "on-background": "#191c1e",
+                      "on-tertiary-container": "#009e6d",
+                      "primary-fixed": "#d2e4ff",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "secondary": "#00677e",
+                      "on-error-container": "#93000a",
+                      "outline": "#74777e",
+                      "on-primary-fixed": "#001c37",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#49607e",
+                      "on-primary-container": "#768dad",
+                      "secondary-container": "#00d2fd",
+                      "surface-container-high": "#e6e8ea",
+                      "primary": "#000f22",
+                      "tertiary": "#001209",
+                      "secondary-fixed-dim": "#3cd7ff",
+                      "secondary-fixed": "#b4ebff",
+                      "outline-variant": "#c4c6ce",
+                      "primary-fixed-dim": "#b0c8eb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-margin": "24px",
+                      "lg": "24px",
+                      "xl": "32px",
+                      "xs": "4px",
+                      "sm": "8px",
+                      "xxl": "48px",
+                      "md": "16px",
+                      "gutter": "16px",
+                      "base": "8px"
+              },
+              "fontFamily": {
+                      "body-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "headline-xl": ["Manrope"],
+                      "headline-md": ["Manrope"],
+                      "headline-lg": ["Manrope"],
+                      "label-sm": ["Inter"],
+                      "headline-lg-mobile": ["Manrope"],
+                      "label-md": ["Inter"]
+              },
+              "fontSize": {
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "headline-xl": ["40px", {"lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .ambient-shadow {
+            box-shadow: 0 8px 32px rgba(0, 15, 34, 0.04);
+        }
+        .ai-gradient-text {
+            background: linear-gradient(135deg, #00d2fd, #4edea3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ai-gradient-bg {
+            background: linear-gradient(135deg, rgba(0, 210, 253, 0.1), rgba(78, 222, 163, 0.1));
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased min-h-screen flex flex-col items-center justify-center p-md md:p-xl relative overflow-hidden">
+<!-- Decorative Background Elements -->
+<div class="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full bg-secondary-fixed/20 blur-[100px] pointer-events-none"></div>
+<div class="absolute bottom-[-10%] right-[-5%] w-[30vw] h-[30vw] rounded-full bg-primary-fixed/20 blur-[80px] pointer-events-none"></div>
+<!-- Simplified Transactional Header -->
+<header class="w-full max-w-5xl flex items-center justify-between mb-xl relative z-10">
+<button class="flex items-center gap-sm text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+<span class="font-label-md text-label-md">Quay lại</span>
+</button>
+<div class="font-headline-md text-headline-md font-bold text-primary">Booking Bot AI</div>
+<div class="w-24"></div> <!-- Spacer for centering -->
+</header>
+<!-- Main Content Container -->
+<main class="w-full max-w-5xl glass-panel ambient-shadow rounded-2xl p-lg md:p-xxl relative z-10">
+<div class="mb-xl text-center md:text-left">
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-xs">Chọn thời gian bạn muốn xem căn hộ</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Căn hộ: <span class="font-semibold text-on-surface">Vinhomes Central Park - Park 1</span></p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-xl">
+<!-- Calendar Section -->
+<div class="md:col-span-6 lg:col-span-5 flex flex-col">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-md h-full">
+<!-- Calendar Header -->
+<div class="flex items-center justify-between mb-lg">
+<h2 class="font-label-md text-label-md text-on-surface text-lg">Tháng 10, 2024</h2>
+<div class="flex gap-sm">
+<button class="p-sm rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">chevron_left</span></button>
+<button class="p-sm rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">chevron_right</span></button>
+</div>
+</div>
+<!-- Days of Week -->
+<div class="grid grid-cols-7 gap-xs mb-sm text-center">
+<div class="font-label-sm text-label-sm text-on-surface-variant">T2</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">T3</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">T4</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">T5</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">T6</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">T7</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">CN</div>
+</div>
+<!-- Calendar Grid (Simplified for example) -->
+<div class="grid grid-cols-7 gap-y-sm gap-x-xs text-center">
+<!-- Empty slots -->
+<div></div> <div></div>
+<!-- Past Days -->
+<div class="py-sm font-body-sm text-body-sm text-outline cursor-not-allowed">1</div>
+<div class="py-sm font-body-sm text-body-sm text-outline cursor-not-allowed">2</div>
+<!-- Available Days -->
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">3</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">4</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">5</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">6</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">7</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">8</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">9</div>
+<!-- Selected Day -->
+<div class="py-sm font-label-md text-label-md bg-primary text-on-primary rounded-full cursor-pointer shadow-md">10</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">11</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">12</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">13</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">14</div>
+<div class="py-sm font-body-sm text-body-sm text-on-surface hover:bg-surface-container-highest rounded-full cursor-pointer transition-colors">15</div>
+</div>
+</div>
+</div>
+<!-- Time Slots & AI Section -->
+<div class="md:col-span-6 lg:col-span-7 flex flex-col gap-lg justify-between">
+<div>
+<h3 class="font-label-md text-label-md text-on-surface mb-md">Thời gian trong ngày</h3>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Standard Available Slot -->
+<button class="flex flex-col items-center justify-center p-md rounded-xl border border-outline-variant bg-surface-container-lowest hover:border-secondary hover:text-secondary hover:shadow-[0_0_12px_rgba(0,210,253,0.15)] transition-all group">
+<span class="font-label-md text-label-md text-on-surface group-hover:text-secondary">09:00</span>
+</button>
+<!-- Standard Available Slot -->
+<button class="flex flex-col items-center justify-center p-md rounded-xl border border-outline-variant bg-surface-container-lowest hover:border-secondary hover:text-secondary hover:shadow-[0_0_12px_rgba(0,210,253,0.15)] transition-all group">
+<span class="font-label-md text-label-md text-on-surface group-hover:text-secondary">10:00</span>
+</button>
+<!-- Recommended / Selected Slot -->
+<button class="relative flex flex-col items-center justify-center p-md rounded-xl border-2 border-secondary bg-secondary-fixed/30 shadow-sm transition-all">
+<div class="absolute -top-3 bg-secondary text-on-secondary px-2 py-0.5 rounded-full font-label-sm text-[10px] flex items-center gap-1 shadow-sm whitespace-nowrap">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                                Đề xuất
+                            </div>
+<span class="font-label-md text-label-md text-on-secondary-fixed font-bold">14:00</span>
+</button>
+<!-- Held / Different Status Slot -->
+<button class="flex flex-col items-center justify-center p-md rounded-xl border border-outline-variant bg-surface-container-high/50 cursor-not-allowed opacity-70">
+<span class="font-label-md text-label-md text-on-surface-variant line-through">16:30</span>
+<span class="font-label-sm text-[10px] text-surface-tint mt-1">Đang giữ chỗ</span>
+</button>
+</div>
+</div>
+<!-- AI Suggestion Card -->
+<div class="ai-gradient-bg border border-secondary/30 rounded-xl p-md flex gap-md items-start shadow-sm mt-auto">
+<div class="bg-surface-container-lowest rounded-full p-sm flex-shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">robot_2</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-secondary-container flex items-center gap-sm mb-xs">
+                            AI đề xuất
+                        </h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+<span class="font-semibold text-on-surface">14:00 là thời gian phù hợp nhất</span> dựa trên lịch sử xem nhà của bạn và lưu lượng giao thông dự kiến trong khu vực. Ánh sáng tự nhiên tại căn hộ cũng đạt mức tối ưu vào khung giờ này.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="mt-xl pt-lg border-t border-outline-variant/20 flex flex-col sm:flex-row justify-between items-center gap-md">
+<div class="text-on-surface-variant font-body-sm text-body-sm flex items-center gap-sm">
+<span class="material-symbols-outlined text-[20px] text-outline">info</span>
+                Lịch xem sẽ được giữ trong 15 phút.
+            </div>
+<button class="w-full sm:w-auto flex items-center justify-center gap-sm bg-primary text-on-primary font-label-md text-label-md py-md px-xl rounded-lg hover:bg-on-primary-fixed-variant transition-colors shadow-md group">
+                Tiếp tục giữ căn
+                <span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</main>
+</body></html>
