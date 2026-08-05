@@ -2,9 +2,11 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from src.api.routes import router
 from src.config import get_settings
@@ -110,4 +112,12 @@ async def root():
         "description": "BookingBot AI Agent - Multi-agent system for real estate booking",
         "docs": "/docs",
         "health": "/health",
+        "ui": "/ui",
     }
+
+
+@app.get("/ui", response_class=HTMLResponse)
+async def serve_ui() -> HTMLResponse:
+    """Serve the browser-based test UI."""
+    ui_path = Path(__file__).resolve().parent.parent / "MOCKUI" / "test_ui" / "index.html"
+    return HTMLResponse(content=ui_path.read_text(encoding="utf-8"), status_code=200)

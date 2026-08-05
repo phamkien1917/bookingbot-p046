@@ -110,6 +110,7 @@ def build_agent_graph() -> StateGraph:
             "assignment": "assignment",
             "hitl": "hitl",
             "respond": "respond",
+            "__end__": END,
         }
     )
 

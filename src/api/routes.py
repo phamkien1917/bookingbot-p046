@@ -1,9 +1,11 @@
 """API routes for BookingBot AI Agent."""
 
 import uuid
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi.responses import HTMLResponse
 
 from src.agents.state import create_initial_state
 from src.agents.graph import get_agent_graph
@@ -60,7 +62,18 @@ async def chat(
         result = await graph.ainvoke(state)
 
         # Save session
-        response_msg = result.get("response", "")
+        response_msg = result.get("response", "").strip()
+        if not response_msg:
+            next_action = result.get("next_action")
+            if next_action == "greet":
+                response_msg = "Xin chào! Tôi là BookingBot. Tôi có thể giúp bạn tìm bất động sản, đặt lịch xem nhà hoặc kiểm tra booking."
+            elif next_action == "clarify":
+                response_msg = "Xin lỗi, tôi chưa hiểu rõ ý bạn. Bạn có thể mô tả lại yêu cầu hoặc hỏi về dịch vụ của chúng tôi."
+            elif next_action == "check_booking_status":
+                response_msg = "Để kiểm tra trạng thái booking, vui lòng cung cấp mã booking hoặc số điện thoại đã đăng ký."
+            else:
+                response_msg = "Xin chào! Tôi đang ở chế độ thử nghiệm. Nếu bạn đã thêm API key nhưng vẫn không nhận được phản hồi, hãy kiểm tra log backend để xác nhận model đang được gọi."
+
         messages.append({"role": "assistant", "content": response_msg})
 
         await memory.save_session(
@@ -77,6 +90,13 @@ async def chat(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ui", response_class=HTMLResponse)
+async def serve_ui() -> HTMLResponse:
+    """Serve the mock test UI for manual interaction."""
+    ui_path = Path(__file__).resolve().parents[1] / "MOCKUI" / "test_ui" / "index.html"
+    return HTMLResponse(content=ui_path.read_text(encoding="utf-8"), status_code=200)
 
 
 @router.get("/status")

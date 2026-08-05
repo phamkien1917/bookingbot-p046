@@ -42,22 +42,70 @@ async def close_redis() -> None:
         _redis_client = None
 
 
+# ============== In-memory Fallback ==============
+
+class _InMemoryStore:
+    """Simple in-process dict that mimics Redis hset/hgetall/expire/delete."""
+
+    def __init__(self):
+        self._store: dict = {}
+
+    async def hset(self, key: str, mapping: dict) -> None:
+        self._store.setdefault(key, {}).update(mapping)
+
+    async def hgetall(self, key: str) -> dict:
+        return dict(self._store.get(key, {}))
+
+    async def hget(self, key: str, field: str) -> Optional[str]:
+        return self._store.get(key, {}).get(field)
+
+    async def expire(self, key: str, ttl: int) -> None:
+        pass  # No TTL enforcement in fallback
+
+    async def exists(self, key: str) -> bool:
+        return key in self._store
+
+    async def delete(self, key: str) -> None:
+        self._store.pop(key, None)
+
+    async def scan_iter(self, match: str = "*"):
+        prefix = match.rstrip("*")
+        for k in list(self._store.keys()):
+            if k.startswith(prefix):
+                yield k
+
+    async def ping(self) -> bool:
+        return True
+
+
+_in_memory_store = _InMemoryStore()
+
+
 # ============== Short-term Memory (Session) ==============
 
 class ShortTermMemory:
-    """Redis-based session memory for conversation context."""
+    """Redis-based session memory with in-process fallback."""
 
     SESSION_PREFIX = "session:"
     SESSION_TTL = 3600  # 1 hour default
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
-        """Initialize with Redis client."""
+    def __init__(self, redis_client=None):
+        """Initialize with optional Redis client."""
         self._redis = redis_client
+        self._use_fallback = False
 
-    async def _get_client(self) -> redis.Redis:
-        """Get Redis client."""
+    async def _get_client(self):
+        """Get Redis client, falling back to in-memory store if unavailable."""
+        if self._use_fallback:
+            return _in_memory_store
         if self._redis is None:
-            self._redis = await get_redis()
+            try:
+                self._redis = await get_redis()
+                await self._redis.ping()
+            except Exception as e:
+                logger.warning(f"Redis unavailable ({e}), using in-memory fallback")
+                self._use_fallback = True
+                return _in_memory_store
         return self._redis
 
     def _session_key(self, session_id: str) -> str:

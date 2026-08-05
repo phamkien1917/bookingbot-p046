@@ -332,7 +332,7 @@ class Project(Base, TimestampMixin):
     default_hold_minutes: Mapped[int] = mapped_column(Integer, default=30)
     hold_warning_minutes: Mapped[int] = mapped_column(Integer, default=5)
     max_hold_extensions: Mapped[int] = mapped_column(Integer, default=1)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    extra_data: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
     # Relationships
     properties: Mapped[list["Property"]] = relationship(
