@@ -340,7 +340,9 @@ def normalize_detail(
         "seller_name": as_clean_string(ad["account_name"]),
         "seller_is_company": bool(ad.get("company_ad")),
         "seller_rating": as_float(
-            ad.get("average_rating_for_seller") or ad.get("average_rating")
+            ad.get("average_rating_for_seller")
+            if ad.get("average_rating_for_seller") is not None
+            else ad.get("average_rating")
         ),
         "published_at": published_at,
         "crawled_at": crawled_at,

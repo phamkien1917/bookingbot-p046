@@ -1,0 +1,96 @@
+{"kind":"slide","id":"sl/sneuac","slide":1,"title":"AI TRỢ LÝ TÌM NHÀ","textShapes":11}
+{"kind":"shape","id":"sh/7qp0ze1k","slide":1,"bbox":[0,0,18,720]}
+{"kind":"textbox","id":"sh/sryhsj25","slide":1,"text":"AI TRỢ LÝ TÌM NHÀ","textPreview":"AI TRỢ LÝ TÌM NHÀ","textChars":17,"textLines":1,"bbox":[70,78,520,30]}
+{"kind":"textbox","id":"sh/ts7i1ojq","slide":1,"text":"Nói nhu cầu một lần.\nTừ gợi ý đến lịch xem nhà.","textPreview":"Nói nhu cầu một lần. | Từ gợi ý đến lịch xem nhà.","textChars":47,"textLines":2,"bbox":[70,128,720,142]}
+{"kind":"textbox","id":"sh/ilwzm9k3","slide":1,"text":"AI giúp người mua/thuê tìm phương án phù hợp, rồi chuyển hồ sơ rõ ràng cho sale xử lý tiếp.","textPreview":"AI giúp người mua/thuê tìm phương án phù hợp, rồi chuyển hồ sơ rõ ràng cho sale xử lý tiếp.","textChars":91,"textLines":1,"bbox":[72,292,650,72]}
+{"kind":"textbox","id":"sh/jmpgve18","slide":1,"text":"NGƯỜI TÌM NHÀ","textPreview":"NGƯỜI TÌM NHÀ","textChars":13,"textLines":1,"bbox":[82,445,250,32]}
+{"kind":"textbox","id":"sh/knyhoz2t","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[333,443,70,34]}
+{"kind":"textbox","id":"sh/5o7ix4je","slide":1,"text":"AI LÀM RÕ NHU CẦU","textPreview":"AI LÀM RÕ NHU CẦU","textChars":17,"textLines":1,"bbox":[405,445,300,32]}
+{"kind":"textbox","id":"sh/axwzipkr","slide":1,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[706,443,70,34]}
+{"kind":"textbox","id":"sh/vi5gru1c","slide":1,"text":"SALE CHỐT LỊCH","textPreview":"SALE CHỐT LỊCH","textChars":14,"textLines":1,"bbox":[778,445,250,32]}
+{"kind":"shape","id":"sh/fe1wr29o","slide":1,"bbox":[82,490,946,5]}
+{"kind":"textbox","id":"sh/edsvyx83","slide":1,"text":"BÁO CÁO TIẾN ĐỘ NGẮN  •  MVP ĐANG HOÀN THIỆN DATASET","textPreview":"BÁO CÁO TIẾN ĐỘ NGẮN  •  MVP ĐANG HOÀN THIỆN DATASET","textChars":52,"textLines":1,"bbox":[72,612,750,28]}
+{"kind":"textbox","id":"sh/1gjetc7u","slide":1,"text":"XHOME  •  MENTOR DUTY #2","textPreview":"XHOME  •  MENTOR DUTY #2","textChars":24,"textLines":1,"bbox":[64,681,330,20]}
+{"kind":"textbox","id":"sh/gfad07q9","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[1162,681,54,20]}
+{"kind":"notes","id":"nt/sneuac","slide":1,"text":"Bài toán của nhóm em khá đơn giản: người tìm nhà thường nói nhu cầu theo cách rất đời thường, còn sale lại cần thông tin rõ để tư vấn và xếp lịch. Sản phẩm của nhóm em dùng AI làm phần ở giữa: hiểu nhu cầu, hỏi thêm khi thiếu, gợi ý căn phù hợp và hỗ trợ đặt lịch xem nhà."}
+{"kind":"slide","id":"sl/vh99s0","slide":2,"title":"GIÁ TRỊ CHÍNH","textShapes":14}
+{"kind":"textbox","id":"sh/z21gvedk","slide":2,"text":"GIÁ TRỊ CHÍNH","textPreview":"GIÁ TRỊ CHÍNH","textChars":13,"textLines":1,"bbox":[64,31,340,24]}
+{"kind":"textbox","id":"sh/0nah4ze5","slide":2,"text":"AI đứng giữa người tìm nhà và sale","textPreview":"AI đứng giữa người tìm nhà và sale","textChars":34,"textLines":1,"bbox":[64,54,1152,55]}
+{"kind":"shape","id":"sh/lojyx4vq","slide":2,"bbox":[64,116,1152,3]}
+{"kind":"textbox","id":"sh/mpsz69wb","slide":2,"text":"AI không thay sale; AI giảm việc lọc tin và hỏi lại từ đầu.","textPreview":"AI không thay sale; AI giảm việc lọc tin và hỏi lại từ đầu.","textChars":59,"textLines":1,"bbox":[64,139,950,38]}
+{"kind":"shape","id":"sh/nqlgzedw","slide":2,"bbox":[639,202,2,363]}
+{"kind":"textbox","id":"sh/8ruh8jeh","slide":2,"text":"CHO NGƯỜI MUA / THUÊ","textPreview":"CHO NGƯỜI MUA / THUÊ","textChars":20,"textLines":1,"bbox":[78,205,500,34]}
+{"kind":"textbox","id":"sh/9s3y1ov2","slide":2,"text":"Nói nhu cầu như đang nhắn tin","textPreview":"Nói nhu cầu như đang nhắn tin","textChars":29,"textLines":1,"bbox":[78,266,500,32]}
+{"kind":"textbox","id":"sh/2t8fupw7","slide":2,"text":"“Em cần căn 2 phòng ngủ, gần trường,\nngân sách khoảng 3 tỷ.”","textPreview":"“Em cần căn 2 phòng ngủ, gần trường, | ngân sách khoảng 3 tỷ.”","textChars":60,"textLines":2,"bbox":[78,309,475,70]}
+{"kind":"textbox","id":"sh/3uhgnudc","slide":2,"text":"✓ AI hỏi thêm phần còn thiếu\n✓ Lọc và so sánh vài lựa chọn phù hợp\n✓ Đặt lịch xem nhà ngay trên web","textPreview":"✓ AI hỏi thêm phần còn thiếu | ✓ Lọc và so sánh vài lựa chọn phù hợp | ✓ Đặt lịch xem nhà ngay trên web","textChars":99,"textLines":3,"bbox":[78,410,480,126]}
+{"kind":"textbox","id":"sh/7ytszm9o","slide":2,"text":"CHO SALE / ĐIỀU PHỐI","textPreview":"CHO SALE / ĐIỀU PHỐI","textChars":20,"textLines":1,"bbox":[686,205,500,34]}
+{"kind":"textbox","id":"sh/6xkb6h83","slide":2,"text":"Nhận một lead đã rõ nhu cầu","textPreview":"Nhận một lead đã rõ nhu cầu","textChars":27,"textLines":1,"bbox":[686,266,500,32]}
+{"kind":"textbox","id":"sh/t0ba1cru","slide":2,"text":"Ngân sách • tiêu chí bắt buộc • ưu tiên\n• căn quan tâm • giờ muốn liên hệ","textPreview":"Ngân sách • tiêu chí bắt buộc • ưu tiên | • căn quan tâm • giờ muốn liên hệ","textChars":73,"textLines":2,"bbox":[686,309,480,70]}
+{"kind":"textbox","id":"sh/8z2t8rq9","slide":2,"text":"✓ Đỡ mất thời gian hỏi lại\n✓ Kiểm tra lịch và xác nhận trước khi chốt\n✓ Theo dõi trạng thái lịch hẹn","textPreview":"✓ Đỡ mất thời gian hỏi lại | ✓ Kiểm tra lịch và xác nhận trước khi chốt | ✓ Theo dõi trạng thái lịch hẹn","textChars":100,"textLines":3,"bbox":[686,410,480,126]}
+{"kind":"shape","id":"sh/ju9sv29c","slide":2,"bbox":[360,585,560,54]}
+{"kind":"textbox","id":"sh/yt0b2x87","slide":2,"text":"Kết quả: khách đỡ rối — sale xử lý nhanh hơn","textPreview":"Kết quả: khách đỡ rối — sale xử lý nhanh hơn","textChars":44,"textLines":1,"bbox":[378,593,524,38]}
+{"kind":"textbox","id":"sh/lwbaxcri","slide":2,"text":"XHOME  •  MENTOR DUTY #2","textPreview":"XHOME  •  MENTOR DUTY #2","textChars":24,"textLines":1,"bbox":[64,681,330,20]}
+{"kind":"textbox","id":"sh/kv2t47qx","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1162,681,54,20]}
+{"kind":"notes","id":"nt/vh99s0","slide":2,"text":"AI có hai nhóm người dùng chính. Với người mua hoặc thuê, họ chỉ cần nói nhu cầu như đang nhắn tin; hệ thống sẽ hỏi thêm và lọc căn. Với sale, AI chuyển sang một hồ sơ đã có ngân sách, tiêu chí và căn quan tâm. Vì vậy sale không phải hỏi lại mọi thứ từ đầu, nhưng sale vẫn là người xác nhận cuối cùng."}
+{"kind":"slide","id":"sl/byy1s1","slide":3,"title":"LUỒNG TỔNG THỂ","textShapes":5}
+{"kind":"textbox","id":"sh/v6p87u18","slide":3,"text":"LUỒNG TỔNG THỂ","textPreview":"LUỒNG TỔNG THỂ","textChars":14,"textLines":1,"bbox":[64,31,340,24]}
+{"kind":"textbox","id":"sh/g7ypgz2t","slide":3,"text":"Một cuộc trò chuyện đi đến một lịch hẹn","textPreview":"Một cuộc trò chuyện đi đến một lịch hẹn","textChars":39,"textLines":1,"bbox":[64,54,1152,55]}
+{"kind":"shape","id":"sh/h87q94je","slide":3,"bbox":[64,116,1152,3]}
+{"kind":"shape","id":"sh/i9g7i9kz","slide":3,"bbox":[57,130,1166,486]}
+{"kind":"shape","id":"sh/4bypkj25","slide":3,"bbox":[122,624,1036,42]}
+{"kind":"textbox","id":"sh/5c7qdoja","slide":3,"text":"NÓI NHU CẦU   →   AI HỎI THÊM   →   LỌC & SO SÁNH   →   SALE DUYỆT   →   LƯU LỊCH","textPreview":"NÓI NHU CẦU   →   AI HỎI THÊM   →   LỌC & SO SÁNH   →   SALE DUYỆT   →   LƯU LỊCH","textChars":81,"textLines":1,"bbox":[142,630,996,30]}
+{"kind":"textbox","id":"sh/ydc76pkv","slide":3,"text":"XHOME  •  MENTOR DUTY #2","textPreview":"XHOME  •  MENTOR DUTY #2","textChars":24,"textLines":1,"bbox":[64,681,330,20]}
+{"kind":"textbox","id":"sh/jelozal0","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1162,681,54,20]}
+{"kind":"image","id":"im/el87mpof","slide":3,"name":"","geometry":"rect","alt":"Sơ đồ luồng hoạt động tổng thể của dự án","bbox":[64,137,1152,472]}
+{"kind":"notes","id":"nt/byy1s1","slide":3,"text":"Luồng hoạt động có thể hiểu rất đời thường. Khách vào web, nói muốn mua hay thuê và mô tả nhu cầu. AI xem thông tin đã đủ chưa; thiếu thì hỏi thêm, có mâu thuẫn thì hỏi khách ưu tiên cái gì. Khi đủ dữ liệu, hệ thống lọc và so sánh các căn. Khách chọn phương án thì hồ sơ được chuyển cho sale; sau đó hệ thống kiểm tra lịch, đề xuất giờ và chỉ lưu lịch khi sale xác nhận.\n\n[Sources]\n- User-provided image: C:\\Users\\Admin\\AppData\\Local\\Temp\\codex-clipboard-b6774342-7299-4d27-9bfe-b63761aac880.png"}
+{"kind":"slide","id":"sl/965ue2","slide":4,"title":"CÁCH GIẢI QUYẾT","textShapes":14}
+{"kind":"textbox","id":"sh/032dszi5","slide":4,"text":"CÁCH GIẢI QUYẾT","textPreview":"CÁCH GIẢI QUYẾT","textChars":15,"textLines":1,"bbox":[64,31,340,24]}
+{"kind":"textbox","id":"sh/f2twzehk","slide":4,"text":"Ba điểm nghẽn chính đều có bước kiểm soát","textPreview":"Ba điểm nghẽn chính đều có bước kiểm soát","textChars":41,"textLines":1,"bbox":[64,54,1152,55]}
+{"kind":"shape","id":"sh/e1kvq90z","slide":4,"bbox":[64,116,1152,3]}
+{"kind":"textbox","id":"sh/d0rex4ze","slide":4,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[64,158,46,46]}
+{"kind":"textbox","id":"sh/szidozit","slide":4,"text":"Khách nói nhu cầu còn mơ hồ","textPreview":"Khách nói nhu cầu còn mơ hồ","textChars":27,"textLines":1,"bbox":[122,156,400,32]}
+{"kind":"textbox","id":"sh/ry9wvuh8","slide":4,"text":"→  AI hỏi lại cho đủ rồi mới gợi ý","textPreview":"→  AI hỏi lại cho đủ rồi mới gợi ý","textChars":34,"textLines":1,"bbox":[122,196,420,54]}
+{"kind":"shape","id":"sh/qx0vmp03","slide":4,"bbox":[122,260,410,2]}
+{"kind":"textbox","id":"sh/5wretkzi","slide":4,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[64,293,46,46]}
+{"kind":"textbox","id":"sh/4vidkfix","slide":4,"text":"Sale phải hỏi lại từ đầu","textPreview":"Sale phải hỏi lại từ đầu","textChars":24,"textLines":1,"bbox":[122,291,400,32]}
+{"kind":"textbox","id":"sh/21gjux83","slide":4,"text":"→  Chuyển hồ sơ nhu cầu tường minh","textPreview":"→  Chuyển hồ sơ nhu cầu tường minh","textChars":34,"textLines":1,"bbox":[122,331,420,54]}
+{"kind":"shape","id":"sh/n2pknipo","slide":4,"bbox":[122,395,410,2]}
+{"kind":"textbox","id":"sh/oni1wnq9","slide":4,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[64,428,46,46]}
+{"kind":"textbox","id":"sh/por2ps7e","slide":4,"text":"Lịch sale dễ bị trùng","textPreview":"Lịch sale dễ bị trùng","textChars":21,"textLines":1,"bbox":[122,426,400,32]}
+{"kind":"textbox","id":"sh/exgjqd8r","slide":4,"text":"→  Kiểm tra lịch và chờ sale xác nhận","textPreview":"→  Kiểm tra lịch và chờ sale xác nhận","textChars":37,"textLines":1,"bbox":[122,466,420,54]}
+{"kind":"shape","id":"sh/fypkjipc","slide":4,"bbox":[122,530,410,2]}
+{"kind":"shape","id":"sh/0zy1snqx","slide":4,"bbox":[571,142,652,476]}
+{"kind":"shape","id":"sh/qtwjmd8v","slide":4,"bbox":[64,590,468,66]}
+{"kind":"textbox","id":"sh/ru50fypg","slide":4,"text":"Nguyên tắc HITL: sale xác nhận trước khi chốt lịch","textPreview":"Nguyên tắc HITL: sale xác nhận trước khi chốt lịch","textChars":50,"textLines":1,"bbox":[83,602,430,42]}
+{"kind":"textbox","id":"sh/vylgne58","slide":4,"text":"XHOME  •  MENTOR DUTY #2","textPreview":"XHOME  •  MENTOR DUTY #2","textChars":24,"textLines":1,"bbox":[64,681,330,20]}
+{"kind":"textbox","id":"sh/uxcze9on","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1162,681,54,20]}
+{"kind":"image","id":"im/ax83ipgv","slide":4,"name":"","geometry":"rect","alt":"Sơ đồ chuyển giao cho sale và đặt lịch xem nhà","bbox":[578,149,638,462]}
+{"kind":"notes","id":"nt/965ue2","slide":4,"text":"Nhóm em tập trung xử lý ba vấn đề chính. Một là nhu cầu mơ hồ: AI không đoán mà hỏi lại. Hai là sale nhận lead thiếu thông tin: hệ thống tạo hồ sơ rõ ràng để sale xử lý tiếp. Ba là trùng lịch: hệ thống kiểm tra lịch trống và vẫn yêu cầu sale xác nhận trước khi chốt. Nếu giờ khách chọn không phù hợp thì hệ thống đề xuất giờ khác.\n\n[Sources]\n- User-provided image: C:\\Users\\Admin\\AppData\\Local\\Temp\\codex-clipboard-d9c09d47-520f-4c91-86e5-cd502dff77df.png"}
+{"kind":"slide","id":"sl/evplr6","slide":5,"title":"TIẾN ĐỘ MVP","textShapes":21}
+{"kind":"textbox","id":"sh/zixo36d0","slide":5,"text":"TIẾN ĐỘ MVP","textPreview":"TIẾN ĐỘ MVP","textChars":11,"textLines":1,"bbox":[64,31,340,24]}
+{"kind":"textbox","id":"sh/0j6pcbul","slide":5,"text":"Vướng hiện tại là dataset — không phải luồng sản phẩm","textPreview":"Vướng hiện tại là dataset — không phải luồng sản phẩm","textChars":53,"textLines":1,"bbox":[64,54,1152,55]}
+{"kind":"shape","id":"sh/1kf65gvq","slide":5,"bbox":[64,116,1152,3]}
+{"kind":"textbox","id":"sh/qd4761c3","slide":5,"text":"AI chỉ tư vấn tốt khi dữ liệu căn và lịch sale đủ rõ, đồng nhất và còn hiệu lực.","textPreview":"AI chỉ tư vấn tốt khi dữ liệu căn và lịch sale đủ rõ, đồng nhất và còn hiệu lực.","textChars":80,"textLines":1,"bbox":[64,137,1130,36]}
+{"kind":"textbox","id":"sh/redozmdo","slide":5,"text":"VIỆC NHÓM ĐANG LÀM","textPreview":"VIỆC NHÓM ĐANG LÀM","textChars":18,"textLines":1,"bbox":[64,202,450,30]}
+{"kind":"textbox","id":"sh/sfmp8ru9","slide":5,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[64,248,45,40]}
+{"kind":"textbox","id":"sh/dgv61wvu","slide":5,"text":"Chốt trường bắt buộc","textPreview":"Chốt trường bắt buộc","textChars":20,"textLines":1,"bbox":[122,245,390,27]}
+{"kind":"textbox","id":"sh/a987ilcn","slide":5,"text":"giá, vị trí, loại căn, trạng thái","textPreview":"giá, vị trí, loại căn, trạng thái","textChars":33,"textLines":1,"bbox":[122,273,390,26]}
+{"kind":"textbox","id":"sh/bah8bqt8","slide":5,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[64,322,45,40]}
+{"kind":"textbox","id":"sh/nih87yhw","slide":5,"text":"Tạo dataset mẫu đủ demo","textPreview":"Tạo dataset mẫu đủ demo","textChars":23,"textLines":1,"bbox":[122,319,390,27]}
+{"kind":"textbox","id":"sh/mh87yt0b","slide":5,"text":"có cả trường hợp thiếu dữ liệu","textPreview":"có cả trường hợp thiếu dữ liệu","textChars":30,"textLines":1,"bbox":[122,347,390,26]}
+{"kind":"textbox","id":"sh/9kzq9oz2","slide":5,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[64,396,45,40]}
+{"kind":"textbox","id":"sh/ojqp03ih","slide":5,"text":"Gắn lịch sale & trạng thái căn","textPreview":"Gắn lịch sale & trạng thái căn","textChars":30,"textLines":1,"bbox":[122,393,390,27]}
+{"kind":"textbox","id":"sh/vm18byh8","slide":5,"text":"để kiểm tra trước khi đặt","textPreview":"để kiểm tra trước khi đặt","textChars":25,"textLines":1,"bbox":[122,421,390,26]}
+{"kind":"textbox","id":"sh/als72tgn","slide":5,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[64,470,45,40]}
+{"kind":"textbox","id":"sh/xojqd8ze","slide":5,"text":"Test luồng hỏi lại","textPreview":"Test luồng hỏi lại","textChars":18,"textLines":1,"bbox":[122,467,390,27]}
+{"kind":"textbox","id":"sh/wnap43yt","slide":5,"text":"AI thiếu gì thì hỏi đúng cái đó","textPreview":"AI thiếu gì thì hỏi đúng cái đó","textChars":31,"textLines":1,"bbox":[122,495,390,26]}
+{"kind":"shape","id":"sh/jq18fih4","slide":5,"bbox":[551,188,672,369]}
+{"kind":"shape","id":"sh/ulwbyh0r","slide":5,"bbox":[558,571,658,76]}
+{"kind":"textbox","id":"sh/fm5s7m1c","slide":5,"text":"MỤC TIÊU GẦN NHẤT","textPreview":"MỤC TIÊU GẦN NHẤT","textChars":17,"textLines":1,"bbox":[582,579,205,22]}
+{"kind":"textbox","id":"sh/g7et07ix","slide":5,"text":"Chạy trọn luồng: nhu cầu → gợi ý → sale duyệt → lịch hẹn","textPreview":"Chạy trọn luồng: nhu cầu → gợi ý → sale duyệt → lịch hẹn","textChars":56,"textLines":1,"bbox":[582,601,610,34]}
+{"kind":"shape","id":"sh/h8na9cji","slide":5,"bbox":[64,574,448,73]}
+{"kind":"textbox","id":"sh/6hcruxkv","slide":5,"text":"Thiếu dữ liệu thì hỏi thêm — tuyệt đối không tự bịa.","textPreview":"Thiếu dữ liệu thì hỏi thêm — tuyệt đối không tự bịa.","textChars":52,"textLines":1,"bbox":[82,588,412,44]}
+{"kind":"textbox","id":"sh/7ils321g","slide":5,"text":"XHOME  •  MENTOR DUTY #2","textPreview":"XHOME  •  MENTOR DUTY #2","textChars":24,"textLines":1,"bbox":[64,681,330,20]}
+{"kind":"textbox","id":"sh/sjutw7i1","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1162,681,54,20]}
+{"kind":"image","id":"im/hcvatof6","slide":5,"name":"","geometry":"rect","alt":"Sơ đồ luồng dữ liệu và nguyên tắc AI không bịa thông tin","bbox":[558,195,658,355]}
+{"kind":"notes","id":"nt/evplr6","slide":5,"text":"Hiện tại điểm nhóm em đang vướng là dataset. Dữ liệu căn còn cần chuẩn hóa và phải gắn được với trạng thái thực tế, còn lịch sale cũng phải đủ để kiểm tra. Cách xử lý là chốt các trường bắt buộc, tạo một bộ dữ liệu mẫu đủ cho demo, thêm cả tình huống thiếu dữ liệu để test việc AI hỏi lại. Nguyên tắc của nhóm là thiếu thì hỏi, không có dữ liệu thì không kết luận. Mốc gần nhất là chạy trọn một luồng từ nhu cầu đến lịch hẹn.\n\n[Sources]\n- User-provided image: C:\\Users\\Admin\\AppData\\Local\\Temp\\codex-clipboard-41e052f0-5ba5-4d71-bb15-17d61f4d9f97.png"}

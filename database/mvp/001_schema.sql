@@ -1,7 +1,6 @@
 -- XHome VisitOps - PostgreSQL schema for the MVP
 -- Scope: AI consultation -> property selection -> sale approval -> appointment -> soft hold.
--- Contains 18 business tables: the original 16-table MVP plus normalized
--- external seller data for crawled listings. Run on an empty PostgreSQL/Neon database.
+-- Contains 16 business tables. Run on an empty PostgreSQL/Neon database.
 -- Advanced modules such as vehicles, route optimization, nearby places,
 -- customer memory, automatic rescheduling, analytics and audit logs are not included.
 
@@ -145,7 +144,7 @@ BEFORE INSERT OR UPDATE OF user_id ON sale_profiles
 FOR EACH ROW EXECUTE FUNCTION assert_profile_role('SALE');
 
 -- ---------------------------------------------------------------------------
--- 4-10. Property inventory, external sellers and sale availability
+-- 4-8. Property inventory and sale availability
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE projects (
@@ -234,86 +233,11 @@ CREATE TABLE properties (
     )
 );
 
-CREATE TABLE external_sellers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source VARCHAR(40) NOT NULL,
-    source_seller_key VARCHAR(255) NOT NULL,
-    source_account_id VARCHAR(100),
-    display_name VARCHAR(200) NOT NULL,
-    seller_type VARCHAR(20) NOT NULL DEFAULT 'UNKNOWN',
-    is_company BOOLEAN,
-    source_verified BOOLEAN,
-    is_professional BOOLEAN,
-    profile_url TEXT,
-    avatar_url TEXT,
-    public_phone_masked VARCHAR(50),
-    joined_text VARCHAR(100),
-    active_listing_count INTEGER,
-    rating NUMERIC(3, 2),
-    has_zalo BOOLEAN,
-    has_chat BOOLEAN,
-    raw_data JSONB NOT NULL DEFAULT '{}'::JSONB,
-    first_seen_at TIMESTAMPTZ NOT NULL,
-    last_seen_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (source, source_seller_key),
-    CONSTRAINT external_seller_source_not_blank CHECK (length(trim(source)) > 0),
-    CONSTRAINT external_seller_key_not_blank CHECK (length(trim(source_seller_key)) > 0),
-    CONSTRAINT external_seller_name_not_blank CHECK (length(trim(display_name)) > 0),
-    CONSTRAINT external_seller_type_valid CHECK (
-        seller_type IN ('OWNER', 'BROKER', 'COMPANY', 'UNKNOWN')
-    ),
-    CONSTRAINT external_seller_rating_valid CHECK (rating IS NULL OR rating BETWEEN 0 AND 5),
-    CONSTRAINT external_seller_listing_count_valid CHECK (
-        active_listing_count IS NULL OR active_listing_count >= 0
-    ),
-    CONSTRAINT external_seller_seen_time_valid CHECK (last_seen_at >= first_seen_at)
-);
-
-CREATE UNIQUE INDEX uq_external_sellers_source_account
-ON external_sellers(source, source_account_id)
-WHERE source_account_id IS NOT NULL;
-
-CREATE INDEX ix_external_sellers_source_name
-ON external_sellers(source, display_name);
-
-CREATE TABLE property_external_sellers (
-    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-    external_seller_id UUID NOT NULL REFERENCES external_sellers(id) ON DELETE RESTRICT,
-    relationship_type VARCHAR(30) NOT NULL DEFAULT 'LISTING_POSTER',
-    is_primary BOOLEAN NOT NULL DEFAULT TRUE,
-    source_listing_id VARCHAR(150) NOT NULL,
-    source_url TEXT NOT NULL,
-    first_seen_at TIMESTAMPTZ NOT NULL,
-    last_seen_at TIMESTAMPTZ NOT NULL,
-    metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (property_id, external_seller_id),
-    CONSTRAINT property_external_seller_relationship_valid CHECK (
-        relationship_type IN ('LISTING_POSTER', 'OWNER', 'BROKER', 'COMPANY', 'UNKNOWN')
-    ),
-    CONSTRAINT property_external_seller_listing_id_not_blank CHECK (
-        length(trim(source_listing_id)) > 0
-    ),
-    CONSTRAINT property_external_seller_url_not_blank CHECK (length(trim(source_url)) > 0),
-    CONSTRAINT property_external_seller_seen_time_valid CHECK (last_seen_at >= first_seen_at)
-);
-
-CREATE UNIQUE INDEX uq_property_primary_external_seller
-ON property_external_sellers(property_id)
-WHERE is_primary;
-
-CREATE INDEX ix_property_external_sellers_seller
-ON property_external_sellers(external_seller_id, last_seen_at DESC);
-
 CREATE TABLE property_media (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     media_type VARCHAR(20) NOT NULL,
     url TEXT NOT NULL,
-    source VARCHAR(40) NOT NULL DEFAULT 'INTERNAL',
     caption VARCHAR(255),
     sort_order SMALLINT NOT NULL DEFAULT 0,
     is_cover BOOLEAN NOT NULL DEFAULT FALSE,
@@ -321,15 +245,11 @@ CREATE TABLE property_media (
     CONSTRAINT property_media_type_valid CHECK (
         media_type IN ('IMAGE', 'VIDEO', 'FLOOR_PLAN', 'VIRTUAL_TOUR')
     ),
-    CONSTRAINT property_media_source_not_blank CHECK (length(trim(source)) > 0),
     CONSTRAINT property_media_sort_valid CHECK (sort_order >= 0)
 );
 
 CREATE UNIQUE INDEX uq_property_cover_media
 ON property_media(property_id) WHERE is_cover;
-
-CREATE INDEX ix_property_media_source
-ON property_media(property_id, source);
 
 CREATE TABLE property_sale_assignments (
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -365,7 +285,7 @@ CREATE INDEX ix_sale_unavailability_range
 ON sale_unavailability USING GIST (sale_user_id, unavailable_during);
 
 -- ---------------------------------------------------------------------------
--- 11-15. AI conversation, tour request, proposed slot and HITL approval
+-- 9-13. AI conversation, tour request, proposed slot and HITL approval
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE conversations (
@@ -510,7 +430,7 @@ CREATE UNIQUE INDEX uq_one_pending_approval_per_request
 ON approval_requests(tour_request_id) WHERE status = 'PENDING';
 
 -- ---------------------------------------------------------------------------
--- 16-18. Confirmed appointment, temporary property hold and notifications
+-- 14-16. Confirmed appointment, temporary property hold and notifications
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE appointments (
@@ -926,14 +846,6 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_properties_updated_at
 BEFORE UPDATE ON properties
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER trg_external_sellers_updated_at
-BEFORE UPDATE ON external_sellers
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER trg_property_external_sellers_updated_at
-BEFORE UPDATE ON property_external_sellers
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_conversations_updated_at

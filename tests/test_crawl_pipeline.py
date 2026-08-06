@@ -97,6 +97,19 @@ class CrawlNormalizationTests(unittest.TestCase):
         self.assertEqual("Nội thất đầy đủ", normalized["furniture_status"])
         self.assertEqual("Đông Nam", normalized["orientation"])
 
+    def test_zero_seller_rating_is_not_replaced_by_fallback(self):
+        payload = complete_detail_payload()
+        payload["ad"]["average_rating_for_seller"] = 0.0
+        payload["ad"]["average_rating"] = 4.5
+
+        normalized, issues = crawler_chotot.normalize_detail(
+            payload,
+            crawled_at="2026-08-05T10:00:00Z",
+        )
+
+        self.assertEqual([], issues)
+        self.assertEqual(0.0, normalized["seller_rating"])
+
     def test_semantic_repost_keeps_newest_record(self):
         older, _ = crawler_chotot.normalize_detail(
             complete_detail_payload(),
@@ -124,7 +137,7 @@ class SqlGeneratorTests(unittest.TestCase):
         )
         self.assertEqual([], issues)
 
-    def test_sql_is_deterministic_and_contains_no_mock_people_or_schedules(self):
+    def test_sql_is_deterministic_and_normalizes_seller_and_sale_assignment(self):
         first = generate_sql_from_json.generate_sql([self.property])
         second = generate_sql_from_json.generate_sql([self.property])
 
@@ -134,6 +147,12 @@ class SqlGeneratorTests(unittest.TestCase):
         self.assertNotIn("\\set", first)
         self.assertIn("ON CONFLICT (code) DO UPDATE", first)
         self.assertIn("70.00", first)
+        self.assertIn("INSERT INTO external_sellers", first)
+        self.assertIn("INSERT INTO property_external_sellers", first)
+        self.assertIn("INSERT INTO property_sale_assignments", first)
+        self.assertIn("'LISTING_POSTER'", first)
+        self.assertIn("AND source = 'NHATOT'", first)
+        self.assertIn("status = CASE WHEN properties.status", first)
         self.assertNotIn("INSERT INTO users", first)
         self.assertNotIn("INSERT INTO appointments", first)
         self.assertNotIn("@example.com", first)
@@ -141,8 +160,21 @@ class SqlGeneratorTests(unittest.TestCase):
     def test_each_property_has_exactly_one_generated_cover(self):
         sql = generate_sql_from_json.generate_sql([self.property])
 
-        self.assertEqual(1, sql.count(", TRUE) ON CONFLICT (id)"))
+        self.assertEqual(
+            1,
+            sql.count("NOT EXISTS (SELECT 1 FROM property_media existing_media"),
+        )
         self.assertEqual(2, sql.count(", FALSE) ON CONFLICT (id)"))
+
+    def test_seller_uuid_is_stable_for_same_source_account(self):
+        repost = deepcopy(self.property)
+        repost["source_listing_id"] = 222222222
+        repost["property_id"] = "P_222222222"
+
+        self.assertEqual(
+            generate_sql_from_json.deterministic_external_seller_uuid(self.property),
+            generate_sql_from_json.deterministic_external_seller_uuid(repost),
+        )
 
 
 if __name__ == "__main__":

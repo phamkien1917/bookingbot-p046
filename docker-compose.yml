@@ -13,6 +13,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
       - ./database/002_seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
+      - ./database/004_crawled_data.sql:/docker-entrypoint-initdb.d/004_crawled_data.sql:ro
+      - ./database/005_batdongsan_data.sql:/docker-entrypoint-initdb.d/005_batdongsan_data.sql:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

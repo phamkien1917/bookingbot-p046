@@ -5,6 +5,15 @@ from src.models.schemas import ChatRequest, ChatResponse
 
 router = APIRouter()
 
+from .properties import router as properties_router
+from .chat import router as chat_router
+from .auth import router as auth_router
+from .bookings import router as bookings_router
+
+router.include_router(auth_router)
+router.include_router(properties_router)
+router.include_router(bookings_router)
+router.include_router(chat_router)
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:

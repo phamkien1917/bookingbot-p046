@@ -17,6 +17,13 @@ from typing import Any
 
 PROPERTY_NAMESPACE = uuid.UUID("6bf8c137-62d3-47b0-82d9-1d77cb62e8cc")
 MEDIA_NAMESPACE = uuid.UUID("d42d0bb4-f3e7-4b82-8480-1e97ac225c5e")
+EXTERNAL_SELLER_NAMESPACE = uuid.UUID("cd491257-c249-4f2e-92cc-a5a55c4fe773")
+DEMO_SALE_USER_IDS = (
+    "10000000-0000-0000-0000-000000000002",
+    "10000000-0000-0000-0000-000000000008",
+    "10000000-0000-0000-0000-000000000009",
+)
+SOURCE_MEDIA_CAPTION = "Nguồn: Nhà Tốt"
 MIN_IMAGE_COUNT = 3
 
 REQUIRED_FIELDS = (
@@ -121,6 +128,9 @@ def property_issues(item: dict[str, Any]) -> list[str]:
         ("province", 100),
         ("orientation", 32),
         ("legal_status", 150),
+        ("source", 40),
+        ("seller_account_id", 100),
+        ("seller_name", 200),
     ):
         value = item.get(field)
         if isinstance(value, str) and len(value) > max_length:
@@ -155,6 +165,16 @@ def property_issues(item: dict[str, Any]) -> list[str]:
         issues.append("duplicate_images")
     elif any(not isinstance(url, str) or not url.startswith("https://") for url in images):
         issues.append("invalid_image_url")
+
+    seller_rating = item.get("seller_rating")
+    if seller_rating is not None:
+        try:
+            parsed_rating = float(seller_rating)
+        except (TypeError, ValueError):
+            issues.append("invalid_seller_rating")
+        else:
+            if not math.isfinite(parsed_rating) or not 0 <= parsed_rating <= 5:
+                issues.append("invalid_seller_rating")
 
     for timestamp_field in ("published_at", "crawled_at"):
         try:
@@ -202,6 +222,121 @@ def deterministic_media_uuid(item: dict[str, Any], image_url: str) -> uuid.UUID:
     )
 
 
+def deterministic_external_seller_uuid(item: dict[str, Any]) -> uuid.UUID:
+    return uuid.uuid5(
+        EXTERNAL_SELLER_NAMESPACE,
+        f"{item['source']}:{item['seller_account_id']}",
+    )
+
+
+def assigned_demo_sale_user_id(item: dict[str, Any]) -> str:
+    digest = uuid.uuid5(
+        PROPERTY_NAMESPACE,
+        f"demo-sale:{item['source']}:{item['source_listing_id']}",
+    )
+    return DEMO_SALE_USER_IDS[digest.int % len(DEMO_SALE_USER_IDS)]
+
+
+def external_seller_upsert(item: dict[str, Any]) -> str:
+    seller_id = deterministic_external_seller_uuid(item)
+    source = str(item["source"])
+    seller_key = str(item["seller_account_id"])
+    seller_type = "COMPANY" if item.get("seller_is_company") else "UNKNOWN"
+    raw_data = json.dumps(
+        {
+            "source_rating": item.get("seller_rating"),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    seen_at = parse_iso_timestamp(item["crawled_at"])
+    rating = (
+        "NULL"
+        if item.get("seller_rating") is None
+        else sql_number(item["seller_rating"], decimals=2)
+    )
+    return (
+        "INSERT INTO external_sellers "
+        "(id, source, source_seller_key, source_account_id, display_name, "
+        "seller_type, is_company, rating, raw_data, first_seen_at, last_seen_at) VALUES "
+        f"({sql_string(seller_id)}, {sql_string(source)}, {sql_string(seller_key)}, "
+        f"{sql_string(seller_key)}, {sql_string(item['seller_name'])}, "
+        f"{sql_string(seller_type)}, {'TRUE' if item.get('seller_is_company') else 'FALSE'}, "
+        f"{rating}, {sql_string(raw_data)}::jsonb, "
+        f"{sql_string(seen_at)}::timestamptz, {sql_string(seen_at)}::timestamptz) "
+        "ON CONFLICT (source, source_seller_key) DO UPDATE SET "
+        "source_account_id = COALESCE(EXCLUDED.source_account_id, external_sellers.source_account_id), "
+        "display_name = EXCLUDED.display_name, "
+        "seller_type = CASE WHEN EXCLUDED.seller_type = 'UNKNOWN' "
+        "THEN external_sellers.seller_type ELSE EXCLUDED.seller_type END, "
+        "is_company = EXCLUDED.is_company, "
+        "rating = COALESCE(EXCLUDED.rating, external_sellers.rating), "
+        "raw_data = external_sellers.raw_data || EXCLUDED.raw_data, "
+        "first_seen_at = LEAST(external_sellers.first_seen_at, EXCLUDED.first_seen_at), "
+        "last_seen_at = GREATEST(external_sellers.last_seen_at, EXCLUDED.last_seen_at), "
+        "updated_at = now();"
+    )
+
+
+def property_external_seller_upsert(item: dict[str, Any]) -> list[str]:
+    property_code = sql_string(item["property_id"])
+    seen_at = parse_iso_timestamp(item["crawled_at"])
+    metadata = json.dumps(
+        {"source_api_url": item.get("source_api_url")},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    property_id_sql = (
+        f"(SELECT id FROM properties WHERE code = {property_code})"
+    )
+    seller_id_sql = (
+        "(SELECT id FROM external_sellers WHERE "
+        f"source = {sql_string(item['source'])} AND "
+        f"source_seller_key = {sql_string(str(item['seller_account_id']))})"
+    )
+    return [
+        "UPDATE property_external_sellers SET is_primary = FALSE, updated_at = now() "
+        f"WHERE property_id = {property_id_sql} "
+        f"AND external_seller_id <> {seller_id_sql} AND is_primary = TRUE;",
+        "INSERT INTO property_external_sellers "
+        "(property_id, external_seller_id, relationship_type, is_primary, "
+        "source_listing_id, source_url, first_seen_at, last_seen_at, metadata) VALUES "
+        f"({property_id_sql}, {seller_id_sql}, 'LISTING_POSTER', TRUE, "
+        f"{sql_string(item['source_listing_id'])}, "
+        f"{sql_string(item['source_api_url'])}, "
+        f"{sql_string(seen_at)}::timestamptz, {sql_string(seen_at)}::timestamptz, "
+        f"{sql_string(metadata)}::jsonb) "
+        "ON CONFLICT (property_id, external_seller_id) DO UPDATE SET "
+        "relationship_type = EXCLUDED.relationship_type, is_primary = TRUE, "
+        "source_listing_id = EXCLUDED.source_listing_id, "
+        "source_url = EXCLUDED.source_url, "
+        "first_seen_at = LEAST(property_external_sellers.first_seen_at, EXCLUDED.first_seen_at), "
+        "last_seen_at = GREATEST(property_external_sellers.last_seen_at, EXCLUDED.last_seen_at), "
+        "metadata = property_external_sellers.metadata || EXCLUDED.metadata, "
+        "updated_at = now();",
+    ]
+
+
+def demo_sale_assignment_insert(item: dict[str, Any]) -> str:
+    property_code = sql_string(item["property_id"])
+    property_id_sql = (
+        f"(SELECT id FROM properties WHERE code = {property_code})"
+    )
+    sale_user_id = sql_string(assigned_demo_sale_user_id(item))
+    assigned_at = sql_string(parse_iso_timestamp(item["crawled_at"]))
+    return (
+        "INSERT INTO property_sale_assignments "
+        "(property_id, sale_user_id, is_primary, assigned_at) "
+        f"SELECT {property_id_sql}, {sale_user_id}, TRUE, {assigned_at}::timestamptz "
+        "WHERE NOT EXISTS (SELECT 1 FROM property_sale_assignments current_assignment "
+        f"WHERE current_assignment.property_id = {property_id_sql} "
+        "AND current_assignment.is_primary = TRUE AND current_assignment.unassigned_at IS NULL) "
+        "ON CONFLICT (property_id, sale_user_id) DO NOTHING;"
+    )
+
+
 def property_upsert(item: dict[str, Any]) -> str:
     property_id = deterministic_property_uuid(item)
     features_json = json.dumps(
@@ -243,7 +378,8 @@ def property_upsert(item: dict[str, Any]) -> str:
         "property_kind = EXCLUDED.property_kind, "
         "title = EXCLUDED.title, "
         "description = EXCLUDED.description, "
-        "status = EXCLUDED.status, "
+        "status = CASE WHEN properties.status IN ('DRAFT', 'AVAILABLE') "
+        "THEN EXCLUDED.status ELSE properties.status END, "
         "address_line = EXCLUDED.address_line, "
         "ward = EXCLUDED.ward, "
         "district = EXCLUDED.district, "
@@ -271,17 +407,29 @@ def property_upsert(item: dict[str, Any]) -> str:
 def media_upsert(item: dict[str, Any], image_url: str, order: int) -> str:
     media_id = deterministic_media_uuid(item, image_url)
     property_code = sql_string(item["property_id"])
+    property_id_sql = (
+        f"(SELECT id FROM properties WHERE code = {property_code})"
+    )
+    cover_sql = "FALSE"
+    if order == 0:
+        cover_sql = (
+            "NOT EXISTS (SELECT 1 FROM property_media existing_media "
+            f"WHERE existing_media.property_id = {property_id_sql} "
+            "AND existing_media.is_cover)"
+        )
     return (
         "INSERT INTO property_media "
-        "(id, property_id, media_type, url, sort_order, is_cover) VALUES "
+        "(id, property_id, media_type, url, source, caption, sort_order, is_cover) VALUES "
         f"('{media_id}', "
-        f"(SELECT id FROM properties WHERE code = {property_code}), "
-        f"'IMAGE', {sql_string(image_url)}, {order}, "
-        f"{'TRUE' if order == 0 else 'FALSE'}) "
+        f"{property_id_sql}, "
+        f"'IMAGE', {sql_string(image_url)}, {sql_string(item['source'])}, "
+        f"{sql_string(SOURCE_MEDIA_CAPTION)}, {order}, {cover_sql}) "
         "ON CONFLICT (id) DO UPDATE SET "
         "property_id = EXCLUDED.property_id, "
         "media_type = EXCLUDED.media_type, "
         "url = EXCLUDED.url, "
+        "source = EXCLUDED.source, "
+        "caption = EXCLUDED.caption, "
         "sort_order = EXCLUDED.sort_order, "
         "is_cover = EXCLUDED.is_cover;"
     )
@@ -318,7 +466,8 @@ def generate_sql(properties: list[dict[str, Any]]) -> str:
 
     lines = [
         "-- Complete Nha Tot property data generated by generate_sql_from_json.py.",
-        "-- External seller metadata is provenance only; no fake users or schedules are created.",
+        "-- External posters are normalized separately from internal login users and sales.",
+        "-- New properties receive one deterministic demo sale assignment if none exists.",
         "BEGIN;",
         "SET LOCAL client_encoding = 'UTF8';",
         "",
@@ -326,12 +475,14 @@ def generate_sql(properties: list[dict[str, Any]]) -> str:
 
     for item in properties:
         lines.append(property_upsert(item))
-        # Avoid the partial unique cover index blocking a changed source cover.
+        lines.append(external_seller_upsert(item))
+        lines.extend(property_external_seller_upsert(item))
+        lines.append(demo_sale_assignment_insert(item))
+        # Reconcile only media imported from this source; preserve internal media.
         lines.append(
-            "UPDATE property_media SET is_cover = FALSE "
-            "WHERE property_id = "
+            "DELETE FROM property_media WHERE property_id = "
             f"(SELECT id FROM properties WHERE code = {sql_string(item['property_id'])}) "
-            "AND is_cover = TRUE;"
+            f"AND source = {sql_string(item['source'])};"
         )
         for order, image_url in enumerate(item["images"]):
             lines.append(media_upsert(item, image_url, order))
@@ -389,9 +540,16 @@ def main() -> None:
     sql = generate_sql(properties)
     atomic_write_text(args.output.resolve(), sql)
     media_count = sum(len(item["images"]) for item in properties)
+    seller_count = len(
+        {
+            (str(item["source"]), str(item["seller_account_id"]))
+            for item in properties
+        }
+    )
     print(
         f"Generated {args.output.resolve()} with "
-        f"{len(properties)} properties and {media_count} media rows"
+        f"{len(properties)} properties, {seller_count} external sellers, "
+        f"{len(properties)} seller links and {media_count} media rows"
     )
 
 

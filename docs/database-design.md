@@ -2,13 +2,10 @@
 
 ## Phạm vi
 
-Schema gồm 24 bảng, chia thành:
-
-- **17 bảng cơ bản:** đủ để đăng nhập, tìm căn, chat với agent, đề xuất giờ,
-  HITL sale duyệt, chốt lịch, giữ căn và gửi xác nhận.
-- **7 bảng nâng cao:** memory, route optimization, dời lịch, bản đồ, eval và audit.
-
-Các bảng nâng cao được thiết kế độc lập. Chúng có thể để trống khi nhóm mới làm MVP.
+Schema canonical gồm đúng **18 bảng MVP**, đủ để đăng nhập, quản lý seller nguồn,
+tìm căn, chat với agent, đề xuất giờ, HITL sale duyệt, chốt lịch, giữ căn và gửi
+xác nhận. Quản lý đội xe và các module nâng cao không nằm trong schema khởi tạo;
+khi cần sẽ được bổ sung bằng migration riêng.
 
 ## ERD chính
 
@@ -18,6 +15,8 @@ erDiagram
     USERS ||--o| SALE_PROFILES : "hồ sơ sale"
 
     PROJECTS ||--o{ PROPERTIES : "gồm"
+    EXTERNAL_SELLERS ||--o{ PROPERTY_EXTERNAL_SELLERS : "đăng tin"
+    PROPERTIES ||--o{ PROPERTY_EXTERNAL_SELLERS : "có người đăng nguồn"
     PROPERTIES ||--o{ PROPERTY_MEDIA : "có"
     PROPERTIES ||--o{ PROPERTY_SALE_ASSIGNMENTS : "được phụ trách"
     SALE_PROFILES ||--o{ PROPERTY_SALE_ASSIGNMENTS : "phụ trách"
@@ -35,18 +34,41 @@ erDiagram
     CUSTOMER_PROFILES ||--o{ APPOINTMENTS : "tham dự"
     SALE_PROFILES ||--o{ APPOINTMENTS : "dẫn xem"
     PROPERTIES ||--o{ APPOINTMENTS : "được xem"
-    VEHICLES ||--o{ APPOINTMENTS : "đưa đón"
     APPOINTMENTS ||--o| PROPERTY_HOLDS : "giữ căn"
     APPOINTMENTS ||--o{ NOTIFICATIONS : "gửi xác nhận"
-
-    CUSTOMER_PROFILES ||--o{ CUSTOMER_PREFERENCES : "có memory"
-    SALE_PROFILES ||--o{ ROUTE_PLANS : "có lộ trình"
-    ROUTE_PLANS ||--o{ ROUTE_STOPS : "gồm"
-    APPOINTMENTS ||--o{ ROUTE_STOPS : "là điểm dừng"
-    APPOINTMENTS ||--o{ RESCHEDULE_PROPOSALS : "có phương án dời"
-    PROPERTIES ||--o{ NEARBY_PLACES : "có tiện ích"
-    APPOINTMENTS ||--o{ ANALYTICS_EVENTS : "phát sinh sự kiện"
 ```
+
+## 18 bảng MVP
+
+1. `users`
+2. `customer_profiles`
+3. `sale_profiles`
+4. `projects`
+5. `properties`
+6. `external_sellers`
+7. `property_external_sellers`
+8. `property_media`
+9. `property_sale_assignments`
+10. `sale_unavailability`
+11. `conversations`
+12. `messages`
+13. `tour_requests`
+14. `tour_slot_options`
+15. `approval_requests`
+16. `appointments`
+17. `property_holds`
+18. `notifications`
+
+## User, sale nội bộ và seller nguồn
+
+- `users` là tài khoản có quyền đăng nhập: customer, sale, coordinator hoặc admin.
+- `sale_profiles` là nhân viên nội bộ xác nhận và dẫn khách đi xem nhà.
+- `external_sellers` là chủ tài khoản đăng tin công khai trên Nhà Tốt/Batdongsan.
+- `property_external_sellers` liên kết người đăng nguồn với từng bất động sản.
+- Seller crawler về không được tự động biến thành `users` và chỉ giữ số điện thoại đã che.
+
+Mỗi căn có tối đa một seller nguồn chính và một sale nội bộ chính đang hoạt động. Hai
+quan hệ này độc lập: seller cung cấp nguồn tin, còn sale chịu trách nhiệm quy trình O2O.
 
 ## Luồng booking
 
@@ -68,16 +90,15 @@ stateDiagram-v2
 
 ## Chống double-booking
 
-`appointments` có ba exclusion constraint PostgreSQL:
+`appointments` có hai exclusion constraint PostgreSQL:
 
 ```sql
 EXCLUDE USING GIST (sale_user_id WITH =, appointment_during WITH &&)
 EXCLUDE USING GIST (property_id WITH =, appointment_during WITH &&)
-EXCLUDE USING GIST (vehicle_id WITH =, appointment_during WITH &&)
 ```
 
-Hai appointment đang `CONFIRMED` hoặc `IN_PROGRESS` không thể dùng cùng sale,
-cùng căn hoặc cùng xe trong các khoảng thời gian chồng nhau.
+Hai appointment đang `CONFIRMED` hoặc `IN_PROGRESS` không thể dùng cùng sale
+hoặc cùng căn trong các khoảng thời gian chồng nhau.
 
 ## HITL được bảo vệ ở database
 
@@ -85,7 +106,6 @@ Trigger `trg_validate_approved_appointment` kiểm tra:
 
 - Approval phải có trạng thái `APPROVED`.
 - Sale phải đúng sale đã được duyệt.
-- Xe phải đúng xe đã được duyệt.
 - Giờ bắt đầu và kết thúc phải đúng quyết định của sale.
 
 Như vậy frontend hoặc agent không thể bỏ qua bước HITL bằng cách gọi thẳng API tạo lịch.
@@ -109,7 +129,6 @@ SET status = 'APPROVED',
     decided_by_user_id = :sale_id,
     decided_at = now(),
     approved_sale_user_id = :sale_id,
-    approved_vehicle_id = :vehicle_id,
     approved_starts_at = :starts_at,
     approved_ends_at = :ends_at,
     version = version + 1
@@ -135,29 +154,6 @@ COMMIT;
 
 ```sql
 SELECT expire_stale_booking_records();
-```
-
-## Eval
-
-Backend ghi các event vào `analytics_events`, ví dụ:
-
-```text
-TOUR_REQUEST_SUBMITTED
-SLOT_OPTIONS_SHOWN
-CUSTOMER_SELECTED_SLOT
-SALE_APPROVED
-BOOKING_CONFIRMED
-BOOKING_FAILED
-APPOINTMENT_COMPLETED
-APPOINTMENT_NO_SHOW
-```
-
-Từ đó tính:
-
-```text
-booking_success_rate = BOOKING_CONFIRMED / TOUR_REQUEST_SUBMITTED
-no_show_rate = APPOINTMENT_NO_SHOW / BOOKING_CONFIRMED
-approval_rate = SALE_APPROVED / WAITING_APPROVAL
 ```
 
 ## Lưu ý triển khai
