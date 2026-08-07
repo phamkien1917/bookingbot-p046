@@ -57,32 +57,7 @@ def build_agent_graph() -> StateGraph:
     """Build the multi-agent state graph.
 
     Graph Structure:
-    ┌─────────────┐
-    │  SUPERVISOR │ (Entry point - classifies intent)
-    └──────┬──────┘
-           │
-    ┌──────┼──────┐
-    │      │      │
-    ▼      ▼      ▼
-┌──────┐ ┌─────┐ ┌──────────┐
-│  IN- │ │BOOK-│ │RESPOND   │◄───(for simple responses)
-│VENTORY│ │ING  │ │          │
-└──┬───┘ └──┬──┘ └──────────┘
-   │        │
-   │        ▼
-   │   ┌──────────┐
-   │   │ASSIGNMENT│
-   │   └────┬─────┘
-   │        │
-   │        ▼
-   │   ┌─────────┐
-   └──►│ HITL    │ (if needed)
-       └────┬────┘
-            │
-            ▼
-       ┌──────────┐
-       │ RESPOND  │
-       └──────────┘
+
 
     Returns:
         Compiled StateGraph

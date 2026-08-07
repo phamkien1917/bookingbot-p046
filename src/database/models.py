@@ -150,6 +150,28 @@ class TourMode(str, enum.Enum):
     VIDEO = "VIDEO"
 
 
+# ============== Enum name mapping ==============
+# Map ORM enum classes sang đúng tên type có sẵn trong PostgreSQL schema
+# (do 001_schema.sql tạo). Nếu không map đúng, SQLAlchemy sẽ ép kiểu về
+# enum type do chính nó tạo (vd: 'propertystatus') — DB báo lỗi
+# "operator does not exist: property_status_t = propertystatus".
+# name=... bảo SQLAlchemy KHÔNG tạo type mới (create_type=False)
+# và dùng đúng type name có sẵn trong DB.
+
+ENUM_USER_ROLE = Enum(UserRole, name="user_role_t", create_type=False, native_enum=True)
+ENUM_USER_STATUS = Enum(UserStatus, name="user_status_t", create_type=False, native_enum=True)
+ENUM_PROPERTY_KIND = Enum(PropertyKind, name="property_kind_t", create_type=False, native_enum=True)
+ENUM_PROPERTY_STATUS = Enum(PropertyStatus, name="property_status_t", create_type=False, native_enum=True)
+ENUM_REQUEST_STATUS = Enum(RequestStatus, name="request_status_t", create_type=False, native_enum=True)
+ENUM_SLOT_STATUS = Enum(SlotStatus, name="slot_status_t", create_type=False, native_enum=True)
+ENUM_APPOINTMENT_STATUS = Enum(AppointmentStatus, name="appointment_status_t", create_type=False, native_enum=True)
+ENUM_HOLD_STATUS = Enum(HoldStatus, name="hold_status_t", create_type=False, native_enum=True)
+ENUM_MESSAGE_ROLE = Enum(MessageRole, name="message_role_t", create_type=False, native_enum=True)
+ENUM_NOTIFICATION_CHANNEL = Enum(NotificationChannel, name="notification_channel_t", create_type=False, native_enum=True)
+ENUM_DELIVERY_STATUS = Enum(DeliveryStatus, name="delivery_status_t", create_type=False, native_enum=True)
+ENUM_TOUR_MODE = Enum(TourMode, name="tour_mode_t", create_type=False, native_enum=True)
+
+
 # ============== Base Models ==============
 
 class TimestampMixin:
@@ -180,14 +202,14 @@ class User(Base, TimestampMixin):
         primary_key=True,
         default=uuid.uuid4,
     )
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
+    role: Mapped[UserRole] = mapped_column(ENUM_USER_ROLE, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[UserStatus] = mapped_column(
-        Enum(UserStatus),
+        ENUM_USER_STATUS,
         default=UserStatus.ACTIVE,
         nullable=False,
     )
@@ -235,7 +257,7 @@ class CustomerProfile(Base, TimestampMixin):
         nullable=True,
     )
     preferred_contact_channel: Mapped[NotificationChannel] = mapped_column(
-        Enum(NotificationChannel),
+        ENUM_NOTIFICATION_CHANNEL,
         default=NotificationChannel.IN_APP,
     )
     budget_min: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
@@ -358,13 +380,13 @@ class Property(Base, TimestampMixin):
     )
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     property_kind: Mapped[PropertyKind] = mapped_column(
-        Enum(PropertyKind),
+        ENUM_PROPERTY_KIND,
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[PropertyStatus] = mapped_column(
-        Enum(PropertyStatus),
+        ENUM_PROPERTY_STATUS,
         default=PropertyStatus.DRAFT,
     )
     address_line: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -547,7 +569,7 @@ class Message(Base):
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
     )
-    role: Mapped[MessageRole] = mapped_column(Enum(MessageRole), nullable=False)
+    role: Mapped[MessageRole] = mapped_column(ENUM_MESSAGE_ROLE, nullable=False)
     content_redacted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     structured_payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     model_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -597,11 +619,11 @@ class TourRequest(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[RequestStatus] = mapped_column(
-        Enum(RequestStatus),
+        ENUM_REQUEST_STATUS,
         default=RequestStatus.DRAFT,
     )
     tour_mode: Mapped[TourMode] = mapped_column(
-        Enum(TourMode),
+        ENUM_TOUR_MODE,
         default=TourMode.IN_PERSON,
     )
     preferred_start: Mapped[Optional[datetime]] = mapped_column(
@@ -678,7 +700,7 @@ class TourSlotOption(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[SlotStatus] = mapped_column(
-        Enum(SlotStatus),
+        ENUM_SLOT_STATUS,
         default=SlotStatus.PROPOSED,
     )
     starts_at: Mapped[datetime] = mapped_column(
@@ -755,11 +777,11 @@ class Appointment(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[AppointmentStatus] = mapped_column(
-        Enum(AppointmentStatus),
+        ENUM_APPOINTMENT_STATUS,
         default=AppointmentStatus.CONFIRMED,
     )
     tour_mode: Mapped[TourMode] = mapped_column(
-        Enum(TourMode),
+        ENUM_TOUR_MODE,
         default=TourMode.IN_PERSON,
     )
     starts_at: Mapped[datetime] = mapped_column(
@@ -864,7 +886,7 @@ class PropertyHold(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[HoldStatus] = mapped_column(
-        Enum(HoldStatus),
+        ENUM_HOLD_STATUS,
         default=HoldStatus.ACTIVE,
     )
     starts_at: Mapped[datetime] = mapped_column(
@@ -965,7 +987,7 @@ class Notification(Base):
         nullable=True,
     )
     channel: Mapped[NotificationChannel] = mapped_column(
-        Enum(NotificationChannel),
+        ENUM_NOTIFICATION_CHANNEL,
         nullable=False,
     )
     template_key: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -975,7 +997,7 @@ class Notification(Base):
         server_default=func.now(),
     )
     status: Mapped[DeliveryStatus] = mapped_column(
-        Enum(DeliveryStatus),
+        ENUM_DELIVERY_STATUS,
         default=DeliveryStatus.PENDING,
     )
     retry_count: Mapped[int] = mapped_column(Integer, default=0)

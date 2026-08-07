@@ -4,16 +4,17 @@ Free tier models are prioritized - when credits run out,
 the system will automatically fallback to the next model.
 """
 
-# Free tier models (no credits needed)
+# Free tier models (no credits needed) - Updated for OpenRouter
 FREE_MODELS = [
-    "google/gemma-2-9b-it",  # Fast, lightweight
+    "google/gemma-2-9b-it",  # Fast, lightweight - Recommended
     "meta-llama/llama-3-8b-instruct",  # Popular open model
     "mistralai/mistral-7b-instruct",  # Good for Vietnamese
     "qwen/qwen2-7b-instruct",  # Alibaba's model
-    "NousResearch/Nous-Hermes-2-Mistral-7B-DPO",  # Quality instruct
+    "microsoft/phi-3-mini-128k-instruct",  # Microsoft's Phi-3
+    "deepseek/deepseek-chat-v2",  # DeepSeek model
 ]
 
-# Fallback models (when free tier is exhausted)
+# Fallback models (when free tier is exhausted) - requires credits
 FALLBACK_MODELS = [
     "anthropic/claude-3-haiku",  # Fast Claude
     "openai/gpt-4o-mini",  # Cheap OpenAI
@@ -26,11 +27,12 @@ MODEL_PRIORITY = FREE_MODELS + FALLBACK_MODELS
 
 # Model display names for UI
 MODEL_DISPLAY_NAMES = {
-    "google/gemma-2-9b-it": "Gemma 2 9B",
-    "meta-llama/llama-3-8b-instruct": "Llama 3 8B",
-    "mistralai/mistral-7b-instruct": "Mistral 7B",
-    "qwen/qwen2-7b-instruct": "Qwen 2 7B",
-    "NousResearch/Nous-Hermes-2-Mistral-7B-DPO": "Nous Hermes 2",
+    "google/gemma-2-9b-it": "Gemma 2 9B (FREE)",
+    "meta-llama/llama-3-8b-instruct": "Llama 3 8B (FREE)",
+    "mistralai/mistral-7b-instruct": "Mistral 7B (FREE)",
+    "qwen/qwen2-7b-instruct": "Qwen 2 7B (FREE)",
+    "microsoft/phi-3-mini-128k-instruct": "Phi-3 Mini (FREE)",
+    "deepseek/deepseek-chat-v2": "DeepSeek V2 (FREE)",
     "anthropic/claude-3-haiku": "Claude 3 Haiku",
     "openai/gpt-4o-mini": "GPT-4o Mini",
     "openai/gpt-4o": "GPT-4o",

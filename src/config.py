@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
+    # Redis Cache Settings
+    cache_property_ttl: int = Field(default=60, ge=1, description="Property availability cache TTL (seconds)")
+    cache_search_ttl: int = Field(default=300, ge=1, description="Property search cache TTL (seconds)")
+    cache_session_ttl: int = Field(default=3600, ge=60, description="Session memory TTL (seconds)")
+
+    # Rate Limiting
+    rate_limit_requests: int = Field(default=30, ge=1, description="Max requests per window")
+    rate_limit_window: int = Field(default=60, ge=1, description="Rate limit window (seconds)")
+
     # Google Calendar
     google_client_id: str = ""
     google_client_secret: str = ""

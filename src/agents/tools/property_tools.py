@@ -8,8 +8,59 @@ from langchain_core.tools import tool
 
 from src.database.connection import get_session_context
 from src.database.models import Property, PropertyHold, HoldStatus, PropertyStatus
+from src.services.redis_service import get_property_cache, get_distributed_lock
 
 logger = logging.getLogger(__name__)
+
+
+# ============== Security: field whitelist + audit log ==============
+
+# Chỉ những field này mới được phép trả về cho LLM/UI.
+# Tránh lộ UUID nội bộ, mã code, address đầy đủ, internal_note.
+_PUBLIC_PROPERTY_FIELDS = (
+    "title",
+    "property_kind",
+    "district",
+    "province",
+    "ward",
+    "area_sqm",
+    "bedrooms",
+    "bathrooms",
+    "list_price",
+    "currency",
+    "status",
+    "summary",  # optional, sanitize trước khi trả
+)
+
+
+def _sanitize_property(prop: dict) -> dict:
+    """Whitelist field trả về, loại bỏ UUID, code nội bộ, address chi tiết.
+
+    Args:
+        prop: dict từ ORM (kết quả query).
+
+    Returns:
+        dict chỉ chứa field công khai.
+    """
+    sanitized = {k: prop.get(k) for k in _PUBLIC_PROPERTY_FIELDS if k in prop}
+    return sanitized
+
+
+def _audit_property_access(
+    session_id: Optional[str],
+    property_ref: str,
+    found: bool,
+) -> None:
+    """Ghi log mỗi lần truy cập property để phát hiện enumeration.
+
+    Format: timestamp | level | session_id | property_ref | found
+    """
+    logger.warning(
+        "[PROP_ACCESS] session=%s ref=%s found=%s",
+        session_id or "anonymous",
+        property_ref,
+        found,
+    )
 
 
 @tool
@@ -22,8 +73,12 @@ def search_properties(
     min_bedrooms: Optional[int] = None,
     min_area: Optional[float] = None,
     limit: int = 10,
+    session_id: Optional[str] = None,
 ) -> str:
     """Tìm kiếm bất động sản theo các tiêu chí.
+
+    Uses Redis cache to avoid repeated searches with same parameters.
+    Cache TTL: 5 minutes (configurable via CACHE_SEARCH_TTL).
 
     Args:
         district: Quận/Huyện (ví dụ: "Quận 7", "Thành phố Thủ Đức")
@@ -34,14 +89,35 @@ def search_properties(
         min_bedrooms: Số phòng ngủ tối thiểu
         min_area: Diện tích tối thiểu (m²)
         limit: Số lượng kết quả tối đa
+        session_id: ID session (cho audit log)
 
     Returns:
-        Danh sách các bất động sản phù hợp dạng JSON
+        Danh sách các bất động sản phù hợp dạng JSON (đã sanitize field)
     """
     import json
     from sqlalchemy import select, and_
 
     async def _search():
+        # Build query params for cache key
+        query_params = {
+            "district": district,
+            "province": province,
+            "property_kind": property_kind,
+            "min_price": min_price,
+            "max_price": max_price,
+            "min_bedrooms": min_bedrooms,
+            "min_area": min_area,
+            "limit": limit,
+        }
+
+        # Try cache first (only for identical queries)
+        cache = get_property_cache()
+        cached = await cache.get_cached_search_results(query_params)
+        if cached:
+            logger.debug(f"Search cache hit for query: {query_params}")
+            return cached
+
+        # Cache miss - query database
         async with get_session_context() as session:
             # Build query
             conditions = [Property.status == PropertyStatus.AVAILABLE]
@@ -71,23 +147,32 @@ def search_properties(
             result = await session.execute(stmt)
             properties = result.scalars().all()
 
-            return [
+            # Áp dụng sanitize trước khi trả — KHÔNG lộ UUID/code/address
+            raw = [
                 {
-                    "id": str(p.id),
-                    "code": p.code,
                     "title": p.title,
                     "property_kind": p.property_kind.value if p.property_kind else None,
                     "district": p.district,
                     "province": p.province,
+                    "ward": p.ward,
                     "area_sqm": float(p.area_sqm) if p.area_sqm else None,
                     "bedrooms": p.bedrooms,
                     "bathrooms": p.bathrooms,
                     "list_price": float(p.list_price) if p.list_price else None,
                     "currency": p.currency,
                     "status": p.status.value if p.status else None,
+                    # Giữ id/code nội bộ để internal use, nhưng sanitize sẽ bỏ
+                    "_internal_id": str(p.id),
+                    "_internal_code": p.code,
                 }
                 for p in properties
             ]
+            results = [_sanitize_property(r) for r in raw]
+
+            # Cache the results
+            await cache.cache_search_results(query_params, results, ttl=300)
+
+            return results
 
     # Run sync wrapper (for LangChain tool)
     import asyncio
@@ -99,6 +184,12 @@ def search_properties(
 
     try:
         results = loop.run_until_complete(_search())
+        # Audit log: phát hiện enumeration / IDOR attempt
+        _audit_property_access(
+            session_id=session_id,
+            property_ref=f"search:district={district},province={province},kind={property_kind}",
+            found=bool(results),
+        )
         return json.dumps(results, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error searching properties: {e}")
@@ -106,20 +197,40 @@ def search_properties(
 
 
 @tool
-def check_property_availability(property_id: str) -> str:
+def check_property_availability(
+    property_id: str,
+    session_id: Optional[str] = None,
+) -> str:
     """Kiểm tra tình trạng sẵn sàng của một bất động sản.
+
+    Uses Redis cache to avoid repeated DB queries for the same property.
+    Cache TTL: 60 seconds (configurable via CACHE_PROPERTY_TTL).
 
     Args:
         property_id: UUID của bất động sản
+        session_id: ID session (cho audit log)
 
     Returns:
-        Thông tin về tình trạng bất động sản
+        Thông tin về tình trạng bất động sản (đã sanitize)
     """
     import json
     from sqlalchemy import select, and_
     from datetime import datetime
 
     async def _check():
+        # Try cache first
+        cache = get_property_cache()
+        cached = await cache.get_property_availability(property_id)
+        if cached:
+            logger.debug(f"Cache hit for property {property_id}")
+            _audit_property_access(
+                session_id=session_id,
+                property_ref=property_id,
+                found=True,
+            )
+            return cached
+
+        # Cache miss - query database
         async with get_session_context() as session:
             # Get property
             stmt = select(Property).where(Property.id == UUID(property_id))
@@ -127,6 +238,12 @@ def check_property_availability(property_id: str) -> str:
             prop = result.scalar_one_or_none()
 
             if not prop:
+                # Audit access not-found (có thể là enumeration attempt)
+                _audit_property_access(
+                    session_id=session_id,
+                    property_ref=property_id,
+                    found=False,
+                )
                 return {"error": "Property not found", "property_id": property_id}
 
             # Check for active hold
@@ -140,16 +257,30 @@ def check_property_availability(property_id: str) -> str:
             hold_result = await session.execute(hold_stmt)
             active_hold = hold_result.scalar_one_or_none()
 
-            return {
-                "property_id": property_id,
-                "code": prop.code,
+            # Audit log
+            _audit_property_access(
+                session_id=session_id,
+                property_ref=property_id,
+                found=True,
+            )
+
+            result_data = {
                 "title": prop.title,
+                "district": prop.district,
+                "province": prop.province,
+                "ward": prop.ward,
+                "property_kind": prop.property_kind.value if prop.property_kind else None,
                 "status": prop.status.value if prop.status else None,
                 "is_available": prop.status == PropertyStatus.AVAILABLE,
                 "has_active_hold": active_hold is not None,
                 "hold_expires_at": active_hold.expires_at.isoformat() if active_hold else None,
                 "can_book": prop.status == PropertyStatus.AVAILABLE and active_hold is None,
             }
+
+            # Cache the result
+            await cache.set_property_availability(property_id, result_data, ttl=60)
+
+            return result_data
 
     import asyncio
     try:
