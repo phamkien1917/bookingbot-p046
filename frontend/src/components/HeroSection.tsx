@@ -1,5 +1,6 @@
 import { FaMagic, FaSearch, FaBolt, FaLock, FaCheckCircle, FaRobot, FaPaperPlane } from "react-icons/fa";
 import { BsFillLightningFill } from "react-icons/bs";
+import Link from "next/link";
 
 export default function HeroSection() {
   return (
@@ -23,12 +24,12 @@ export default function HeroSection() {
             </p>
             
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 mb-10">
-              <button className="bg-[#00b4d8] text-white px-8 py-4 rounded-full font-semibold flex items-center justify-center hover:bg-cyan-600 transition-colors shadow-lg shadow-cyan-500/30">
+              <Link href="/chat" className="bg-[#00b4d8] text-white px-8 py-4 rounded-full font-semibold flex items-center justify-center hover:bg-cyan-600 transition-colors shadow-lg shadow-cyan-500/30">
                 <FaMagic className="mr-2" /> Bắt đầu đặt lịch
-              </button>
-              <button className="bg-slate-100 text-slate-800 px-8 py-4 rounded-full font-semibold flex items-center justify-center hover:bg-slate-200 transition-colors">
+              </Link>
+              <Link href="/properties" className="bg-slate-100 text-slate-800 px-8 py-4 rounded-full font-semibold flex items-center justify-center hover:bg-slate-200 transition-colors">
                 <FaSearch className="mr-2 text-slate-600" /> Khám phá căn hộ
-              </button>
+              </Link>
             </div>
 
             {/* Feature Chips */}

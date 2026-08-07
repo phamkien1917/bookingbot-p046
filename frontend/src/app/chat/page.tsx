@@ -11,16 +11,26 @@ const MOCK_MESSAGES = [
 ];
 
 export default function ChatPage() {
+  const INITIAL_MESSAGES = [
+    { role: "bot", text: "Xin chào! Tôi là Trợ lý AI của hệ thống Booking Bot. Tôi có thể giúp bạn tìm kiếm thông tin căn hộ, giải đáp thắc mắc, hoặc đặt lịch xem nhà trực tiếp. Bạn cần tôi hỗ trợ gì hôm nay?" },
+    { role: "bot", text: "", buttons: ["Tôi muốn đặt lịch xem nhà", "Tìm căn hộ 2 phòng ngủ", "Tư vấn giá thuê"] }
+  ];
+
   const [messages, setMessages] = useState(MOCK_MESSAGES);
   const [input, setInput] = useState("");
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    setMessages([...messages, { role: "user", text: input }]);
-    setInput("");
+  const handleSend = (textInput = input) => {
+    if (!textInput.trim()) return;
+    setMessages((prev) => [...prev, { role: "user", text: textInput }]);
+    if (textInput === input) setInput("");
+    
     setTimeout(() => {
-      setMessages((prev) => [...prev, { role: "bot", text: "Cảm ơn bạn! Tôi đang xử lý yêu cầu của bạn..." }]);
+      setMessages((prev) => [...prev, { role: "bot", text: "Cảm ơn bạn! Hệ thống AI đang xử lý yêu cầu đặt lịch/tìm kiếm của bạn. (Đây là phiên bản Demo, tính năng chat thật sẽ sớm được cập nhật!)" }]);
     }, 1000);
+  };
+
+  const startNewChat = () => {
+    setMessages(INITIAL_MESSAGES);
   };
 
   return (
@@ -35,7 +45,7 @@ export default function ChatPage() {
         </div>
 
         <div className="p-4">
-          <button className="w-full bg-white/10 border border-white/20 text-white py-3 rounded-xl text-sm font-semibold hover:bg-white/20 transition-colors mb-6">
+          <button onClick={startNewChat} className="w-full bg-white/10 border border-white/20 text-white py-3 rounded-xl text-sm font-semibold hover:bg-white/20 transition-colors mb-6">
             + Cuộc hội thoại mới
           </button>
           <button className="w-full bg-teal-500/20 border border-teal-400/30 text-teal-300 py-3 rounded-xl text-sm font-semibold hover:bg-teal-500/30 transition-colors mb-6">
@@ -108,7 +118,7 @@ export default function ChatPage() {
                 {msg.buttons && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {msg.buttons.map((btn, bi) => (
-                      <button key={bi} className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-full text-xs font-medium hover:bg-slate-50">
+                      <button key={bi} onClick={() => handleSend(btn)} className="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-full text-xs font-medium hover:bg-slate-50 transition-colors">
                         {btn}
                       </button>
                     ))}
@@ -139,7 +149,7 @@ export default function ChatPage() {
       </div>
 
       {/* Right Sidebar - Booking Info */}
-      <div className="w-80 bg-white border-l border-slate-100 p-6 hidden xl:block overflow-y-auto">
+      <div className="w-80 bg-white border-l border-slate-100 p-6 hidden lg:block overflow-y-auto shrink-0">
         <h3 className="font-bold text-slate-800 text-lg mb-6">Thông tin đặt lịch</h3>
 
         {/* Hold Status */}

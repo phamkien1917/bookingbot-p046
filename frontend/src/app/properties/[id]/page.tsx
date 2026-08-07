@@ -1,73 +1,147 @@
 "use client";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaSwimmingPool, FaDumbbell, FaParking, FaShieldAlt, FaTree, FaShoppingCart, FaRobot, FaComments, FaCalendarAlt, FaClock } from "react-icons/fa";
+import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaSwimmingPool, FaDumbbell, FaParking, FaShieldAlt, FaTree, FaShoppingCart, FaCalendarAlt, FaClock, FaSpinner } from "react-icons/fa";
+import { FaComments } from "react-icons/fa6";
+
+const API_BASE = "http://localhost:8000/api/v1";
 
 export default function PropertyDetail() {
+  const { id } = useParams();
+  const [property, setProperty] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchProperty = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/properties/${id}`);
+        if (!res.ok) throw new Error("Property not found");
+        const data = await res.json();
+        setProperty(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProperty();
+  }, [id]);
+
+  const formatPrice = (price: number) => {
+    if (price >= 1_000_000_000) return `${(price / 1_000_000_000).toFixed(1)} Tỷ`;
+    if (price >= 1_000_000) return `${(price / 1_000_000).toFixed(0)} Triệu`;
+    return price.toLocaleString("vi-VN");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <Header />
+        <div className="flex-1 flex justify-center items-center">
+          <FaSpinner className="animate-spin text-4xl text-teal-500" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !property) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <Header />
+        <div className="flex-1 flex justify-center items-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-slate-800 mb-2">Lỗi: {error || "Không tìm thấy căn hộ"}</h1>
+            <Link href="/properties" className="text-teal-600 hover:underline">Quay lại danh sách</Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Image Gallery */}
         <div className="grid grid-cols-3 gap-4 mb-8 h-[400px]">
-          <div className="col-span-2 rounded-2xl overflow-hidden">
-            <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80" alt="Main" className="w-full h-full object-cover" />
+          <div className="col-span-2 rounded-2xl overflow-hidden bg-slate-200 relative">
+            {property.media && property.media[0] ? (
+              <img src={property.media[0].url} alt="Main" className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-4xl text-slate-400">🏠</div>
+            )}
           </div>
           <div className="flex flex-col gap-4">
-            <div className="flex-1 rounded-2xl overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1600607687931-ce71171f1e73?auto=format&fit=crop&w=600&q=80" alt="Sub1" className="w-full h-full object-cover" />
+            <div className="flex-1 rounded-2xl overflow-hidden bg-slate-200 relative">
+              {property.media && property.media[1] ? (
+                <img src={property.media[1].url} alt="Sub1" className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-2xl text-slate-400">📷</div>
+              )}
             </div>
-            <div className="flex-1 rounded-2xl overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=600&q=80" alt="Sub2" className="w-full h-full object-cover" />
+            <div className="flex-1 rounded-2xl overflow-hidden bg-slate-200 relative">
+              {property.media && property.media[2] ? (
+                <img src={property.media[2].url} alt="Sub2" className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-2xl text-slate-400">📷</div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Badges */}
         <div className="flex gap-3 mb-4">
-          <span className="px-4 py-1.5 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">Đang có sẵn</span>
+          <span className="px-4 py-1.5 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">{property.status === "AVAILABLE" ? "Đang có sẵn" : "Đã đặt"}</span>
           <span className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">Đã xác minh</span>
-          <span className="text-sm text-slate-500 ml-auto">Mã căn: #VH-CP-204</span>
+          <span className="text-sm text-slate-500 ml-auto">Mã căn: #{property.code}</span>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Content */}
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-slate-800 mb-2">Căn hộ cao cấp Vinhomes Central Park</h1>
+            <h1 className="text-3xl font-bold text-slate-800 mb-2">{property.title}</h1>
             <div className="flex items-center text-slate-500 text-sm mb-4">
-              <FaMapMarkerAlt className="mr-2" /> 208 Nguyễn Hữu Cảnh, Phường 22, Bình Thạnh, TP.HCM
+              <FaMapMarkerAlt className="mr-2" /> {property.address_line || ""}, {property.ward || ""}, {property.district || ""}, {property.province || ""}
             </div>
-            <p className="text-3xl font-bold text-[#0b132b] mb-6">4.5 Tỷ <span className="text-base font-normal text-slate-400">VNĐ</span></p>
+            <p className="text-3xl font-bold text-[#0b132b] mb-6">
+              {property.list_price ? formatPrice(property.list_price) : "Liên hệ"} <span className="text-base font-normal text-slate-400">VNĐ</span>
+            </p>
 
             {/* Specs */}
             <div className="flex gap-8 mb-8 pb-8 border-b border-slate-200">
               <div className="text-center">
                 <FaRulerCombined className="text-teal-500 text-2xl mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Diện tích</p>
-                <p className="font-bold">75 m²</p>
+                <p className="font-bold">{property.area_sqm || 0} m²</p>
               </div>
               <div className="text-center">
                 <FaBed className="text-teal-500 text-2xl mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Phòng ngủ</p>
-                <p className="font-bold">2 Phòng</p>
+                <p className="font-bold">{property.bedrooms || 0} Phòng</p>
               </div>
               <div className="text-center">
                 <FaBath className="text-teal-500 text-2xl mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Phòng tắm</p>
-                <p className="font-bold">2 Phòng</p>
+                <p className="font-bold">{property.bathrooms || 0} Phòng</p>
               </div>
               <div className="text-center">
                 <FaMapMarkerAlt className="text-teal-500 text-2xl mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Hướng</p>
-                <p className="font-bold">Đông Nam</p>
+                <p className="font-bold">{property.orientation || 'Đông Nam'}</p>
               </div>
             </div>
 
             {/* Description */}
             <h2 className="text-xl font-bold text-slate-800 mb-4">Tổng quan</h2>
-            <p className="text-slate-600 leading-relaxed mb-8">
-              Căn hộ tọa lạc tại tầng 15 của tòa tháp, mang đến tầm nhìn toàn cảnh ra sông Sài Gòn tuyệt đẹp. Thiết kế nội thất theo phong cách Minimalism hiện đại, tối ưu hóa không gian sống và đón ánh sáng tự nhiên. Trang bị đầy đủ nội thất cao cấp nhập khẩu, sẵn sàng để ở hoặc cho thuê sinh lời ngay. Hệ thống smarthome tích hợp giúp quản lý năng lượng và an ninh hiệu quả.
+            <p className="text-slate-600 leading-relaxed mb-8 whitespace-pre-wrap">
+              {property.description || "Chưa có thông tin mô tả."}
             </p>
 
             {/* Amenities */}
@@ -88,33 +162,32 @@ export default function PropertyDetail() {
               ))}
             </div>
 
-            {/* Floor Plan Placeholder */}
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Mặt bằng căn hộ</h2>
-            <div className="bg-white border border-slate-200 rounded-2xl h-64 flex items-center justify-center mb-8">
-              <p className="text-slate-400">Sơ đồ mặt bằng căn hộ</p>
-            </div>
-
             {/* Map Placeholder */}
             <h2 className="text-xl font-bold text-slate-800 mb-4">Vị trí</h2>
-            <div className="bg-slate-200 rounded-2xl h-72 flex items-center justify-center mb-8">
-              <div className="text-center text-slate-500">
-                <FaMapMarkerAlt className="text-3xl mx-auto mb-2 text-teal-500" />
-                <p className="font-semibold">Vinhomes Central Park</p>
-                <p className="text-sm">Bản đồ Google Maps</p>
-              </div>
+            <div className="bg-slate-200 rounded-2xl h-72 flex items-center justify-center mb-8 overflow-hidden">
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                style={{ border: 0 }}
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                  `${property.address_line || ''}, ${property.ward || ''}, ${property.district || ''}, ${property.province || ''}`
+                )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                allowFullScreen
+              ></iframe>
             </div>
           </div>
 
           {/* Right Sidebar */}
-          <div className="hidden lg:block w-[360px] shrink-0">
-            <div className="sticky top-20 space-y-6">
+          <div className="w-full lg:w-[360px] shrink-0 mb-8 lg:mb-0">
+            <div className="lg:sticky lg:top-20 space-y-6">
               {/* Booking Card */}
               <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                   <div>
                     <p className="text-xs text-slate-500 uppercase tracking-wide">Trạng thái</p>
                     <p className="text-teal-600 font-bold flex items-center text-sm">
-                      <span className="w-2 h-2 rounded-full bg-teal-500 mr-2"></span> Sẵn sàng để xem
+                      <span className="w-2 h-2 rounded-full bg-teal-500 mr-2"></span> {property.status === "AVAILABLE" ? "Sẵn sàng để xem" : "Đã đặt"}
                     </p>
                   </div>
                   <div className="text-right">
@@ -125,12 +198,12 @@ export default function PropertyDetail() {
 
                 <p className="text-sm text-slate-600 mb-3">Gợi ý từ trợ lý AI</p>
                 <div className="flex gap-2 mb-4">
-                  <button className="flex-1 bg-teal-50 border border-teal-200 text-teal-700 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center hover:bg-teal-100">
+                  <Link href={`/booking/hold?property_id=${property.id}`} className="flex-1 bg-teal-50 border border-teal-200 text-teal-700 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center hover:bg-teal-100">
                     <FaCalendarAlt className="mr-2" /> 14:30 T5
-                  </button>
-                  <button className="flex-1 bg-white border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center hover:bg-slate-50">
+                  </Link>
+                  <Link href={`/booking/schedule?property_id=${property.id}`} className="flex-1 bg-white border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center hover:bg-slate-50">
                     <FaCalendarAlt className="mr-2" /> 09:00 T6
-                  </button>
+                  </Link>
                 </div>
 
                 <div className="bg-slate-50 rounded-xl p-3 mb-6 flex items-start gap-2">
@@ -138,10 +211,10 @@ export default function PropertyDetail() {
                   <p className="text-xs text-slate-500">Hệ thống AI sẽ tự động giữ khung giờ trong 15 phút sau khi bạn chọn để đảm bảo trải nghiệm tốt nhất.</p>
                 </div>
 
-                <Link href="/booking/schedule" className="block w-full bg-[#00b4d8] text-white py-3.5 rounded-xl text-sm font-bold text-center hover:bg-cyan-600 transition-colors mb-3">
+                <Link href={`/chat?property_id=${property.id}`} className="block w-full bg-[#00b4d8] text-white py-3.5 rounded-xl text-sm font-bold text-center hover:bg-cyan-600 transition-colors mb-3">
                   <FaCalendarAlt className="inline mr-2" /> Đặt lịch xem với AI
                 </Link>
-                <Link href="/chat" className="block w-full bg-white border border-slate-200 text-slate-700 py-3.5 rounded-xl text-sm font-bold text-center hover:bg-slate-50 transition-colors">
+                <Link href={`/chat?property_id=${property.id}`} className="block w-full bg-white border border-slate-200 text-slate-700 py-3.5 rounded-xl text-sm font-bold text-center hover:bg-slate-50 transition-colors">
                   <FaComments className="inline mr-2" /> Chat với trợ lý
                 </Link>
               </div>
