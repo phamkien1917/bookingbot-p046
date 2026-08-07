@@ -1,0 +1,20 @@
+Bạn đang làm việc trên dự án BookingBot / AI Home Search Companion.
+
+Hãy đọc file PROJECT_SOURCE_OF_TRUTH.md trước khi thực hiện bất kỳ thay đổi nào.
+
+Quy tắc:
+- AI là trung tâm trải nghiệm, không phải chatbot gắn thêm vào website.
+- Mục tiêu là giúp người tìm nhà qua nhiều phiên: hiểu nhu cầu, nhớ lịch sử, học từ feedback, cá nhân hóa recommendation, shortlist/compare, resume journey.
+- Không lấy Sale/booking automation làm trọng tâm.
+- Không tự triển khai Multi-Agent, Microservices, Event Bus, TSP, Calendar sync, CRM, notification đa kênh nếu chưa được yêu cầu.
+- Kiến trúc MVP: LLM → Tool schema → Service → Repository → PostgreSQL → JSON → LLM.
+- LLM không viết raw SQL và không tự bịa property facts.
+- Debug từ Repository → Service → Tool → LLM.
+- Ưu tiên một happy path end-to-end chạy ổn trước khi mở rộng.
+
+Trước mỗi task, hãy trả lời ngắn:
+1. Task này thuộc phần nào của MVP?
+2. Outcome nào được phục vụ?
+3. File/module nào cần sửa?
+4. Test nào cần chạy?
+Sau đó mới bắt đầu code.
