@@ -78,11 +78,8 @@ async def _inventory_agent_impl(
             "current_property_id": None,
         }
 
-    # === GUARD: GET_INFO cần property_id cụ thể ===
-    # Trước đây nếu GET_INFO mà không có property_id, code vẫn search DB
-    # với criteria rỗng và trả căn đầu tiên (sort theo giá) — đây là hành vi
-    # không mong muốn vì user chỉ hỏi chung chung.
-    if intent == "GET_INFO" and not entities.get("property_id"):
+    # === GUARD: GET_INFO cần property_id hoặc keyword cụ thể ===
+    if intent == "GET_INFO" and not entities.get("property_id") and not search_criteria.get("keyword"):
         return {
             "response": (
                 "Bạn muốn hỏi về căn nào? Vui lòng cung cấp mã căn hoặc "
@@ -98,11 +95,13 @@ async def _inventory_agent_impl(
     if not search_criteria:
         search_criteria = {
             "district": entities.get("district"),
-            "province": entities.get("province"),  # không hard-code
+            "province": entities.get("province"),
+            "keyword": entities.get("keyword"),
             "property_kind": entities.get("property_kind"),
             "min_price": entities.get("budget", {}).get("min") if isinstance(entities.get("budget"), dict) else None,
             "max_price": entities.get("budget", {}).get("max") if isinstance(entities.get("budget"), dict) else entities.get("budget"),
             "min_bedrooms": entities.get("bedrooms"),
+            "min_bathrooms": entities.get("bathrooms"),
             "min_area": entities.get("area_sqm"),
         }
 
@@ -124,16 +123,18 @@ async def _inventory_agent_impl(
         except Exception as e:
             logger.warning(f"Error getting preferences: {e}")
 
-    # Search properties
+    # Search properties using tool's ainvoke (async)
     search_results = None
     try:
-        result_str = search_properties.invoke({
+        result_str = await search_properties.ainvoke({
             "district": search_criteria.get("district"),
             "province": search_criteria.get("province"),
+            "keyword": search_criteria.get("keyword"),
             "property_kind": search_criteria.get("property_kind"),
             "min_price": search_criteria.get("min_price"),
             "max_price": search_criteria.get("max_price"),
             "min_bedrooms": search_criteria.get("min_bedrooms"),
+            "min_bathrooms": search_criteria.get("min_bathrooms"),
             "min_area": search_criteria.get("min_area"),
             "limit": 10,
             "session_id": session_id,
@@ -224,7 +225,7 @@ async def _inventory_agent_impl(
             map_data = None
             if internal_id:
                 try:
-                    location_str = get_property_location.invoke({"property_id": internal_id})
+                    location_str = await get_property_location.ainvoke({"property_id": internal_id})
                     map_data = json.loads(location_str)
                     if map_data.get("has_coordinates"):
                         response += f"\n📍 [Xem vị trí trên bản đồ](https://www.google.com/maps?q={map_data['latitude']},{map_data['longitude']})\n"
@@ -258,7 +259,7 @@ async def get_property_details(property_id: str) -> dict:
     """
     try:
         # Check availability
-        availability_str = check_property_availability.invoke({
+        availability_str = await check_property_availability.ainvoke({
             "property_id": property_id,
         })
         availability = json.loads(availability_str)

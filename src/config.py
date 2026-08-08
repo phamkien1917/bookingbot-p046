@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
 
     # Model settings
-    model_name: str = "google/gemma-2-9b-it"  # Default to free model
+    model_name: str = "nvidia/nemotron-3-ultra-550b-a55b:free"  # Default to Nemotron (free)
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=4096, ge=1, le=128000)
 

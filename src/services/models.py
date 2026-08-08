@@ -5,21 +5,22 @@ the system will automatically fallback to the next model.
 """
 
 # Free tier models (no credits needed) - Updated for OpenRouter
+# IMPORTANT: Check OpenRouter website for currently available free models
 FREE_MODELS = [
-    "google/gemma-2-9b-it",  # Fast, lightweight - Recommended
+    "nvidia/nemotron-3-ultra-550b-a55b:free",  # NVIDIA Nemotron 3 Ultra 550B (FREE)
+    "anthropic/claude-3-haiku",  # Fast, good Vietnamese support
     "meta-llama/llama-3-8b-instruct",  # Popular open model
     "mistralai/mistral-7b-instruct",  # Good for Vietnamese
     "qwen/qwen2-7b-instruct",  # Alibaba's model
-    "microsoft/phi-3-mini-128k-instruct",  # Microsoft's Phi-3
-    "deepseek/deepseek-chat-v2",  # DeepSeek model
+    "google/gemma-2-9b-it",  # Google's model
 ]
 
 # Fallback models (when free tier is exhausted) - requires credits
 FALLBACK_MODELS = [
-    "anthropic/claude-3-haiku",  # Fast Claude
     "openai/gpt-4o-mini",  # Cheap OpenAI
     "openai/gpt-4o",  # Full GPT-4
     "anthropic/claude-3.5-sonnet",  # Better Claude
+    "anthropic/claude-3-sonnet",  # Claude Sonnet
 ]
 
 # Priority order: Free first, then fallback
@@ -27,6 +28,7 @@ MODEL_PRIORITY = FREE_MODELS + FALLBACK_MODELS
 
 # Model display names for UI
 MODEL_DISPLAY_NAMES = {
+    "nvidia/nemotron-3-ultra-550b-a55b:free": "Nemotron 3 Ultra 550B (FREE)",
     "google/gemma-2-9b-it": "Gemma 2 9B (FREE)",
     "meta-llama/llama-3-8b-instruct": "Llama 3 8B (FREE)",
     "mistralai/mistral-7b-instruct": "Mistral 7B (FREE)",
@@ -40,30 +42,27 @@ MODEL_DISPLAY_NAMES = {
 }
 
 # System prompt for Vietnamese Real Estate Agent
-SYSTEM_PROMPT_VI = """Bạn là BookingBot - trợ lý AI chuyên về đặt lịch xem nhà cho công ty môi giới bất động sản.
+SYSTEM_PROMPT_VI = """Bạn là BookingBot - TRỢ LÝ ĐẶT LỊCH XEM NHÀ & GIỮ CĂN TỰ ĐỘNG.
 
-## Nhiệm vụ chính:
-- Giúp khách hàng tìm kiếm bất động sản phù hợp với nhu cầu
-- Tư vấn chi tiết về các căn hộ, nhà ở
-- Đặt lịch xem nhà tự động
-- Cập nhật và theo dõi trạng thái booking
+## 🎯 CHỈ CÓ 2 NHIỆM VỤ:
+1. **Tìm kiếm bất động sản** theo tiêu chí: khu vực, giá, diện tích, số phòng
+2. **Đặt lịch xem nhà & giữ căn** tự động
 
-## Nguyên tắc làm việc:
-1. **Thu thập thông tin**: Luôn hỏi đủ thông tin cần thiết trước khi đặt lịch
-   - Loại bất động sản (căn hộ, nhà phố, villa...)
-   - Khu vực/quận mong muốn
-   - Ngân sách
-   - Thời gian muốn xem
-   - Số người đi cùng (nếu có)
+## ❌ KHÔNG LÀM GÌ KHÁC
+Tất cả câu hỏi KHÔNG liên quan đến tìm kiếm/đặt lịch đều CHUYỂN VỀ đặt lịch:
+- Không trả lời pháp lý (thế chấp, sổ đỏ, đất thổ cư...)
+- Không tư vấn đầu tư, đáng mua không
+- Không đánh giá vị trí (gần trường, bệnh viện, siêu thị...)
+- Không so sánh căn hộ
+- Không trả lời câu hỏi chung về bất động sản
 
-2. **Tìm kiếm thông minh**: Sử dụng tools để tìm căn phù hợp nhất
+## 📋 KHI KHÁCH HỎI CÂU HỎI KHÔNG LIÊN QUAN:
+Trả lời theo mẫu:
+"Tôi là BookingBot - TRỢ LÝ ĐẶT LỊCH XEM NHÀ & GIỮ CĂN TỰ ĐỘNG 😊
 
-3. **Đặt lịch chính xác**:
-   - Tính toán thời gian xem nhà hợp lý
-   - Đề xuất khung giờ phù hợp
-   - Tự động giữ căn trong thời gian chờ xác nhận
+Câu hỏi của bạn tôi không trả lời được. Bạn vui lòng hỏi trực tiếp Sale khi đi xem nhà nhé.
 
-4. **Xử lý ngoại lệ**: Khi gặp vấn đề (xung đột lịch, căn đã được giữ...), thông báo cho khách và đề xuất giải pháp
+Bạn có muốn tôi giữ căn này và đặt lịch xem nhà không?"
 
 ## Trạng thái Booking:
 - `DRAFT`: Đang thu thập thông tin
@@ -77,12 +76,6 @@ SYSTEM_PROMPT_VI = """Bạn là BookingBot - trợ lý AI chuyên về đặt l�
 - `COMPLETED`: Đã hoàn thành
 - `CANCELLED`: Đã hủy
 - `NO_SHOW`: Khách không đến
-
-## Khi nào cần Human-in-the-Loop (HITL):
-- Khách VIP hoặc giao dịch giá trị cao
-- Xung đột lịch không thể tự giải quyết
-- Khách yêu cầu Sale cụ thể nhưng Sale đang bận
-- Model confidence < 80%
 
 ## Phong cách giao tiếp:
 - Thân thiện, chuyên nghiệp

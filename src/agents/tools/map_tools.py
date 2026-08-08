@@ -191,7 +191,7 @@ def _estimate_coordinates(address: str, district: str = "", province: str = "") 
 # ============== Agent Tools ==============
 
 @tool
-def get_property_location(
+async def get_property_location(
     property_id: str,
 ) -> str:
     """Lấy thông tin vị trí và link bản đồ của một bất động sản.
@@ -202,26 +202,6 @@ def get_property_location(
     Returns:
         Thông tin vị trí và link bản đồ (JSON)
     """
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-        # If we're in an async context, schedule the task
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, _get_property_location(property_id))
-            return future.result()
-    except RuntimeError:
-        # No running loop, safe to use run_until_complete
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(_get_property_location(property_id))
-        finally:
-            loop.close()
-
-
-async def _get_property_location(property_id: str) -> str:
-    """Async implementation of get_property_location."""
     async with get_session_context() as session:
         from sqlalchemy import select
 
@@ -347,7 +327,7 @@ def get_map_link_for_address(
 
 
 @tool
-def get_property_map_embed(
+async def get_property_map_embed(
     property_id: str,
     map_provider: str = "leaflet",
 ) -> str:
@@ -360,26 +340,6 @@ def get_property_map_embed(
     Returns:
         Embed HTML hoặc link bản đồ (JSON)
     """
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-        # If we're in an async context, schedule the task
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, _get_property_map_embed(property_id, map_provider))
-            return future.result()
-    except RuntimeError:
-        # No running loop, safe to use run_until_complete
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(_get_property_map_embed(property_id, map_provider))
-        finally:
-            loop.close()
-
-
-async def _get_property_map_embed(property_id: str, map_provider: str) -> str:
-    """Async implementation of get_property_map_embed."""
     async with get_session_context() as session:
         from sqlalchemy import select
 

@@ -54,6 +54,15 @@ def _pick_smalltalk_response(text: str) -> str:
     return _SMALLTALK_RESPONSES[1]
 
 
+# ============== Out-of-scope redirect ==============
+# Chuyển hướng TẤT CẢ câu hỏi không liên quan đến tìm kiếm/đặt lịch
+_OUT_OF_SCOPE_RESPONSE = """Tôi là BookingBot - **TRỢ LÝ ĐẶT LỊCH XEM NHÀ & GIỮ CĂN TỰ ĐỘNG** 😊
+
+Câu hỏi của bạn tôi không trả lời được. Bạn vui lòng hỏi trực tiếp Sale khi đi xem nhà nhé.
+
+Bạn có muốn tôi giữ căn này và đặt lịch xem nhà không?"""
+
+
 # ============== General QA handler ==============
 # Câu hỏi tổng quát về BĐS — trả message cố định, không qua LLM knowledge.
 # Triết lý: SQL/DB là source of truth. Nếu không có data, KHÔNG bịa.
@@ -76,9 +85,10 @@ async def respond_node(state: AgentState) -> dict:
     Pipeline (theo thứ tự ưu tiên):
     1. Error response (nếu có error và response rỗng)
     2. next_action handler (greet/clarify/check_status/ask_property_id/general_qa)
-    3. Smalltalk fast-path (cảm ơn/tạm biệt/ok) — KHÔNG qua LLM
-    4. _generate_response() qua LLM (với SystemMessage bound)
-    5. Fallback
+    3. Smalltalk fast-path (cảm ơn/tạm biệt/ok) — KHÔNG qua LLM, <100ms
+    4. Knowledge Base fast-path (FAQ, thông tin dự án) — KHÔNG qua LLM, <200ms
+    5. _generate_response() qua LLM (với SystemMessage bound)
+    6. Fallback
 
     Args:
         state: Current agent state
@@ -86,6 +96,13 @@ async def respond_node(state: AgentState) -> dict:
     Returns:
         Updated state with response
     """
+    global _RESPOND_NODE_CALLED
+    _RESPOND_NODE_CALLED = True
+
+    import time
+    start_time = time.time()
+    response_source = "unknown"
+
     # Get existing response or generate new one
     existing_response = state.get("response", "")
     error = state.get("error")
@@ -95,25 +112,59 @@ async def respond_node(state: AgentState) -> dict:
     # 1) Error response
     if error and not existing_response:
         existing_response = f"Xin lỗi, tôi gặp lỗi: {error}. Bạn có thể diễn đạt lại được không?"
+        response_source = "error"
 
     # 2) Specific next action handler
-    if next_action:
+    if next_action and not existing_response:
         existing_response = await _handle_next_action(state, next_action)
+        response_source = "next_action"
 
     # 3) Smalltalk fast-path — tiết kiệm latency
     if not existing_response:
         last_user_msg = _get_last_user_message(state)
         if last_user_msg and _is_smalltalk(last_user_msg):
             existing_response = _pick_smalltalk_response(last_user_msg)
+            response_source = "smalltalk"
             logger.debug(f"Smalltalk fast-path: '{last_user_msg}' -> template")
 
-    # 4) Generate via LLM
+    # 4) Out-of-scope: intent KHÔNG phải tìm kiếm/đặt lịch → chuyển về đặt lịch
+    # Agent CHỈ làm: tìm kiếm bất động sản & đặt lịch xem nhà
     if not existing_response:
+        intents_to_handle = {
+            "SEARCH_PROPERTY", "GET_INFO", "BOOK_APPOINTMENT", "CANCEL_BOOKING",
+            "RESCHEDULE", "CHECK_STATUS", "GET_BOOKING_STATUS", "GET_MY_BOOKINGS",
+            "UPDATE_BOOKING"
+        }
+        # Nếu không có selected_properties và intent không phải core task → redirect
+        selected_props = state.get("selected_properties", [])
+        if intent and intent not in intents_to_handle and not selected_props:
+            existing_response = _OUT_OF_SCOPE_RESPONSE
+            response_source = "out_of_scope"
+            logger.info(f"Out-of-scope intent: {intent}")
+
+    # 5) Knowledge Base fast-path — TRƯỚC KHI gọi LLM!
+    # Đây là bước QUAN TRỌNG để giảm thời gian phản hồi từ 20s xuống <500ms
+    if not existing_response:
+        from src.services.knowledge_base import get_answer
+        last_user_msg = _get_last_user_message(state)
+        if last_user_msg:
+            kb_response = await get_answer(last_user_msg)
+            if kb_response:
+                existing_response = kb_response
+                response_source = "knowledge_base"
+
+    # 6) Generate via LLM (chỉ khi không có cached response)
+    if not existing_response:
+        response_source = "llm"
         existing_response = await _generate_response(state)
 
-    # 5) Final fallback
+    # 7) Final fallback
     if not existing_response:
         existing_response = "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Bạn có thể thử lại sau?"
+        response_source = "fallback"
+
+    # Log response time
+    elapsed_ms = (time.time() - start_time) * 1000
 
     # Add assistant message to history
     messages = state.get("messages", [])
@@ -121,6 +172,8 @@ async def respond_node(state: AgentState) -> dict:
         "role": "assistant",
         "content": existing_response,
         "timestamp": datetime.utcnow().isoformat(),
+        "_source": response_source,
+        "_response_time_ms": elapsed_ms,
     })
 
     return {
@@ -181,17 +234,14 @@ async def _handle_next_action(state: AgentState, action: str) -> str:
         )
 
     elif action == "ask_property_id":
-        # GET_INFO mà không có property_id — hỏi lại
-        return (
-            "Bạn muốn xem thông tin căn nào? Vui lòng cung cấp:\n"
-            "- Mã căn (VD: 0223, BK123...)\n"
-            "hoặc chọn một căn từ danh sách đã tìm kiếm trước đó."
-        )
+        # GET_INFO mà không có property_id cụ thể — chuyển về đặt lịch
+        # Agent CHỈ làm: tìm kiếm & đặt lịch
+        return _OUT_OF_SCOPE_RESPONSE
 
     elif action == "general_qa":
-        # GENERAL_QA — trả message cố định, KHÔNG qua LLM
-        # Triết lý: SQL/DB là source of truth, không bịa kiến thức tự do
-        return _GENERAL_QA_RESPONSES[0]
+        # GENERAL_QA — chuyển về đặt lịch xem nhà
+        # Agent CHỈ làm: tìm kiếm & đặt lịch
+        return _OUT_OF_SCOPE_RESPONSE
 
     else:
         return ""
@@ -237,18 +287,51 @@ Yêu cầu:
 
 Trả lời:"""
 
-    try:
-        llm = get_llm()
-        from langchain_core.messages import SystemMessage, HumanMessage
-        system_prompt = get_system_prompt()
-        result = await llm.ainvoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=prompt),
-        ])
-        return result.content if hasattr(result, 'content') else str(result)
-    except Exception as e:
-        logger.error(f"Error generating response: {e}")
-        return "Xin lỗi, tôi gặp sự cố khi tạo phản hồi. Bạn có thể diễn đạt lại được không?"
+    # Retry với automatic fallback - thử 3 model khác nhau
+    from src.services.llm import get_llm, reset_llm
+    from langchain_core.messages import SystemMessage, HumanMessage
+
+    last_error = None
+    tried_models = []
+
+    for attempt in range(3):
+        try:
+            llm = get_llm()
+            current_model = llm.model_name
+            tried_models.append(current_model)
+
+            logger.info(f"LLM attempt {attempt + 1}: using {current_model}")
+
+            system_prompt = get_system_prompt()
+            result = await llm.ainvoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt),
+            ])
+            return result.content if hasattr(result, 'content') else str(result)
+
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+            logger.warning(f"LLM attempt {attempt + 1} failed: {e}")
+
+            # Kiểm tra loại lỗi
+            if any(keyword in error_str for keyword in [
+                "insufficient credits", "quota", "rate limit", "429",
+                "429", "overloaded", "context length", "max tokens"
+            ]):
+                logger.info(f"Model {tried_models[-1]} exhausted, switching to next model...")
+                reset_llm()  # Reset để dùng model tiếp theo trong priority list
+                continue
+            else:
+                # Lỗi khác - thử model khác một lần nữa
+                reset_llm()
+                continue
+
+    # Tất cả đều thất bại
+    logger.error(f"All LLM attempts failed. Tried models: {tried_models}. Last error: {last_error}")
+
+    # Trả message cố định thay vì crash
+    return "Xin lỗi, hệ thống AI đang gặp sự cố. Vui lòng thử lại sau hoặc liên hệ hỗ trợ."
 
 
 def format_property_list(properties: list[dict]) -> str:

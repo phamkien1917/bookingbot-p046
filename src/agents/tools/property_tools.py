@@ -64,13 +64,15 @@ def _audit_property_access(
 
 
 @tool
-def search_properties(
+async def search_properties(
     district: Optional[str] = None,
     province: Optional[str] = None,
+    keyword: Optional[str] = None,
     property_kind: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     min_bedrooms: Optional[int] = None,
+    min_bathrooms: Optional[int] = None,
     min_area: Optional[float] = None,
     limit: int = 10,
     session_id: Optional[str] = None,
@@ -83,10 +85,12 @@ def search_properties(
     Args:
         district: Quận/Huyện (ví dụ: "Quận 7", "Thành phố Thủ Đức")
         province: Tỉnh/Thành phố (ví dụ: "Hồ Chí Minh")
+        keyword: Từ khóa tìm kiếm (tên dự án, tiêu đề)
         property_kind: Loại bất động sản (APARTMENT, HOUSE, VILLA, TOWNHOUSE, LAND, COMMERCIAL)
         min_price: Giá tối thiểu (VND)
         max_price: Giá tối đa (VND)
         min_bedrooms: Số phòng ngủ tối thiểu
+        min_bathrooms: Số phòng tắm/vệ sinh tối thiểu
         min_area: Diện tích tối thiểu (m²)
         limit: Số lượng kết quả tối đa
         session_id: ID session (cho audit log)
@@ -95,17 +99,19 @@ def search_properties(
         Danh sách các bất động sản phù hợp dạng JSON (đã sanitize field)
     """
     import json
-    from sqlalchemy import select, and_
+    from sqlalchemy import select, and_, or_
 
-    async def _search():
+    try:
         # Build query params for cache key
         query_params = {
             "district": district,
             "province": province,
+            "keyword": keyword,
             "property_kind": property_kind,
             "min_price": min_price,
             "max_price": max_price,
             "min_bedrooms": min_bedrooms,
+            "min_bathrooms": min_bathrooms,
             "min_area": min_area,
             "limit": limit,
         }
@@ -115,7 +121,12 @@ def search_properties(
         cached = await cache.get_cached_search_results(query_params)
         if cached:
             logger.debug(f"Search cache hit for query: {query_params}")
-            return cached
+            _audit_property_access(
+                session_id=session_id,
+                property_ref=f"search:district={district},province={province},kind={property_kind}",
+                found=bool(cached),
+            )
+            return json.dumps(cached, ensure_ascii=False, indent=2)
 
         # Cache miss - query database
         async with get_session_context() as session:
@@ -126,6 +137,8 @@ def search_properties(
                 conditions.append(Property.district.ilike(f"%{district}%"))
             if province:
                 conditions.append(Property.province.ilike(f"%{province}%"))
+            if keyword:
+                conditions.append(or_(Property.title.ilike(f"%{keyword}%"), Property.description.ilike(f"%{keyword}%")))
             if property_kind:
                 conditions.append(Property.property_kind == property_kind.upper())
             if min_price:
@@ -134,6 +147,8 @@ def search_properties(
                 conditions.append(Property.list_price <= max_price)
             if min_bedrooms:
                 conditions.append(Property.bedrooms >= min_bedrooms)
+            if min_bathrooms:
+                conditions.append(Property.bathrooms >= min_bathrooms)
             if min_area:
                 conditions.append(Property.area_sqm >= min_area)
 
@@ -172,25 +187,15 @@ def search_properties(
             # Cache the results
             await cache.cache_search_results(query_params, results, ttl=300)
 
-            return results
+            # Audit log
+            _audit_property_access(
+                session_id=session_id,
+                property_ref=f"search:district={district},province={province},kind={property_kind}",
+                found=bool(results),
+            )
 
-    # Run sync wrapper (for LangChain tool)
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+            return json.dumps(results, ensure_ascii=False, indent=2)
 
-    try:
-        results = loop.run_until_complete(_search())
-        # Audit log: phát hiện enumeration / IDOR attempt
-        _audit_property_access(
-            session_id=session_id,
-            property_ref=f"search:district={district},province={province},kind={property_kind}",
-            found=bool(results),
-        )
-        return json.dumps(results, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error searching properties: {e}")
         return json.dumps({"error": str(e)})
