@@ -26,3 +26,13 @@ async def get_properties(
         total += 1 # indicate there is more
         
     return {"items": properties, "total": total}
+
+@router.get("/{property_id}", response_model=PropertySchema)
+async def get_property_by_id(property_id: str, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    stmt = select(Property).options(selectinload(Property.media)).where(Property.id == property_id)
+    result = await db.execute(stmt)
+    prop = result.scalars().first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return prop
