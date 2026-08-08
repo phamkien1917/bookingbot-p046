@@ -168,27 +168,8 @@ async def _inventory_agent_impl(
 
     # Generate response message
     if intent == "SEARCH_PROPERTY":
-        response = "Tôi đã tìm được các bất động sản phù hợp cho bạn:\n\n"
-
-        for i, prop in enumerate(search_results[:5], 1):  # Show top 5
-            price = prop.get("list_price")
-            if price:
-                price_str = f"{price/1e9:.1f} tỷ" if price >= 1e9 else f"{price/1e6:.0f} triệu"
-            else:
-                price_str = "Liên hệ"
-
-            response += f"**{i}. {prop.get('title', 'N/A')}**\n"
-            response += f"   - Loại: {prop.get('property_kind', 'N/A')}\n"
-            response += f"   - Khu vực: {prop.get('district', 'N/A')}\n"
-            response += f"   - Diện tích: {prop.get('area_sqm', 'N/A')} m²\n"
-            if prop.get("bedrooms"):
-                response += f"   - Phòng ngủ: {prop['bedrooms']}\n"
-            if prop.get("bathrooms"):
-                response += f"   - Phòng tắm: {prop['bathrooms']}\n"
-            response += f"   - Giá: {price_str}\n\n"
-
-        response += "Bạn quan tâm căn nào? Tôi có thể giữ căn và đề xuất lịch xem cho bạn."
-
+        response = "Tôi đã tìm được các bất động sản phù hợp với yêu cầu của bạn. Bạn hãy xem các gợi ý chi tiết bên dưới nhé. Bạn quan tâm căn nào? Tôi có thể giữ căn và đề xuất lịch xem cho bạn."
+        
         updates["response"] = response
         updates["suggested_actions"] = [
             "Chọn một căn để xem chi tiết",

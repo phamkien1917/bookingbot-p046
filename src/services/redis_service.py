@@ -203,9 +203,9 @@ class InMemoryFallback:
 
     async def scan_iter(self, match: str = "*", count: int = 100) -> AsyncIterator[str]:
         """Scan keys matching pattern."""
-        prefix = match.rstrip("*")
+        import fnmatch
         for k in list(self._store.keys()):
-            if k.startswith(prefix):
+            if fnmatch.fnmatch(k, match):
                 yield k
 
     async def keys(self, pattern: str = "*") -> list[str]:

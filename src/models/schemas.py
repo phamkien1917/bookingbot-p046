@@ -25,6 +25,8 @@ class ChatResponse(BaseModel):
     response: str = Field(..., description="Phản hồi từ agent")
     analysis: str = Field(default="", description="Phân tích nội bộ")
     session_id: Optional[str] = Field(default=None, description="Session ID")
+    properties: Optional[list] = Field(default_factory=list, description="Danh sách bất động sản gợi ý")
+    insights: Optional[dict] = Field(default_factory=dict, description="Thông tin AI thu thập được từ người dùng")
 
 
 class HITLDecision(BaseModel):

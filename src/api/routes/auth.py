@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 
-from src.database import get_db
-from src.models.user import User
+from src.database import get_session
+from src.database.models import User
 from src.schemas.auth import UserRegister, UserResponse, Token
 from src.services.auth_service import register_user, verify_password, create_access_token
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 @router.post("/register", response_model=UserResponse)
-async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
+async def register(user_data: UserRegister, db: AsyncSession = Depends(get_session)):
     try:
         new_user = await register_user(db, user_data)
         if not new_user:
@@ -26,7 +26,7 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Registration error: {str(e)}")
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_session)):
     # Find user by email
     stmt = select(User).where(User.email == form_data.username)
     result = await db.execute(stmt)

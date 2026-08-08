@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.models.user import User, CustomerProfile
+from src.database.models import User, CustomerProfile
 from src.schemas.auth import UserRegister
 from src.config import get_settings
 

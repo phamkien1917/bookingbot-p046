@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select
 from uuid import UUID
 
-from src.models.booking import TourRequest, Appointment, PropertyHold
+from src.database.models import TourRequest, Appointment, PropertyHold
 from src.schemas.booking import TourRequestCreate
 
 

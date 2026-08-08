@@ -30,6 +30,7 @@ _PUBLIC_PROPERTY_FIELDS = (
     "currency",
     "status",
     "summary",  # optional, sanitize trước khi trả
+    "image",    # main image url
 )
 
 
@@ -100,6 +101,7 @@ async def search_properties(
     """
     import json
     from sqlalchemy import select, and_, or_
+    from sqlalchemy.orm import selectinload
 
     try:
         # Build query params for cache key
@@ -154,6 +156,7 @@ async def search_properties(
 
             stmt = (
                 select(Property)
+                .options(selectinload(Property.media))
                 .where(and_(*conditions))
                 .order_by(Property.list_price)
                 .limit(limit)
@@ -163,8 +166,15 @@ async def search_properties(
             properties = result.scalars().all()
 
             # Áp dụng sanitize trước khi trả — KHÔNG lộ UUID/code/address
-            raw = [
-                {
+            raw = []
+            for p in properties:
+                # Find cover image or first image
+                image_url = None
+                if p.media:
+                    cover = next((m for m in p.media if m.is_cover), p.media[0])
+                    image_url = cover.url
+                
+                raw.append({
                     "title": p.title,
                     "property_kind": p.property_kind.value if p.property_kind else None,
                     "district": p.district,
@@ -176,12 +186,11 @@ async def search_properties(
                     "list_price": float(p.list_price) if p.list_price else None,
                     "currency": p.currency,
                     "status": p.status.value if p.status else None,
+                    "image": image_url,
                     # Giữ id/code nội bộ để internal use, nhưng sanitize sẽ bỏ
                     "_internal_id": str(p.id),
                     "_internal_code": p.code,
-                }
-                for p in properties
-            ]
+                })
             results = [_sanitize_property(r) for r in raw]
 
             # Cache the results

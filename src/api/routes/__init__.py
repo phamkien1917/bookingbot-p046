@@ -83,18 +83,41 @@ async def chat(
             else:
                 response_msg = "Xin chào! Tôi đang ở chế độ thử nghiệm. Nếu bạn đã thêm API key nhưng vẫn không nhận được phản hồi, hãy kiểm tra log backend để xác nhận model đang được gọi."
 
-        messages.append({"role": "assistant", "content": response_msg})
+        # Get previous metadata and insights
+        metadata = session_data.get("metadata", {}) if session_data else {}
+        insights = metadata.get("insights", {})
+        
+        # Merge new insights from search_criteria
+        if result.get("search_criteria"):
+            # Only update non-None values
+            for k, v in result["search_criteria"].items():
+                if v is not None:
+                    insights[k] = v
+        
+        # Attach properties if any
+        properties = result.get("selected_properties", [])
 
+        messages.append({
+            "role": "assistant", 
+            "content": response_msg,
+            "properties": properties
+        })
+
+        # Save merged insights into metadata
+        metadata["insights"] = insights
+            
         await memory.save_session(
             session_id=session_id,
             messages=messages,
-            metadata=session_data.get("metadata", {}) if session_data else {},
+            metadata=metadata,
         )
 
         return ChatResponse(
             response=response_msg,
             analysis=result.get("analysis", ""),
             session_id=session_id,
+            properties=properties,
+            insights=insights
         )
 
     except Exception as e:
@@ -139,6 +162,42 @@ async def get_session(session_id: str):
         "messages": session_data.get("messages", []),
         "metadata": session_data.get("metadata", {}),
     }
+
+@router.get("/sessions")
+async def get_all_sessions(customer_id: Optional[str] = None):
+    """Get all chat sessions.
+    
+    Args:
+        customer_id: Optional customer UUID
+    """
+    # For demo purposes, if no customer_id is provided, we can either
+    # return an empty list or use a default one if implemented.
+    # for the UI to display.
+    memory = get_short_term_memory()
+    try:
+        import json
+        client = await memory._redis_memory._get_client()
+        pattern = f"{memory.SESSION_PREFIX}*"
+        sessions = []
+
+        async for key in client.scan_iter(match=pattern):
+            session_id = key.decode('utf-8').replace(memory.SESSION_PREFIX, "") if isinstance(key, bytes) else key.replace(memory.SESSION_PREFIX, "")
+            # Get basic info to show in UI
+            data = await memory.get_session(session_id)
+            if data:
+                messages = data.get("messages", [])
+                first_msg = messages[0].get("content") if messages else "New Chat"
+                last_active = data.get("metadata", {}).get("last_active", "")
+                sessions.append({
+                    "session_id": session_id,
+                    "preview": first_msg[:50] + "..." if len(first_msg) > 50 else first_msg,
+                    "message_count": len(messages),
+                    "last_active": last_active
+                })
+        return {"sessions": sessions}
+    except Exception as e:
+        return {"error": str(e), "sessions": []}
+
 
 
 @router.delete("/session/{session_id}")

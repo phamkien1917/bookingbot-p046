@@ -7,7 +7,7 @@ class PropertyMediaSchema(BaseModel):
     id: UUID
     media_type: str
     url: str
-    source: str
+    source: Optional[str] = None
     caption: Optional[str] = None
     sort_order: int
     is_cover: bool
