@@ -1,6 +1,7 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-import json
 import asyncio
+import json
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -14,15 +15,15 @@ async def chat_websocket(websocket: WebSocket):
             "content": "Chào bạn, tôi là AI Assistant của XHome. Bạn đang tìm mua nhà ở khu vực nào ạ?",
             "type": "text"
         }))
-        
+
         while True:
             # Nhận tin nhắn từ client
             data = await websocket.receive_text()
-            user_msg = json.loads(data)
-            
+            json.loads(data)
+
             # Logic gọi AI model (Mock)
             # Ở đây bạn sẽ đưa nội dung `user_msg['content']` vào LangGraph/CrewAI
-            
+
             # Giả lập luồng gõ từng chữ (Streaming)
             response_text = "Tôi hiểu rồi. Đợi tôi kiểm tra giỏ hàng nhé..."
             for word in response_text.split(" "):
@@ -32,11 +33,11 @@ async def chat_websocket(websocket: WebSocket):
                     "type": "stream"
                 }))
                 await asyncio.sleep(0.1) # Simulate network delay
-                
+
             # Gửi tín hiệu kết thúc luồng chat
             await websocket.send_text(json.dumps({
                 "type": "stream_end"
             }))
-            
+
     except WebSocketDisconnect:
         print("Client disconnected")

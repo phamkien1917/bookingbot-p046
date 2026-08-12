@@ -12,9 +12,11 @@ from typing import Any, Optional
 from uuid import UUID
 
 from src.services.redis_service import (
-    get_redis,
-    close_redis,
     InMemoryFallback,
+    close_redis,  # noqa: F401 - backward-compatible re-export
+    get_redis,
+)
+from src.services.redis_service import (
     get_session_memory as _get_redis_session_memory,
 )
 
@@ -44,7 +46,7 @@ class ShortTermMemory:
         self,
         session_id: str,
         messages: list[dict],
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         ttl: int = SESSION_TTL,
     ) -> None:
         """Save session data to Redis.
@@ -58,7 +60,7 @@ class ShortTermMemory:
         await self._redis_memory.save_session(session_id, messages, metadata, ttl)
         logger.debug(f"Saved session {session_id} with TTL {ttl}s")
 
-    async def get_session(self, session_id: str) -> Optional[dict]:
+    async def get_session(self, session_id: str) -> dict | None:
         """Get session data from Redis.
 
         Args:
@@ -119,29 +121,8 @@ class ShortTermMemory:
         logger.debug(f"Deleted session {session_id}")
 
     async def get_all_sessions(self, customer_id: str) -> list[str]:
-        """Get all active session IDs for a customer.
-
-        Args:
-            customer_id: Customer UUID
-
-        Returns:
-            List of session IDs
-        """
-        # For backwards compatibility - scan sessions
-        try:
-            client = await get_redis()
-            pattern = f"{self.SESSION_PREFIX}*"
-            keys = []
-
-            async for key in client.scan_iter(match=pattern):
-                data = await client.hget(key, "metadata")
-                if data:
-                    metadata = json.loads(data)
-                    if metadata.get("customer_id") == customer_id:
-                        keys.append(key.replace(self.SESSION_PREFIX, ""))
-            return keys
-        except Exception:
-            return []
+        """Get active session summaries for a customer."""
+        return await self._redis_memory.list_sessions(customer_id)
 
 
 # ============== Long-term Memory (Preferences) ==============
@@ -181,7 +162,7 @@ class LongTermMemory:
 
         async with get_session_context() as session:
             import uuid
-            from datetime import datetime, timedelta
+            from datetime import datetime
 
             # Check if preference exists
             from sqlalchemy import select
@@ -230,9 +211,10 @@ class LongTermMemory:
         Returns:
             List of preference dicts
         """
+        from sqlalchemy import select
+
         from src.database.connection import get_session_context
         from src.database.models import CustomerPreference
-        from sqlalchemy import select
 
         async with get_session_context() as session:
             stmt = select(CustomerPreference).where(
@@ -257,7 +239,7 @@ class LongTermMemory:
         self,
         customer_id: str,
         key: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Get a specific preference.
 
         Args:
@@ -352,9 +334,10 @@ class LongTermMemory:
         Returns:
             True if deleted
         """
+        from sqlalchemy import delete
+
         from src.database.connection import get_session_context
         from src.database.models import CustomerPreference
-        from sqlalchemy import delete
 
         async with get_session_context() as session:
             stmt = delete(CustomerPreference).where(
@@ -367,8 +350,8 @@ class LongTermMemory:
 
 # ============== Singleton instances ==============
 
-_short_term_memory: Optional[ShortTermMemory] = None
-_long_term_memory: Optional[LongTermMemory] = None
+_short_term_memory: ShortTermMemory | None = None
+_long_term_memory: LongTermMemory | None = None
 _intent_cache: Optional["IntentCache"] = None
 
 
@@ -416,7 +399,7 @@ class IntentCache:
         joined = "|".join(f"{m.get('role', '?')}:{m.get('content', '')}" for m in recent)
         return hashlib.sha1(joined.encode("utf-8")).hexdigest()[:16]
 
-    async def get(self, session_id: str, message_hash: str) -> Optional[dict]:
+    async def get(self, session_id: str, message_hash: str) -> dict | None:
         key = self.make_key(session_id, message_hash)
         # Thử Redis trước
         try:

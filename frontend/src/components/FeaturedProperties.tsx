@@ -1,22 +1,22 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaArrowRight, FaSpinner } from "react-icons/fa";
-
-const API_BASE = "http://localhost:8000/api/v1";
+import { apiFetch } from "@/lib/api";
+import type { Property } from "@/lib/types";
+import { roleHome, useAuth } from "@/components/AuthProvider";
 
 export default function FeaturedProperties() {
-  const [properties, setProperties] = useState<any[]>([]);
+  const { user } = useAuth();
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProperties = async () => {
       try {
-        const res = await fetch(`${API_BASE}/properties?limit=3`);
-        if (res.ok) {
-          const data = await res.json();
-          setProperties(data.items || []);
-        }
+        const data = await apiFetch<{ items: Property[] }>("/properties?limit=3");
+        setProperties(data.items || []);
       } catch (err) {
         console.error("Failed to fetch featured properties:", err);
       } finally {
@@ -96,8 +96,8 @@ export default function FeaturedProperties() {
                     <Link href={`/properties/${prop.id}`} className="flex-1 text-center bg-white border border-slate-200 text-slate-700 py-3 rounded-xl font-semibold hover:bg-slate-50 transition-colors">
                       Chi tiết
                     </Link>
-                    <Link href={`/chat`} className="flex-1 bg-[#0b132b] text-white py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors flex items-center justify-center">
-                      <span className="mr-2">📅</span> Đặt lịch AI
+                    <Link href={user && user.role !== "CUSTOMER" ? roleHome(user.role) : `/booking/schedule?property_id=${prop.id}`} className="flex-1 bg-[#0b132b] text-white py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors flex items-center justify-center">
+                      <span className="mr-2">📅</span> {user && user.role !== "CUSTOMER" ? "Dashboard" : "Đặt lịch AI"}
                     </Link>
                   </div>
                 </div>

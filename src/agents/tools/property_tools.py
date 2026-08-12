@@ -1,14 +1,13 @@
 """Property-related tools for the agent."""
 
 import logging
-from typing import Optional
 from uuid import UUID
 
 from langchain_core.tools import tool
 
 from src.database.connection import get_session_context
-from src.database.models import Property, PropertyHold, HoldStatus, PropertyStatus
-from src.services.redis_service import get_property_cache, get_distributed_lock
+from src.database.models import HoldStatus, Property, PropertyHold, PropertyStatus
+from src.services.redis_service import get_property_cache
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ def _sanitize_property(prop: dict) -> dict:
 
 
 def _audit_property_access(
-    session_id: Optional[str],
+    session_id: str | None,
     property_ref: str,
     found: bool,
 ) -> None:
@@ -66,17 +65,17 @@ def _audit_property_access(
 
 @tool
 async def search_properties(
-    district: Optional[str] = None,
-    province: Optional[str] = None,
-    keyword: Optional[str] = None,
-    property_kind: Optional[str] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    min_bedrooms: Optional[int] = None,
-    min_bathrooms: Optional[int] = None,
-    min_area: Optional[float] = None,
+    district: str | None = None,
+    province: str | None = None,
+    keyword: str | None = None,
+    property_kind: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    min_bedrooms: int | None = None,
+    min_bathrooms: int | None = None,
+    min_area: float | None = None,
     limit: int = 10,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
 ) -> str:
     """Tìm kiếm bất động sản theo các tiêu chí.
 
@@ -100,7 +99,8 @@ async def search_properties(
         Danh sách các bất động sản phù hợp dạng JSON (đã sanitize field)
     """
     import json
-    from sqlalchemy import select, and_, or_
+
+    from sqlalchemy import and_, or_, select
     from sqlalchemy.orm import selectinload
 
     try:
@@ -122,6 +122,7 @@ async def search_properties(
         cache = get_property_cache()
         cached = await cache.get_cached_search_results(query_params)
         if cached:
+            cached = [_sanitize_property(item) for item in cached]
             logger.debug(f"Search cache hit for query: {query_params}")
             _audit_property_access(
                 session_id=session_id,
@@ -173,7 +174,7 @@ async def search_properties(
                 if p.media:
                     cover = next((m for m in p.media if m.is_cover), p.media[0])
                     image_url = cover.url
-                
+
                 raw.append({
                     "title": p.title,
                     "property_kind": p.property_kind.value if p.property_kind else None,
@@ -187,9 +188,6 @@ async def search_properties(
                     "currency": p.currency,
                     "status": p.status.value if p.status else None,
                     "image": image_url,
-                    # Giữ id/code nội bộ để internal use, nhưng sanitize sẽ bỏ
-                    "_internal_id": str(p.id),
-                    "_internal_code": p.code,
                 })
             results = [_sanitize_property(r) for r in raw]
 
@@ -213,7 +211,7 @@ async def search_properties(
 @tool
 def check_property_availability(
     property_id: str,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
 ) -> str:
     """Kiểm tra tình trạng sẵn sàng của một bất động sản.
 
@@ -228,8 +226,9 @@ def check_property_availability(
         Thông tin về tình trạng bất động sản (đã sanitize)
     """
     import json
-    from sqlalchemy import select, and_
     from datetime import datetime
+
+    from sqlalchemy import and_, select
 
     async def _check():
         # Try cache first
@@ -325,9 +324,11 @@ def hold_property(property_id: str, customer_id: str, hold_minutes: int = 15) ->
     """
     import json
     import uuid
-    from sqlalchemy import select, and_
     from datetime import datetime, timedelta
-    from src.database.models import PropertyHold, HoldStatus, Appointment, Property
+
+    from sqlalchemy import and_, select
+
+    from src.database.models import Appointment, HoldStatus, Property, PropertyHold
 
     async def _hold():
         async with get_session_context() as session:
@@ -435,8 +436,10 @@ def release_hold(hold_id: str, reason: str = "Manual release") -> str:
     """
     import json
     from datetime import datetime
-    from sqlalchemy import select, update
-    from src.database.models import PropertyHold, HoldStatus
+
+    from sqlalchemy import select
+
+    from src.database.models import HoldStatus, PropertyHold
 
     async def _release():
         async with get_session_context() as session:

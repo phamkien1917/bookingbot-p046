@@ -9,13 +9,12 @@ Provides location services:
 
 import json
 import logging
-from typing import Optional
 from uuid import UUID
 
 from langchain_core.tools import tool
 
 from src.database.connection import get_session_context
-from src.database.models import Property, Project
+from src.database.models import Project, Property
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +118,7 @@ VIETNAM_LOCATIONS = {
 }
 
 
-def _estimate_coordinates(address: str, district: str = "", province: str = "") -> Optional[tuple[float, float]]:
+def _estimate_coordinates(address: str, district: str = "", province: str = "") -> tuple[float, float] | None:
     """Estimate coordinates from address components.
 
     Uses known center points for Vietnamese provinces/districts as fallback.
@@ -281,8 +280,8 @@ async def get_property_location(
 @tool
 def get_map_link_for_address(
     address: str,
-    district: Optional[str] = None,
-    province: Optional[str] = None,
+    district: str | None = None,
+    province: str | None = None,
 ) -> str:
     """Lấy link bản đồ cho một địa chỉ.
 

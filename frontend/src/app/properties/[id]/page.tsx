@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -6,30 +7,30 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaSwimmingPool, FaDumbbell, FaParking, FaShieldAlt, FaTree, FaShoppingCart, FaCalendarAlt, FaClock, FaSpinner } from "react-icons/fa";
 import { FaComments } from "react-icons/fa6";
-
-const API_BASE = "http://localhost:8000/api/v1";
+import { apiFetch } from "@/lib/api";
+import type { Property } from "@/lib/types";
+import { roleHome, useAuth } from "@/components/AuthProvider";
 
 export default function PropertyDetail() {
-  const { id } = useParams();
-  const [property, setProperty] = useState<any>(null);
+  const { user } = useAuth();
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!id) return;
-    const fetchProperty = async () => {
+    const timer = window.setTimeout(async () => {
       try {
-        const res = await fetch(`${API_BASE}/properties/${id}`);
-        if (!res.ok) throw new Error("Property not found");
-        const data = await res.json();
-        setProperty(data);
-      } catch (err: any) {
-        setError(err.message);
+        setProperty(await apiFetch<Property>(`/properties/${id}`));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Không tìm thấy bất động sản");
       } finally {
         setLoading(false);
       }
-    };
-    fetchProperty();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [id]);
 
   const formatPrice = (price: number) => {
@@ -134,7 +135,7 @@ export default function PropertyDetail() {
               <div className="text-center">
                 <FaMapMarkerAlt className="text-teal-500 text-2xl mx-auto mb-2" />
                 <p className="text-sm text-slate-500">Hướng</p>
-                <p className="font-bold">{property.orientation || 'Đông Nam'}</p>
+                <p className="font-bold">{String(property.features?.orientation ?? "Đang cập nhật")}</p>
               </div>
             </div>
 
@@ -191,28 +192,20 @@ export default function PropertyDetail() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Lịch xem sớm nhất</p>
-                    <p className="text-teal-600 font-bold text-sm">14:30 Hôm nay</p>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Khung giờ</p>
+                    <p className="text-teal-600 font-bold text-sm">Kiểm tra theo ngày</p>
                   </div>
                 </div>
 
-                <p className="text-sm text-slate-600 mb-3">Gợi ý từ trợ lý AI</p>
-                <div className="flex gap-2 mb-4">
-                  <Link href={`/booking/hold?property_id=${property.id}`} className="flex-1 bg-teal-50 border border-teal-200 text-teal-700 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center hover:bg-teal-100">
-                    <FaCalendarAlt className="mr-2" /> 14:30 T5
-                  </Link>
-                  <Link href={`/booking/schedule?property_id=${property.id}`} className="flex-1 bg-white border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center hover:bg-slate-50">
-                    <FaCalendarAlt className="mr-2" /> 09:00 T6
-                  </Link>
-                </div>
+                <p className="text-sm text-slate-600 mb-3">Chọn ngày để xem các khung giờ và nhân viên Sale đang thực sự rảnh.</p>
 
                 <div className="bg-slate-50 rounded-xl p-3 mb-6 flex items-start gap-2">
                   <FaClock className="text-slate-400 mt-0.5 shrink-0" />
                   <p className="text-xs text-slate-500">Hệ thống AI sẽ tự động giữ khung giờ trong 15 phút sau khi bạn chọn để đảm bảo trải nghiệm tốt nhất.</p>
                 </div>
 
-                <Link href={`/chat?property_id=${property.id}`} className="block w-full bg-[#00b4d8] text-white py-3.5 rounded-xl text-sm font-bold text-center hover:bg-cyan-600 transition-colors mb-3">
-                  <FaCalendarAlt className="inline mr-2" /> Đặt lịch xem với AI
+                <Link href={user && user.role !== "CUSTOMER" ? roleHome(user.role) : `/booking/schedule?property_id=${property.id}`} className="block w-full bg-[#00b4d8] text-white py-3.5 rounded-xl text-sm font-bold text-center hover:bg-cyan-600 transition-colors mb-3">
+                  <FaCalendarAlt className="inline mr-2" /> {user && user.role !== "CUSTOMER" ? "Về dashboard" : "Đặt lịch xem với AI"}
                 </Link>
                 <Link href={`/chat?property_id=${property.id}`} className="block w-full bg-white border border-slate-200 text-slate-700 py-3.5 rounded-xl text-sm font-bold text-center hover:bg-slate-50 transition-colors">
                   <FaComments className="inline mr-2" /> Chat với trợ lý

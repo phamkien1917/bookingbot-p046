@@ -1,27 +1,27 @@
-from pydantic import BaseModel
-from typing import Optional, Any
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field, model_validator
+
 
 class TourRequestCreate(BaseModel):
     property_id: UUID
-    preferred_start: Optional[datetime] = None
-    preferred_end: Optional[datetime] = None
-    pax_count: int = 1
-    customer_note: Optional[str] = None
+    sale_user_id: UUID
+    preferred_start: datetime
+    preferred_end: datetime
+    pax_count: int = Field(default=1, ge=1, le=20)
+    customer_note: str | None = Field(default=None, max_length=1000)
 
-class TourRequestResponse(BaseModel):
-    id: UUID
-    request_code: str
-    customer_user_id: UUID
-    property_id: UUID
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        if self.preferred_end <= self.preferred_start:
+            raise ValueError("preferred_end must be after preferred_start")
+        return self
+
+
+class BookingAction(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class UserStatusUpdate(BaseModel):
     status: str
-    tour_mode: str
-    preferred_start: Optional[datetime]
-    preferred_end: Optional[datetime]
-    party_size: int
-    customer_note: Optional[str]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True

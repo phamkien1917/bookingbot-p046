@@ -8,16 +8,16 @@ from typing import Literal
 
 from langgraph.graph import END, StateGraph
 
-from src.agents.state import AgentState, AgentType
 from src.agents.nodes import (
-    supervisor_node,
-    route_from_supervisor,
-    inventory_agent,
-    booking_agent,
     assignment_agent,
+    booking_agent,
     hitl_agent,
+    inventory_agent,
     respond_node,
+    route_from_supervisor,
+    supervisor_node,
 )
+from src.agents.state import AgentState
 
 logger = logging.getLogger(__name__)
 

@@ -1,13 +1,16 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaSearch, FaRegHeart, FaFilter, FaSpinner } from "react-icons/fa";
-
-const API_BASE = "http://localhost:8000/api/v1";
+import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaSearch, FaRegHeart, FaSpinner } from "react-icons/fa";
+import { apiFetch } from "@/lib/api";
+import type { Property } from "@/lib/types";
+import { roleHome, useAuth } from "@/components/AuthProvider";
 
 export default function PropertiesPage() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [priceFilter, setPriceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -16,32 +19,30 @@ export default function PropertiesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
   
-  const [properties, setProperties] = useState<any[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchProperties();
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await apiFetch<{ items: Property[] }>("/properties?limit=50");
+        setProperties(data.items || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Không thể tải danh sách căn hộ");
+      } finally {
+        setLoading(false);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
+    const timer = window.setTimeout(() => setCurrentPage(1), 0);
+    return () => window.clearTimeout(timer);
   }, [searchTerm, priceFilter, typeFilter, bedFilter, areaFilter]);
-
-  const fetchProperties = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`${API_BASE}/properties?limit=50`);
-      if (!res.ok) throw new Error("Không thể tải danh sách căn hộ");
-      const data = await res.json();
-      setProperties(data.items || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatPrice = (price: number) => {
     if (price >= 1_000_000_000) return `${(price / 1_000_000_000).toFixed(1)} Tỷ`;
@@ -157,7 +158,7 @@ export default function PropertiesPage() {
           <div className="flex gap-8">
             <div className="flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginatedProperties.map((prop: any) => (
+                {paginatedProperties.map((prop) => (
                   <div key={prop.id} className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col">
                     <div className="relative h-52 overflow-hidden bg-slate-200 shrink-0">
                       {prop.media && prop.media.length > 0 ? (
@@ -190,8 +191,8 @@ export default function PropertiesPage() {
                         <Link href={`/properties/${prop.id}`} className="flex-1 text-center bg-white border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50">
                           Xem chi tiết
                         </Link>
-                        <Link href={`/chat?property_id=${prop.id}`} className="flex-1 text-center bg-[#00b4d8] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-cyan-600 transition-colors">
-                          Đặt lịch AI
+                        <Link href={user && user.role !== "CUSTOMER" ? roleHome(user.role) : `/booking/schedule?property_id=${prop.id}`} className="flex-1 text-center bg-[#00b4d8] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-cyan-600 transition-colors">
+                          {user && user.role !== "CUSTOMER" ? "Về dashboard" : "Đặt lịch AI"}
                         </Link>
                       </div>
                     </div>

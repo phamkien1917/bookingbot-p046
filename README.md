@@ -1,121 +1,87 @@
-# 🤖 Booking Bot AI - Hệ thống Đặt lịch & Tư vấn Bất động sản
+# Booking Bot AI
 
-Dự án **P-046** là một trợ lý AI thông minh (AI Agent) chuyên hỗ trợ khách hàng tìm kiếm bất động sản, phân tích nhu cầu cá nhân hóa, và đặt lịch xem nhà trực tiếp. Hệ thống bao gồm Backend (FastAPI + LangGraph) và Frontend (Next.js).
+Hệ thống tìm bất động sản và đặt lịch xem nhà gồm FastAPI/LangGraph, Next.js, PostgreSQL và Redis (có fallback bộ nhớ khi Redis không chạy). Hệ thống có bốn vai trò: Khách hàng, Sale, Điều phối và Admin.
 
----
+## Chạy nhanh trên Windows
 
-## 📋 Yêu cầu hệ thống (Prerequisites)
-Để chạy dự án trên máy cá nhân, bạn cần cài đặt các công cụ sau:
-- **Python 3.10+** (Cho Backend)
-- **Node.js 18+** (Cho Frontend)
-- **PostgreSQL** (Cơ sở dữ liệu chính)
-- **Git**
+Yêu cầu: Python 3.11+, Node.js 20+, PostgreSQL. Chạy các lệnh sau tại `C:\buildAI\P-046`.
 
----
-
-## 🚀 Hướng dẫn cài đặt chi tiết
-
-### Bước 1: Clone dự án
-```bash
-git clone https://github.com/AI20K-Build-Phase-Cohort-3/P-046.git
-cd P-046
-git checkout develop
-```
-*(Lưu ý: Code mới nhất hiện đang nằm ở nhánh `develop`)*
-
----
-
-### Bước 1.5: Khởi tạo Cơ sở dữ liệu (PostgreSQL)
-Dự án yêu cầu bạn phải có sẵn PostgreSQL. Dưới đây là cách tạo và nạp dữ liệu mồi (seed data) bằng công cụ `psql` hoặc các phần mềm quản lý DB (như pgAdmin, DBeaver).
-
-1. Mở Terminal (hoặc pgAdmin) và tạo một database mới tên là `test_db`:
-```sql
-CREATE DATABASE test_db;
-```
-
-2. Nạp dữ liệu mẫu vào Database bằng dòng lệnh `psql` (thay `postgres` bằng username của bạn):
-```bash
-# Trỏ vào thư mục chứa code
-cd P-046
-
-# Chạy lần lượt các file SQL theo thứ tự:
-psql -U postgres -d test_db -f database/001_schema.sql
-psql -U postgres -d test_db -f database/002_seed.sql
-psql -U postgres -d test_db -f database/004_crawled_data.sql
-psql -U postgres -d test_db -f database/005_batdongsan_data.sql
-```
-*(Nếu dùng phần mềm pgAdmin, bạn có thể tạo Database `test_db` bằng giao diện, sau đó mở chức năng Query Tool và copy lần lượt nội dung của 4 file SQL trên để chạy).*
-
----
-
-### Bước 2: Cài đặt và Chạy Backend (FastAPI + AI)
-
-1. **Tạo môi trường ảo (Virtual Environment)**
-```bash
+```powershell
+Copy-Item .env.example .env
 python -m venv venv
-
-# Kích hoạt trên Windows:
-venv\Scripts\activate
-# Kích hoạt trên Mac/Linux:
-source venv/bin/activate
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-2. **Cài đặt thư viện**
-```bash
-pip install -r requirements.txt
+Cập nhật `DATABASE_URL`, `JWT_SECRET_KEY` và API key AI trong `.env`. Khởi tạo database mới bằng bốn file SQL theo đúng thứ tự:
+
+```powershell
+psql -U visitops -d visitops -f database/001_schema.sql
+psql -U visitops -d visitops -f database/002_seed.sql
+psql -U visitops -d visitops -f database/004_crawled_data.sql
+psql -U visitops -d visitops -f database/005_batdongsan_data.sql
 ```
 
-3. **Cấu hình biến môi trường (`.env`)**
-Tạo một file `.env` ở thư mục gốc (ngang hàng với thư mục `src`) và sao chép nội dung sau vào:
-```env
-# Môi trường chạy
-APP_ENV=development
-DEBUG=true
+Terminal 1 — backend:
 
-# Cấu hình Database (Thay đổi user/password cho phù hợp với máy của bạn)
-DATABASE_URL=postgresql+asyncpg://postgres:yourpassword@localhost:5432/test_db
-
-# Cấu hình LLM - Điền API Key của OpenRouter (hoặc OpenAI)
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxx
+```powershell
+cd C:\buildAI\P-046
+.\venv\Scripts\python.exe -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
-*(Lưu ý: Backend có tính năng In-Memory Fallback nên bạn không bắt buộc phải cài đặt Redis).*
 
-4. **Khởi chạy Backend**
-```bash
-uvicorn src.main:app --reload
+Terminal 2 — frontend:
+
+```powershell
+cd C:\buildAI\P-046\frontend
+npm.cmd install
+npm.cmd run dev
 ```
-Hệ thống sẽ tự động tạo các bảng trong Database.
-Backend sẽ chạy tại: `http://localhost:8000`
 
----
+Mở `http://localhost:3000`. API docs ở `http://localhost:8000/docs`.
 
-### Bước 3: Cài đặt và Chạy Frontend (Next.js)
+Nếu muốn dùng Docker cho PostgreSQL và backend:
 
-Mở một cửa sổ Terminal **mới** (giữ nguyên cửa sổ Backend đang chạy):
+```powershell
+docker compose up --build
+```
 
-1. **Di chuyển vào thư mục frontend**
-```bash
+Sau đó vẫn chạy frontend riêng bằng `npm.cmd run dev`.
+
+## Tài khoản demo
+
+Mật khẩu chung trong môi trường development: `Demo@123`.
+
+| Vai trò | Email | Giao diện |
+|---|---|---|
+| Khách hàng | `customer.demo@example.com` | `/`, `/chat`, `/my-bookings` |
+| Sale | `kien.sale@example.com` | `/sale` |
+| Admin | `admin.demo@example.com` | `/admin` |
+
+Tài khoản seed dùng mật khẩu demo chỉ được chấp nhận khi `APP_ENV=development`. Tài khoản khách đăng ký mới luôn được lưu bằng bcrypt. Trước khi deploy production, đặt `APP_ENV=production`, dùng `JWT_SECRET_KEY` ngẫu nhiên dài và thay hash demo trong dữ liệu seed.
+
+## Luồng nghiệp vụ
+
+1. Khách đăng nhập hoặc đăng ký, tìm căn trên danh sách hay chatbot.
+2. Khách chọn ngày và khung giờ thực còn trống, hệ thống giữ yêu cầu trong 15 phút.
+3. Sale đăng nhập `/sale` để nhận hoặc từ chối yêu cầu.
+4. Khi Sale nhận, hệ thống tạo appointment và khách thấy trang xác nhận/mã booking.
+5. Admin theo dõi booking, người dùng, đồng thời khóa/mở tài khoản tại `/admin`.
+
+Phiên đăng nhập dùng cookie HttpOnly. API Sale/Admin và lịch sử chatbot đều kiểm tra vai trò và chủ sở hữu ở backend.
+
+## Kiểm tra chất lượng
+
+```powershell
+cd C:\buildAI\P-046
+.\venv\Scripts\python.exe -m pip check
+.\venv\Scripts\python.exe -m pytest tests\test_api tests\test_database_rebuild.py tests\test_crawl_pipeline.py tests\test_batdongsan_crawler.py -q
+
 cd frontend
+npm.cmd run lint
+npm.cmd run build
 ```
 
-2. **Cài đặt thư viện Node.js**
-```bash
-npm install
+Các biến frontend tùy chọn:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
 ```
-
-3. **Khởi chạy Frontend**
-```bash
-npm run dev
-```
-Giao diện người dùng sẽ chạy tại: `http://localhost:3000`
-
----
-
-## 💻 Trải nghiệm sản phẩm
-
-1. Mở trình duyệt và truy cập `http://localhost:3000` để vào giao diện chính.
-2. Bấm vào icon chat hoặc điều hướng sang trang `/chat`.
-3. Bắt đầu nhắn tin với AI (VD: *"Tôi muốn tìm thuê căn hộ 2 phòng ngủ ở Đống Đa, giá dưới 10 triệu"*).
-4. Quan sát cách AI thu thập thông tin và tự động hiển thị gợi ý.
-
-Chúc bạn cài đặt thành công! 🎉

@@ -4,7 +4,6 @@ Supports free tier models and fallback to paid models when credits run out.
 """
 
 import logging
-from typing import Any, Optional
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
@@ -13,8 +12,6 @@ from langchain_core.tools import BaseTool
 
 from src.config import get_settings
 from src.services.models import (
-    FALLBACK_MODELS,
-    FREE_MODELS,
     MODEL_DISPLAY_NAMES,
     MODEL_PRIORITY,
     SYSTEM_PROMPT_VI,
@@ -32,7 +29,7 @@ class OpenRouterLLM:
 
     def __init__(
         self,
-        preferred_model: Optional[str] = None,
+        preferred_model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
     ):
@@ -69,13 +66,13 @@ class OpenRouterLLM:
             f"(index: {self.current_model_index}/{len(self.models)}), direct_openai: {self.is_direct_openai}"
         )
 
-    def _get_base_url(self) -> Optional[str]:
+    def _get_base_url(self) -> str | None:
         """Get the API base URL."""
         if self.is_direct_openai:
             return None
         return self.settings.openrouter_base_url
 
-    def _get_headers(self) -> Optional[dict]:
+    def _get_headers(self) -> dict | None:
         """Get HTTP headers for OpenRouter API."""
         if self.is_direct_openai:
             return None
@@ -132,7 +129,7 @@ class OpenRouterLLM:
         self,
         messages: list[BaseMessage],
         *,
-        tools: Optional[list[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> ChatResult:
         """Invoke the LLM with automatic fallback.
 
@@ -143,7 +140,7 @@ class OpenRouterLLM:
         Returns:
             ChatResult from the LLM
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(len(self.models) - self.current_model_index):
             try:
@@ -206,11 +203,11 @@ class OpenRouterLLM:
 
 
 # Singleton instance cache
-_llm_instance: Optional[OpenRouterLLM] = None
+_llm_instance: OpenRouterLLM | None = None
 
 
 def get_llm(
-    preferred_model: Optional[str] = None,
+    preferred_model: str | None = None,
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ) -> OpenRouterLLM:

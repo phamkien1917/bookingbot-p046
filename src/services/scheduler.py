@@ -1,29 +1,26 @@
 """Scheduler Service - Background jobs for BookingBot."""
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select, update, and_
+from sqlalchemy import and_, select
 
-from src.config import get_settings
 from src.database.connection import get_session_context
 from src.database.models import (
     Appointment,
     AppointmentStatus,
-    PropertyHold,
     HoldStatus,
-    TourSlotOption,
+    PropertyHold,
     SlotStatus,
+    TourSlotOption,
 )
 
 logger = logging.getLogger(__name__)
 
 # Global scheduler instance
-_scheduler: Optional[AsyncIOScheduler] = None
+_scheduler: AsyncIOScheduler | None = None
 
 
 async def cleanup_expired_holds() -> None:

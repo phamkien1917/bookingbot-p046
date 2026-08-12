@@ -2,14 +2,12 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import get_session_context
-from src.database.models import Notification, NotificationChannel, DeliveryStatus, Appointment, User
+from src.database.models import Appointment, DeliveryStatus, Notification, NotificationChannel, User
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +64,8 @@ class NotificationService:
         template_key: str,
         payload: dict,
         channel: NotificationChannel = NotificationChannel.IN_APP,
-        scheduled_at: Optional[datetime] = None,
-        appointment_id: Optional[UUID] = None,
+        scheduled_at: datetime | None = None,
+        appointment_id: UUID | None = None,
     ) -> str:
         """Create a notification for sending.
 
@@ -325,7 +323,7 @@ class NotificationService:
 
 
 # Singleton instance
-_notification_service: Optional[NotificationService] = None
+_notification_service: NotificationService | None = None
 
 
 def get_notification_service() -> NotificationService:

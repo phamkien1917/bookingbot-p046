@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
-from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from src.database import get_session
@@ -20,12 +20,9 @@ async def list_properties(
     stmt = select(Property).options(selectinload(Property.media)).offset(skip).limit(limit)
     result = await db.execute(stmt)
     properties = result.scalars().all()
-    
-    # Just a mock total for now, in real app you do a count query
-    total = skip + len(properties)
-    if len(properties) == limit:
-        total += 1 # indicate there is more
-        
+
+    total = await db.scalar(select(func.count(Property.id))) or 0
+
     return {"items": properties, "total": total}
 
 @router.get("/{property_id}", response_model=PropertySchema)

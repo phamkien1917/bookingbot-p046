@@ -17,9 +17,9 @@ import hashlib
 import json
 import logging
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from typing import Any, AsyncIterator, Optional
+from typing import Any
 
 import redis.asyncio as redis
 
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # ============== Redis Connection ==============
 
-_redis_client: Optional[redis.Redis] = None
+_redis_client: redis.Redis | None = None
 
 
 async def get_redis() -> redis.Redis:
@@ -90,7 +90,7 @@ class InMemoryFallback:
         self._store: dict[str, Any] = {}
         self._expiry: dict[str, float] = {}
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """Get a key value."""
         if key in self._expiry and time.time() > self._expiry[key]:
             del self._store[key]
@@ -98,7 +98,7 @@ class InMemoryFallback:
             return None
         return self._store.get(key)
 
-    async def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: str, ex: int | None = None) -> bool:
         """Set a key value with optional expiry (seconds)."""
         self._store[key] = value
         if ex:
@@ -145,7 +145,7 @@ class InMemoryFallback:
             return 1 if is_new else 0
         return 0
 
-    async def hget(self, name: str, key: str) -> Optional[str]:
+    async def hget(self, name: str, key: str) -> str | None:
         """Get hash field."""
         data = self._store.get(name, {})
         if isinstance(data, dict):
@@ -187,7 +187,7 @@ class InMemoryFallback:
         self._store[key] = list(values) + self._store[key]
         return len(self._store[key])
 
-    async def rpop(self, key: str) -> Optional[str]:
+    async def rpop(self, key: str) -> str | None:
         """Pop from list (right)."""
         if key in self._store and isinstance(self._store[key], list):
             if self._store[key]:
@@ -221,7 +221,7 @@ class InMemoryFallback:
 _in_memory_fallback = InMemoryFallback()
 
 
-def _get_client_or_fallback() -> tuple[Optional[redis.Redis], InMemoryFallback, bool]:
+def _get_client_or_fallback() -> tuple[redis.Redis | None, InMemoryFallback, bool]:
     """Get Redis client with fallback indicator.
 
     Returns:
@@ -247,7 +247,7 @@ class DistributedLock:
 
     LOCK_PREFIX = "lock:"
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
         self._fallback = _in_memory_fallback
         self._is_fallback = False
@@ -276,7 +276,7 @@ class DistributedLock:
         ttl: int = 30,
         blocking: bool = False,
         blocking_timeout: int = 10,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Acquire a distributed lock.
 
         Args:
@@ -413,7 +413,7 @@ class RateLimiter:
 
     RATE_PREFIX = "rate:"
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
         self._is_fallback = False
 
@@ -520,7 +520,7 @@ class PropertyCache:
 
     CACHE_PREFIX = "cache:property:"
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
         self._is_fallback = False
         self._local_cache: dict[str, tuple[str, float]] = {}
@@ -549,7 +549,7 @@ class PropertyCache:
 
     async def get_property_availability(
         self, property_ref: str
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get cached property availability.
 
         Args:
@@ -650,7 +650,7 @@ class PropertyCache:
 
     async def get_cached_search_results(
         self, query_params: dict[str, Any]
-    ) -> Optional[list[dict]]:
+    ) -> list[dict] | None:
         """Get cached search results.
 
         Args:
@@ -709,7 +709,7 @@ class RedisSessionMemory:
     SESSION_PREFIX = "session:"
     SESSION_TTL = 3600  # 1 hour default
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
         self._is_fallback = False
 
@@ -734,7 +734,7 @@ class RedisSessionMemory:
         self,
         session_id: str,
         messages: list[dict],
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         ttl: int = SESSION_TTL,
     ) -> None:
         """Save session data.
@@ -757,7 +757,7 @@ class RedisSessionMemory:
         await client.expire(key, ttl)
         logger.debug(f"Saved session {session_id} with TTL {ttl}s")
 
-    async def get_session(self, session_id: str) -> Optional[dict[str, Any]]:
+    async def get_session(self, session_id: str) -> dict[str, Any] | None:
         """Get session data.
 
         Args:
@@ -802,6 +802,33 @@ class RedisSessionMemory:
         key = self._session_key(session_id)
         return await client.exists(key) > 0
 
+    async def list_sessions(self, customer_id: str) -> list[dict[str, Any]]:
+        """Return only sessions owned by a customer."""
+        client = await self._get_client()
+        sessions: list[dict[str, Any]] = []
+        async for key in client.scan_iter(match=f"{self.SESSION_PREFIX}*"):
+            key_text = key.decode("utf-8") if isinstance(key, bytes) else key
+            session_id = key_text.removeprefix(self.SESSION_PREFIX)
+            data = await self.get_session(session_id)
+            if not data:
+                continue
+            metadata = data.get("metadata", {})
+            if str(metadata.get("customer_id")) != str(customer_id):
+                continue
+            messages = data.get("messages", [])
+            first_user = next(
+                (m.get("content", "") for m in messages if m.get("role", "").lower() == "user"),
+                "Cuộc trò chuyện mới",
+            )
+            sessions.append({
+                "session_id": session_id,
+                "preview": first_user[:50] + ("..." if len(first_user) > 50 else ""),
+                "message_count": len(messages),
+                "last_active": metadata.get("last_active", ""),
+            })
+        sessions.sort(key=lambda item: item.get("last_active", ""), reverse=True)
+        return sessions
+
 
 # ============== Message Queue ==============
 
@@ -813,7 +840,7 @@ class MessageQueue:
 
     QUEUE_PREFIX = "queue:"
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
         self._is_fallback = False
 
@@ -852,7 +879,7 @@ class MessageQueue:
         logger.debug(f"Enqueued message to {queue_name}")
         return True
 
-    async def dequeue(self, queue_name: str) -> Optional[dict[str, Any]]:
+    async def dequeue(self, queue_name: str) -> dict[str, Any] | None:
         """Get next message from queue.
 
         Uses blocking pop for efficient waiting.
@@ -929,9 +956,9 @@ class EventPubSub:
     - Async event handling
     """
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
-        self._pubsub: Optional[redis.client.PubSub] = None
+        self._pubsub: redis.client.PubSub | None = None
 
     async def _ensure_redis(self) -> redis.Redis:
         """Ensure Redis client is available."""
@@ -1015,7 +1042,7 @@ class PropertyHoldManager:
 
     HOLD_PREFIX = "hold:property:"
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
         self._is_fallback = False
         self._local_holds: dict[str, dict] = {}
@@ -1042,7 +1069,7 @@ class PropertyHoldManager:
         property_id: str,
         customer_id: str,
         ttl: int = 900,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Acquire a hold on a property.
 
         Args:
@@ -1120,7 +1147,7 @@ class PropertyHoldManager:
                 return True
         return False
 
-    async def get_hold_status(self, property_id: str) -> Optional[dict[str, Any]]:
+    async def get_hold_status(self, property_id: str) -> dict[str, Any] | None:
         """Get current hold status for a property.
 
         Args:
@@ -1220,13 +1247,13 @@ class PropertyHoldManager:
 
 # ============== Singleton Instances ==============
 
-_distributed_lock: Optional[DistributedLock] = None
-_rate_limiter: Optional[RateLimiter] = None
-_property_cache: Optional[PropertyCache] = None
-_session_memory: Optional[RedisSessionMemory] = None
-_message_queue: Optional[MessageQueue] = None
-_event_pubsub: Optional[EventPubSub] = None
-_property_hold_manager: Optional[PropertyHoldManager] = None
+_distributed_lock: DistributedLock | None = None
+_rate_limiter: RateLimiter | None = None
+_property_cache: PropertyCache | None = None
+_session_memory: RedisSessionMemory | None = None
+_message_queue: MessageQueue | None = None
+_event_pubsub: EventPubSub | None = None
+_property_hold_manager: PropertyHoldManager | None = None
 
 
 def get_distributed_lock() -> DistributedLock:

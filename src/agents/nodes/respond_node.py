@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import datetime
 
-from src.agents.state import AgentState, AgentType, Intent, add_message
+from src.agents.state import AgentState
 from src.services.llm import get_llm, get_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -288,8 +288,9 @@ Yêu cầu:
 Trả lời:"""
 
     # Retry với automatic fallback - thử 3 model khác nhau
-    from src.services.llm import get_llm, reset_llm
-    from langchain_core.messages import SystemMessage, HumanMessage
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    from src.services.llm import reset_llm
 
     last_error = None
     tried_models = []

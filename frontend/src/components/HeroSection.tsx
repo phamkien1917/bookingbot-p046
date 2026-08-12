@@ -1,4 +1,4 @@
-import { FaMagic, FaSearch, FaBolt, FaLock, FaCheckCircle, FaRobot, FaPaperPlane } from "react-icons/fa";
+import { FaMagic, FaSearch, FaLock, FaCheckCircle } from "react-icons/fa";
 import { BsFillLightningFill } from "react-icons/bs";
 import Link from "next/link";
 

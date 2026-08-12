@@ -1,30 +1,47 @@
 """API routes for BookingBot AI Agent."""
 
+import logging
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import HTMLResponse
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.agents.state import create_initial_state
 from src.agents.graph import get_agent_graph
+from src.agents.state import create_initial_state
+from src.api.routes.auth import get_current_user, get_optional_current_user
+from src.database import get_session
+from src.database.models import Property, User, UserRole
 from src.models.schemas import ChatRequest, ChatResponse
+from src.services.conversation_service import (
+    delete_persistent_session,
+    get_persistent_session,
+    list_persistent_sessions,
+    save_persistent_session,
+)
 from src.services.memory import get_short_term_memory
 
-router = APIRouter()
-
-from .properties import router as properties_router
-from .chat import router as chat_router
+from .admin import router as admin_router
 from .auth import router as auth_router
 from .bookings import router as bookings_router
+from .chat import router as chat_router
+from .properties import router as properties_router
+from .sale import router as sale_router
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
 
 router.include_router(auth_router)
 router.include_router(properties_router)
 router.include_router(bookings_router)
 router.include_router(chat_router)
+router.include_router(sale_router)
+router.include_router(admin_router)
 
-def get_session_id(x_session_id: Optional[str] = Header(None)) -> str:
+def get_session_id(x_session_id: str | None = Header(None)) -> str:
     """Get or create session ID from header."""
     if x_session_id:
         return x_session_id
@@ -35,6 +52,8 @@ def get_session_id(x_session_id: Optional[str] = Header(None)) -> str:
 async def chat(
     request: ChatRequest,
     session_id: str = Depends(get_session_id),
+    user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_session),
 ) -> ChatResponse:
     """Chat với AI agent.
 
@@ -49,6 +68,19 @@ async def chat(
         # Get short-term memory for session context
         memory = get_short_term_memory()
         session_data = await memory.get_session(session_id)
+        customer_id = str(user.id) if user and user.role == UserRole.CUSTOMER else None
+        if not session_data and customer_id:
+            session_data = await get_persistent_session(db, session_id, customer_id)
+            if session_data:
+                await memory.save_session(
+                    session_id,
+                    session_data.get("messages", []),
+                    session_data.get("metadata", {}),
+                )
+        if session_data:
+            owner_id = session_data.get("metadata", {}).get("customer_id")
+            if owner_id and str(owner_id) != str(customer_id):
+                raise HTTPException(status_code=403, detail="Session does not belong to this user")
 
         # Create initial state
         messages = []
@@ -62,9 +94,11 @@ async def chat(
         state = create_initial_state(
             session_id=session_id,
             query=request.message,
-            customer_id=session_data.get("metadata", {}).get("customer_id") if session_data else None,
+            customer_id=customer_id,
         )
-        state["messages"] = messages
+        # The graph appends to its message list; keep the API-owned list separate
+        # so the assistant reply is persisted exactly once.
+        state["messages"] = [*messages]
 
         # Run agent
         graph = get_agent_graph()
@@ -85,41 +119,64 @@ async def chat(
 
         # Get previous metadata and insights
         metadata = session_data.get("metadata", {}) if session_data else {}
+        if customer_id:
+            metadata["customer_id"] = customer_id
+        metadata["last_active"] = datetime.now(UTC).isoformat()
         insights = metadata.get("insights", {})
-        
+
         # Merge new insights from search_criteria
         if result.get("search_criteria"):
             # Only update non-None values
             for k, v in result["search_criteria"].items():
                 if v is not None:
                     insights[k] = v
-        
+
         # Attach properties if any
         properties = result.get("selected_properties", [])
+        # Agent tools deliberately hide internal identifiers from the LLM. Enrich
+        # the final trusted API response so UI actions can open/book a property.
+        titles = [item.get("title") for item in properties if item.get("title")]
+        if titles:
+            property_rows = (await db.execute(
+                select(Property.id, Property.title).where(Property.title.in_(titles))
+            )).all()
+            ids_by_title = {title: str(property_id) for property_id, title in property_rows}
+            properties = [
+                {**item, "id": ids_by_title[item["title"]]}
+                if item.get("title") in ids_by_title else item
+                for item in properties
+            ]
 
         messages.append({
-            "role": "assistant", 
+            "role": "assistant",
             "content": response_msg,
             "properties": properties
         })
 
         # Save merged insights into metadata
         metadata["insights"] = insights
-            
-        await memory.save_session(
-            session_id=session_id,
-            messages=messages,
-            metadata=metadata,
-        )
+
+        if customer_id:
+            await save_persistent_session(db, session_id, customer_id, messages, metadata)
+        try:
+            await memory.save_session(
+                session_id=session_id,
+                messages=messages,
+                metadata=metadata,
+            )
+        except Exception as exc:
+            logger.warning("Chat cache unavailable; history remains in PostgreSQL: %s", exc)
 
         return ChatResponse(
             response=response_msg,
-            analysis=result.get("analysis", ""),
+            analysis="",
             session_id=session_id,
             properties=properties,
             insights=insights
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -142,7 +199,11 @@ async def agent_status():
 
 
 @router.get("/session/{session_id}")
-async def get_session(session_id: str):
+async def get_chat_session(
+    session_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
     """Get session data.
 
     Args:
@@ -153,9 +214,13 @@ async def get_session(session_id: str):
     """
     memory = get_short_term_memory()
     session_data = await memory.get_session(session_id)
+    if not session_data:
+        session_data = await get_persistent_session(db, session_id, str(user.id))
 
     if not session_data:
-        return {"error": "Session not found", "session_id": session_id}
+        raise HTTPException(status_code=404, detail="Session not found")
+    if str(session_data.get("metadata", {}).get("customer_id")) != str(user.id):
+        raise HTTPException(status_code=404, detail="Session not found")
 
     return {
         "session_id": session_id,
@@ -164,44 +229,25 @@ async def get_session(session_id: str):
     }
 
 @router.get("/sessions")
-async def get_all_sessions(customer_id: Optional[str] = None):
+async def get_all_sessions(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
     """Get all chat sessions.
-    
+
     Args:
         customer_id: Optional customer UUID
     """
-    # For demo purposes, if no customer_id is provided, we can either
-    # return an empty list or use a default one if implemented.
-    # for the UI to display.
-    memory = get_short_term_memory()
-    try:
-        import json
-        client = await memory._redis_memory._get_client()
-        pattern = f"{memory.SESSION_PREFIX}*"
-        sessions = []
-
-        async for key in client.scan_iter(match=pattern):
-            session_id = key.decode('utf-8').replace(memory.SESSION_PREFIX, "") if isinstance(key, bytes) else key.replace(memory.SESSION_PREFIX, "")
-            # Get basic info to show in UI
-            data = await memory.get_session(session_id)
-            if data:
-                messages = data.get("messages", [])
-                first_msg = messages[0].get("content") if messages else "New Chat"
-                last_active = data.get("metadata", {}).get("last_active", "")
-                sessions.append({
-                    "session_id": session_id,
-                    "preview": first_msg[:50] + "..." if len(first_msg) > 50 else first_msg,
-                    "message_count": len(messages),
-                    "last_active": last_active
-                })
-        return {"sessions": sessions}
-    except Exception as e:
-        return {"error": str(e), "sessions": []}
+    return {"sessions": await list_persistent_sessions(db, str(user.id))}
 
 
 
 @router.delete("/session/{session_id}")
-async def delete_session(session_id: str):
+async def delete_session(
+    session_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
     """Delete session data.
 
     Args:
@@ -211,5 +257,16 @@ async def delete_session(session_id: str):
         Deletion confirmation
     """
     memory = get_short_term_memory()
-    await memory.delete_session(session_id)
+    session_data = await memory.get_session(session_id)
+    persistent = await get_persistent_session(db, session_id, str(user.id))
+    if not persistent and (
+        not session_data
+        or str(session_data.get("metadata", {}).get("customer_id")) != str(user.id)
+    ):
+        raise HTTPException(status_code=404, detail="Session not found")
+    await delete_persistent_session(db, session_id, str(user.id))
+    try:
+        await memory.delete_session(session_id)
+    except Exception:
+        pass
     return {"success": True, "session_id": session_id}

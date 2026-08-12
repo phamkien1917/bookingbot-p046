@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin", "vietnamese"],
-});
+import AuthProvider from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Booking Bot AI - Đặt lịch xem nhà thông minh",
@@ -14,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+    <html lang="vi" className="h-full antialiased">
+      <body className="min-h-full flex flex-col font-sans"><AuthProvider>{children}</AuthProvider></body>
     </html>
   );
 }

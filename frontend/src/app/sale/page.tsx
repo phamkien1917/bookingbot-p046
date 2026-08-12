@@ -1,191 +1,120 @@
 "use client";
-import Link from "next/link";
-import { FaRobot, FaHome, FaCalendarAlt, FaBell, FaUsers, FaQuestionCircle, FaSignOutAlt, FaPlus, FaClock, FaMapMarkerAlt, FaBed, FaPhone, FaCheckCircle, FaTimesCircle, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
-const SIDEBAR_ITEMS = [
-  { icon: <FaHome />, label: "Tổng quan", active: true },
-  { icon: <FaBell />, label: "Yêu cầu mới", badge: "2" },
-  { icon: <FaCalendarAlt />, label: "Lịch của tôi" },
-  { icon: <FaUsers />, label: "Khách hàng" },
-];
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FaCalendarAlt, FaCheck, FaClock, FaHome, FaRobot, FaSignOutAlt, FaTimes } from "react-icons/fa";
+import ProtectedPage from "@/components/ProtectedPage";
+import { useAuth } from "@/components/AuthProvider";
+import { apiFetch } from "@/lib/api";
+import type { Booking } from "@/lib/types";
 
-const REQUESTS = [
-  {
-    customer: "Trần Thị B",
-    phone: "090 123 4567",
-    timer: "04:12",
-    property: "Căn hộ Vinhome Grand Park - 2PN",
-    location: "Quận 9, TP.HCM",
-    distance: "2.5 km",
-    preferred: "Yêu cầu xem: 14:30 - Hôm nay",
-  },
-  {
-    customer: "Lê Văn C",
-    phone: "098 765 4321",
-    timer: "12:45",
-    property: "Masteri Thảo Điền - 3PN",
-    location: "Quận 2, TP.HCM",
-    distance: "8.0 km",
-    preferred: "Yêu cầu xem: 09:00 - Ngày mai",
-  },
-];
+interface SaleOverview {
+  stats: { pending: number; confirmed: number };
+  pending_requests: Booking[];
+  schedule: Booking[];
+}
 
-const SCHEDULE = [
-  { time: "08:00", label: "" },
-  { time: "09:00", label: "Dẫn khách xem Vinhome Central Park", sub: "08:30 - 09:15 • Anh Hoàng", color: "bg-teal-100 border-teal-300 text-teal-800" },
-  { time: "10:00", label: "Hẹn ký hợp đồng cọc", sub: "10:00 - 11:00 • Chị Lan", color: "bg-orange-100 border-orange-300 text-orange-800" },
-  { time: "11:00", label: "" },
-  { time: "12:00", label: "" },
-  { time: "13:00", label: "" },
-  { time: "14:00", label: "Dự kiến: Lịch xem Masteri (chưa chốt)", sub: "14:00 - 14:45", color: "bg-slate-100 border-slate-300 text-slate-600" },
-  { time: "15:00", label: "" },
-];
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
 
-export default function SaleDashboard() {
+function SaleDashboardContent() {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [data, setData] = useState<SaleOverview | null>(null);
+  const [error, setError] = useState("");
+  const [workingId, setWorkingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setData(await apiFetch<SaleOverview>("/sale/overview"));
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không tải được dữ liệu");
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  async function decide(booking: Booking, accept: boolean) {
+    let reason = "";
+    if (!accept) {
+      reason = window.prompt("Lý do từ chối lịch này:", "Không thể phục vụ khung giờ đã chọn") ?? "";
+      if (!reason.trim()) return;
+    }
+    setWorkingId(booking.id);
+    try {
+      await apiFetch(`/sale/requests/${booking.id}/${accept ? "accept" : "reject"}`, {
+        method: "POST",
+        body: accept ? undefined : JSON.stringify({ reason }),
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không xử lý được yêu cầu");
+    } finally {
+      setWorkingId(null);
+    }
+  }
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/login");
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-100 flex flex-col shrink-0">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <FaRobot className="text-2xl text-teal-500" />
-            <div>
-              <p className="font-bold text-slate-800">Booking Bot</p>
-              <p className="text-xs text-teal-600 font-semibold">Sale</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">Nhân viên kinh doanh</p>
+    <div className="min-h-screen bg-slate-50 text-slate-900 lg:flex">
+      <aside className="bg-[#0b132b] p-5 text-white lg:min-h-screen lg:w-64">
+        <div className="flex items-center gap-3 border-b border-white/10 pb-5">
+          <FaRobot className="text-2xl text-teal-400" />
+          <div><p className="font-bold">Booking Bot</p><p className="text-xs text-teal-300">Cổng nhân viên Sale</p></div>
         </div>
-
-        <div className="p-4">
-          <button className="w-full bg-[#00b4d8] text-white py-3 rounded-xl text-sm font-semibold hover:bg-cyan-600 transition-colors flex items-center justify-center gap-2">
-            <FaPlus /> Tạo lịch xem mới
-          </button>
-        </div>
-
-        <nav className="flex-1 px-3 space-y-1">
-          {SIDEBAR_ITEMS.map((item, idx) => (
-            <button key={idx} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              item.active ? "bg-teal-50 text-teal-700" : "text-slate-500 hover:bg-slate-50"
-            }`}>
-              {item.icon} {item.label}
-              {item.badge && <span className="ml-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{item.badge}</span>}
-            </button>
-          ))}
+        <nav className="mt-6 space-y-2" aria-label="Điều hướng Sale">
+          <a href="#tong-quan" className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm"><FaHome /> Tổng quan</a>
+          <a href="#yeu-cau" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaClock /> Yêu cầu chờ xử lý</a>
+          <a href="#lich" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaCalendarAlt /> Lịch đã xác nhận</a>
         </nav>
+        <button onClick={() => void handleLogout()} className="mt-8 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-red-300 hover:bg-white/10"><FaSignOutAlt /> Đăng xuất</button>
+      </aside>
 
-        <div className="p-4 border-t border-slate-100 space-y-1">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50 rounded-xl"><FaQuestionCircle /> Hỗ trợ</button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl"><FaSignOutAlt /> Đăng xuất</button>
-        </div>
-      </div>
+      <main className="flex-1 p-4 sm:p-8">
+        <header id="tong-quan" className="mb-8">
+          <h1 className="text-2xl font-bold">Xin chào, {user?.full_name}</h1>
+          <p className="mt-1 text-sm text-slate-500">Các yêu cầu dưới đây là dữ liệu thực từ hệ thống.</p>
+        </header>
+        {error && <div role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+        <section className="mb-8 grid gap-4 sm:grid-cols-2" aria-label="Số liệu Sale">
+          <div className="rounded-2xl bg-white p-6 shadow-sm"><p className="text-sm text-slate-500">Đang chờ xử lý</p><p className="mt-2 text-4xl font-bold text-orange-500">{data?.stats.pending ?? "–"}</p></div>
+          <div className="rounded-2xl bg-white p-6 shadow-sm"><p className="text-sm text-slate-500">Đã xác nhận</p><p className="mt-2 text-4xl font-bold text-teal-600">{data?.stats.confirmed ?? "–"}</p></div>
+        </section>
 
-      {/* Main Content */}
-      <div className="flex-1 p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Xin chào, Nguyễn Văn A</h1>
-            <p className="text-sm text-slate-500">Hôm nay bạn có 3 yêu cầu xem nhà mới cần xử lý.</p>
+        <section id="yeu-cau" className="mb-10">
+          <h2 className="mb-4 text-lg font-bold">Yêu cầu cần phản hồi</h2>
+          {!data ? <p className="text-sm text-slate-500">Đang tải…</p> : data.pending_requests.length === 0 ? (
+            <div className="rounded-2xl bg-white p-8 text-center text-slate-500">Không có yêu cầu nào đang chờ.</div>
+          ) : <div className="grid gap-4 xl:grid-cols-2">{data.pending_requests.map((booking) => (
+            <article key={booking.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap justify-between gap-3"><div><p className="font-bold">{booking.customer?.full_name}</p><a className="text-sm text-teal-700 hover:underline" href={`tel:${booking.customer?.phone ?? ""}`}>{booking.customer?.phone || booking.customer?.email}</a></div><span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">{booking.request_code}</span></div>
+              <div className="my-4 rounded-xl bg-slate-50 p-4"><p className="font-semibold">{booking.property.title}</p><p className="mt-1 text-sm text-slate-500">{booking.property.address}</p><p className="mt-2 text-sm"><FaClock className="mr-2 inline text-teal-600" />{formatDate(booking.preferred_start)}</p></div>
+              {booking.customer_note && <p className="mb-4 text-sm text-slate-600">Ghi chú: {booking.customer_note}</p>}
+              <div className="flex gap-3"><button disabled={workingId === booking.id} onClick={() => void decide(booking, false)} className="flex-1 rounded-xl border border-red-200 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"><FaTimes className="mr-2 inline" />Từ chối</button><button disabled={workingId === booking.id} onClick={() => void decide(booking, true)} className="flex-1 rounded-xl bg-teal-600 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"><FaCheck className="mr-2 inline" />Nhận lịch</button></div>
+            </article>
+          ))}</div>}
+        </section>
+
+        <section id="lich">
+          <h2 className="mb-4 text-lg font-bold">Lịch đã xác nhận</h2>
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+            <table className="w-full min-w-[700px] text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">Thời gian</th><th className="p-4">Khách hàng</th><th className="p-4">Bất động sản</th><th className="p-4">Mã lịch</th></tr></thead><tbody className="divide-y divide-slate-100">{data?.schedule.map((booking) => <tr key={booking.id}><td className="p-4 font-medium">{formatDate(booking.appointment?.starts_at ?? booking.preferred_start)}</td><td className="p-4">{booking.customer?.full_name}<br/><a className="text-xs text-teal-700" href={`tel:${booking.customer?.phone ?? ""}`}>{booking.customer?.phone}</a></td><td className="p-4">{booking.property.title}</td><td className="p-4 font-mono">{booking.appointment?.booking_code}</td></tr>)}{data?.schedule.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-slate-500">Chưa có lịch được xác nhận.</td></tr>}</tbody></table>
           </div>
-          <button className="bg-[#0b132b] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 flex items-center gap-2">
-            <FaPlus /> Tạo lịch xem mới
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-sm text-slate-500 mb-1"><FaCalendarAlt className="text-teal-500" /> Yêu cầu mới</div>
-            <div className="flex items-baseline gap-2">
-              <p className="text-4xl font-bold text-slate-800">12</p>
-              <span className="text-xs text-orange-500 font-semibold bg-orange-50 px-2 py-0.5 rounded-full">+2 hôm nay</span>
-            </div>
-          </div>
-          <div className="bg-teal-50 border border-teal-200 rounded-2xl p-6">
-            <div className="flex items-center gap-2 text-sm text-teal-600 mb-1"><FaCheckCircle /> Lịch đã xác nhận (Tháng)</div>
-            <p className="text-4xl font-bold text-slate-800">28</p>
-          </div>
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-sm text-slate-500 mb-1"><FaClock /> Tỷ lệ nhận lịch</div>
-            <div className="flex items-baseline gap-2">
-              <p className="text-4xl font-bold text-slate-800">85%</p>
-              <span className="text-xs text-green-500 font-semibold">+5%</span>
-            </div>
-            <p className="text-xs text-slate-400">/ mục tiêu 80%</p>
-          </div>
-        </div>
-
-        <div className="flex gap-8">
-          {/* Requests */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2"><FaBell /> Yêu cầu mới</h3>
-              <span className="text-xs text-slate-400">3 chờ xử lý</span>
-            </div>
-
-            <div className="space-y-4">
-              {REQUESTS.map((req, idx) => (
-                <div key={idx} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold">{req.customer[0]}</div>
-                      <div>
-                        <p className="font-bold text-sm text-slate-800">{req.customer}</p>
-                        <p className="text-xs text-slate-400">{req.phone}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-red-500">{req.timer}</p>
-                      <p className="text-xs text-slate-400">Thời gian còn lại</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 rounded-xl p-4 mb-4">
-                    <p className="font-bold text-sm text-slate-800 mb-1 flex items-center gap-1"><FaBed className="text-teal-500" /> {req.property}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1"><FaMapMarkerAlt /> {req.location}</p>
-                    <p className="text-xs text-slate-400 mt-1">🚗 Cách bạn {req.distance}</p>
-                  </div>
-
-                  <p className="text-xs text-slate-500 mb-4 flex items-center gap-1"><FaClock className="text-teal-500" /> {req.preferred}</p>
-
-                  <div className="flex gap-2">
-                    <button className="flex-1 bg-white border border-slate-200 text-slate-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50">Từ chối</button>
-                    <button className="flex-1 bg-[#00b4d8] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-cyan-600 transition-colors">Nhận lịch</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Calendar */}
-          <div className="w-96 shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800">Lịch làm việc của tôi</h3>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <FaChevronLeft className="cursor-pointer hover:text-slate-800" />
-                <span>Hôm nay, 15 Thg 11</span>
-                <FaChevronRight className="cursor-pointer hover:text-slate-800" />
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-              {SCHEDULE.map((slot, idx) => (
-                <div key={idx} className="flex border-b border-slate-50 last:border-0">
-                  <div className="w-16 py-3 px-3 text-xs text-slate-400 text-right shrink-0 border-r border-slate-100">{slot.time}</div>
-                  <div className="flex-1 py-2 px-3 min-h-[48px]">
-                    {slot.label && (
-                      <div className={`${slot.color} border rounded-lg px-3 py-2 text-xs font-medium`}>
-                        <p className="font-semibold">{slot.label}</p>
-                        <p className="opacity-70">{slot.sub}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
+}
+
+export default function SaleDashboard() {
+  return <ProtectedPage roles={["SALE"]}><SaleDashboardContent /></ProtectedPage>;
 }

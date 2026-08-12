@@ -2,16 +2,14 @@
 
 import json
 import logging
-from typing import Any
 
-from src.agents.state import AgentState, AgentType
-from src.agents.tools.property_tools import (
-    search_properties,
-    check_property_availability,
-)
+from src.agents.state import AgentState
 from src.agents.tools.map_tools import get_property_location
-from src.services.memory import get_long_term_memory
-from src.services.redis_service import get_distributed_lock, get_property_cache
+from src.agents.tools.property_tools import (
+    check_property_availability,
+    search_properties,
+)
+from src.services.redis_service import get_distributed_lock
 
 logger = logging.getLogger(__name__)
 
@@ -109,20 +107,6 @@ async def _inventory_agent_impl(
     # Tránh state pollution từ task trước.
     updates: dict = {"current_property_id": None}
 
-    # Get customer preferences from long-term memory
-    preferred_districts = []
-    if customer_id:
-        memory = get_long_term_memory()
-        try:
-            preferences = await memory.get_preferences(customer_id)
-            # Filter for district preferences
-            preferred_districts = [
-                p["value"] for p in preferences
-                if p["key"].startswith("district_") and p["value"]
-            ]
-        except Exception as e:
-            logger.warning(f"Error getting preferences: {e}")
-
     # Search properties using tool's ainvoke (async)
     search_results = None
     try:
@@ -169,7 +153,7 @@ async def _inventory_agent_impl(
     # Generate response message
     if intent == "SEARCH_PROPERTY":
         response = "Tôi đã tìm được các bất động sản phù hợp với yêu cầu của bạn. Bạn hãy xem các gợi ý chi tiết bên dưới nhé. Bạn quan tâm căn nào? Tôi có thể giữ căn và đề xuất lịch xem cho bạn."
-        
+
         updates["response"] = response
         updates["suggested_actions"] = [
             "Chọn một căn để xem chi tiết",

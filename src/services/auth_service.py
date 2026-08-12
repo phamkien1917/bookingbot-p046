@@ -1,23 +1,30 @@
-import jwt
-import uuid
-import bcrypt
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from datetime import UTC, datetime, timedelta
 
-from src.database.models import User, CustomerProfile
-from src.schemas.auth import UserRegister
+import bcrypt
+import jwt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.config import get_settings
+from src.database.models import CustomerProfile, User
+from src.schemas.auth import UserRegister
 
 settings = get_settings()
 
-SECRET_KEY = "supersecretkey"  # In production, get from env/settings
+SECRET_KEY = settings.jwt_secret_key
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+DEMO_PASSWORD_HASH = "DEMO_ONLY_REPLACE_WITH_ARGON2ID_HASH"
+DEMO_PASSWORD = "Demo@123"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    if settings.app_env == "development" and hashed_password == DEMO_PASSWORD_HASH:
+        return plain_password == DEMO_PASSWORD
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def get_password_hash(password: str) -> str:
@@ -26,7 +33,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

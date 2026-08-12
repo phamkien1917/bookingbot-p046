@@ -2,21 +2,15 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 from uuid import UUID
 
 from langchain_core.tools import tool
 
-from src.config import get_settings
 from src.database.connection import get_session_context
 from src.database.models import (
     Appointment,
     AppointmentStatus,
     Property,
-    TourRequest,
-    TourSlotOption,
-    SlotStatus,
-    RequestStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,7 +20,7 @@ logger = logging.getLogger(__name__)
 def calculate_viewing_time(
     property_id: str,
     start_time: str,
-    buffer_minutes: Optional[int] = None,
+    buffer_minutes: int | None = None,
 ) -> str:
     """Tính toán thời gian xem nhà dự kiến.
 
@@ -41,8 +35,6 @@ def calculate_viewing_time(
         Thông tin về thời gian xem nhà
     """
     import json
-
-    settings = get_settings()
 
     async def _calculate():
         async with get_session_context() as session:
@@ -111,9 +103,9 @@ def create_booking(
     sale_user_id: str,
     starts_at: str,
     ends_at: str,
-    customer_note: Optional[str] = None,
+    customer_note: str | None = None,
     party_size: int = 1,
-    pickup_address: Optional[str] = None,
+    pickup_address: str | None = None,
 ) -> str:
     """Tạo booking/appointment mới.
 
@@ -132,8 +124,7 @@ def create_booking(
     """
     import json
     import uuid
-    from sqlalchemy import select
-    from src.database.models import Appointment, AppointmentStatus, Property, PropertyHold, HoldStatus
+
 
     async def _create():
         async with get_session_context() as session:
@@ -213,8 +204,10 @@ def propose_time_slots(
     """
     import json
     import uuid
-    from sqlalchemy import select, and_
-    from src.database.models import Appointment, SaleProfile, User
+
+    from sqlalchemy import select
+
+    from src.database.models import SaleProfile, User
 
     async def _propose():
         async with get_session_context() as session:
@@ -228,7 +221,7 @@ def propose_time_slots(
             sales_stmt = select(SaleProfile, User).join(
                 User, SaleProfile.user_id == User.id
             ).where(
-                SaleProfile.is_accepting_tours == True,
+                SaleProfile.is_accepting_tours.is_(True),
                 User.status == "ACTIVE"
             ).limit(5)
             sales_result = await session.execute(sales_stmt)
@@ -301,8 +294,10 @@ def get_booking_status(booking_id: str) -> str:
         Thông tin trạng thái booking
     """
     import json
-    from sqlalchemy import select, joinedload
-    from src.database.models import Appointment, Property, User
+
+    from sqlalchemy import joinedload, select
+
+    from src.database.models import User
 
     async def _get_status():
         async with get_session_context() as session:
@@ -375,8 +370,10 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
         Kết quả hủy booking
     """
     import json
-    from sqlalchemy import select, update
-    from src.database.models import Appointment, AppointmentStatus, PropertyHold, HoldStatus
+
+    from sqlalchemy import select
+
+    from src.database.models import HoldStatus, PropertyHold
 
     async def _cancel():
         async with get_session_context() as session:

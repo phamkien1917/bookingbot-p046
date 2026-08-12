@@ -1,57 +1,79 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import date
 from uuid import UUID
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.api.routes.auth import require_roles
 from src.database import get_session
-from src.schemas.booking import TourRequestCreate, TourRequestResponse
-from src.services.booking_service import create_tour_request, get_my_tour_requests, execute_soft_hold
-from src.api.routes.auth import get_current_user_id
+from src.database.models import User, UserRole
+from src.schemas.booking import BookingAction, TourRequestCreate
+from src.services.booking_service import (
+    cancel_customer_booking,
+    create_tour_request,
+    get_customer_booking,
+    get_my_tour_requests,
+    list_available_slots,
+    serialize_booking,
+)
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
-@router.post("", response_model=TourRequestResponse)
+@router.get("/availability")
+async def availability(
+    property_id: UUID,
+    target_date: date = Query(alias="date"),
+    _: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
+):
+    try:
+        return await list_available_slots(db, property_id, target_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("", status_code=201)
 async def create_booking(
     request_data: TourRequestCreate,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_session)
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
 ):
-    """Tạo yêu cầu đặt lịch xem nhà (Dành cho Khách hàng đã đăng nhập)."""
     try:
-        booking = await create_tour_request(db, UUID(user_id), request_data)
-        return booking
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        row = await create_tour_request(db, user.id, request_data)
+        return serialize_booking(row)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/my")
 async def get_my_bookings(
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_session)
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
 ):
-    """Lấy danh sách các lịch xem nhà của tôi."""
-    bookings = await get_my_tour_requests(db, UUID(user_id))
-    return bookings
+    return await get_my_tour_requests(db, user.id)
 
 
-@router.post("/test-hold")
-async def test_soft_hold(
-    appointment_id: UUID,
-    hold_minutes: int = 15,
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_session)
+@router.get("/{booking_id}")
+async def get_booking(
+    booking_id: UUID,
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
 ):
-    """
-    API dùng để test tính năng Giữ chỗ (Row-level Lock).
-    Mô phỏng Sale ấn duyệt lịch và kích hoạt Giữ chỗ (Soft Hold).
-    """
     try:
-        row = await execute_soft_hold(
-            db,
-            appointment_id=appointment_id,
-            approved_by_user_id=UUID(user_id),
-            hold_minutes=hold_minutes
-        )
-        return {"message": "Giữ chỗ thành công!", "hold_data": dict(row._mapping)}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return await get_customer_booking(db, booking_id, user.id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{booking_id}/cancel")
+async def cancel_booking(
+    booking_id: UUID,
+    action: BookingAction,
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
+):
+    try:
+        return await cancel_customer_booking(db, booking_id, user.id, action.reason)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

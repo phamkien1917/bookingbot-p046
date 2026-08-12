@@ -1,153 +1,59 @@
 "use client";
-import Link from "next/link";
-import { FaRobot, FaHome, FaCalendarAlt, FaBuilding, FaUsers, FaCog, FaQuestionCircle, FaSignOutAlt, FaPlus, FaChartLine, FaClock, FaExclamationTriangle, FaCheckCircle, FaSearch, FaEye } from "react-icons/fa";
 
-const SIDEBAR_ITEMS = [
-  { icon: <FaHome />, label: "Tổng quan", active: true },
-  { icon: <FaCalendarAlt />, label: "Lịch đặt chỗ" },
-  { icon: <FaBuilding />, label: "Quản lý căn hộ" },
-  { icon: <FaUsers />, label: "Khách hàng" },
-  { icon: <FaCog />, label: "Cài đặt" },
-];
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FaBuilding, FaCalendarAlt, FaRobot, FaSearch, FaSignOutAlt, FaUsers } from "react-icons/fa";
+import ProtectedPage from "@/components/ProtectedPage";
+import { useAuth } from "@/components/AuthProvider";
+import { apiFetch } from "@/lib/api";
+import type { Booking, User, UserRole } from "@/lib/types";
 
-const RECENT_BOOKINGS = [
-  { id: "#BK-9284", customer: "Nguyễn Văn A", phone: "0901234567", property: "Apothecary 3BR - Tầng 12", sale: "Trần Thị B", status: "Mới tạo" },
-  { id: "#BK-9283", customer: "Lê Hoàng C", phone: "0987654321", property: "Botanica 2BR - Tầng 05", sale: "Chưa gán", status: "Đã xác nhận" },
-  { id: "#BK-9281", customer: "Phạm Thị D", phone: "", property: "Zen Studio - Tầng 22", sale: "Lê Văn H", status: "Hết hạn giữ" },
-];
+interface AdminOverview { stats: { users: number; properties: number; bookings: number; pending: number }; recent_bookings: Booking[] }
 
-export default function AdminDashboard() {
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-100 flex flex-col shrink-0">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <FaRobot className="text-2xl text-teal-500" />
-            <div>
-              <p className="font-bold text-slate-800">Booking Bot</p>
-              <p className="text-xs text-slate-400">Admin</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">Quản trị hệ thống</p>
-        </div>
+const statusLabel: Record<string, string> = { WAITING_APPROVAL: "Chờ Sale", BOOKED: "Đã xác nhận", CANCELLED: "Đã hủy", REJECTED: "Bị từ chối", EXPIRED: "Hết hạn" };
 
-        <div className="p-4">
-          <button className="w-full bg-[#00b4d8] text-white py-3 rounded-xl text-sm font-semibold hover:bg-cyan-600 transition-colors flex items-center justify-center gap-2">
-            <FaPlus /> Tạo lịch xem mới
-          </button>
-        </div>
+function AdminDashboardContent() {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [query, setQuery] = useState("");
+  const [role, setRole] = useState<UserRole | "">("");
+  const [error, setError] = useState("");
 
-        <nav className="flex-1 px-3 space-y-1">
-          {SIDEBAR_ITEMS.map((item, idx) => (
-            <button key={idx} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              item.active ? "bg-teal-50 text-teal-700" : "text-slate-500 hover:bg-slate-50"
-            }`}>
-              {item.icon} {item.label}
-            </button>
-          ))}
-        </nav>
+  const load = useCallback(async () => {
+    try {
+      const overviewData = await apiFetch<AdminOverview>("/admin/overview");
+      setOverview(overviewData);
+      if (user?.role === "ADMIN") setUsers(await apiFetch<User[]>(`/admin/users${role ? `?role=${role}` : ""}`));
+      setError("");
+    } catch (err) { setError(err instanceof Error ? err.message : "Không tải được dữ liệu"); }
+  }, [role, user]);
 
-        <div className="p-4 border-t border-slate-100 space-y-1">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50 rounded-xl"><FaQuestionCircle /> Hỗ trợ</button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 rounded-xl"><FaSignOutAlt /> Đăng xuất</button>
-        </div>
-      </div>
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
-      {/* Main Content */}
-      <div className="flex-1 p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">Dashboard Quản trị</h1>
-            <p className="text-sm text-slate-500">Tổng quan hiệu suất hoạt động hệ thống hôm nay.</p>
-          </div>
-          <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
-            <input type="text" placeholder="Tìm kiếm nhanh..." className="pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm w-64 outline-none focus:ring-2 focus:ring-teal-400/50" />
-          </div>
-        </div>
+  const visibleUsers = useMemo(() => users.filter((item) => `${item.full_name} ${item.email} ${item.phone ?? ""}`.toLowerCase().includes(query.toLowerCase())), [users, query]);
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-6 mb-8">
-          {[
-            { label: "Tổng booking (Tháng)", value: "1,248", change: "+12.5% so với tháng trước", color: "text-green-600", icon: <FaCalendarAlt className="text-teal-500" /> },
-            { label: "Booking chờ xử lý", value: "45", change: "Cần xác nhận trong 2h tới", color: "text-orange-600", icon: <FaClock className="text-orange-500" /> },
-            { label: "Tỷ lệ hết hạn giữ căn", value: "8.2%", change: "-2.1% so với tuần trước", color: "text-red-600", icon: <FaExclamationTriangle className="text-red-500" /> },
-            { label: "Hiệu suất Sale", value: "85%", change: "Tỷ lệ chốt deal trung bình", color: "text-teal-600", icon: <FaChartLine className="text-teal-500" /> },
-          ].map((stat, idx) => (
-            <div key={idx} className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-slate-500">{stat.label}</p>
-                <span className="text-2xl">{stat.icon}</span>
-              </div>
-              <p className="text-3xl font-bold text-slate-800 mb-1">{stat.value}</p>
-              <p className={`text-xs ${stat.color}`}>{stat.change}</p>
-            </div>
-          ))}
-        </div>
+  async function changeStatus(target: User) {
+    const next = target.status === "ACTIVE" ? "LOCKED" : "ACTIVE";
+    if (!window.confirm(`${next === "LOCKED" ? "Khóa" : "Mở khóa"} tài khoản ${target.full_name}?`)) return;
+    try { await apiFetch(`/admin/users/${target.id}/status`, { method: "PATCH", body: JSON.stringify({ status: next }) }); await load(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Không cập nhật được tài khoản"); }
+  }
 
-        {/* Charts Placeholder */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
-          <div className="col-span-2 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800">Số lượng booking theo ngày</h3>
-              <select className="text-sm border border-slate-200 rounded-lg px-3 py-1.5"><option>7 ngày qua</option></select>
-            </div>
-            <div className="h-48 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
-              [Placeholder Biểu đồ Đường - Số lượng Booking]
-            </div>
-          </div>
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4">Tỷ lệ Trạng thái</h3>
-            <div className="h-32 flex items-center justify-center text-slate-400 mb-4">
-              [Biểu đồ Tròn]
-            </div>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center gap-2"><span className="w-3 h-3 bg-teal-500 rounded-full"></span> Mới / Chờ xử lý <span className="ml-auto font-bold">45%</span></div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 bg-green-500 rounded-full"></span> Đã xác nhận <span className="ml-auto font-bold">35%</span></div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 bg-red-400 rounded-full"></span> Hủy / Hết hạn <span className="ml-auto font-bold">20%</span></div>
-            </div>
-          </div>
-        </div>
+  async function handleLogout() { await logout(); router.replace("/login"); }
 
-        {/* Recent Bookings Table */}
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">Quản lý Booking Gần Đây</h3>
-          </div>
-          <table className="w-full">
-            <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wider">
-              <tr>
-                <th className="text-left px-6 py-3">ID</th>
-                <th className="text-left px-6 py-3">Khách hàng</th>
-                <th className="text-left px-6 py-3">Căn hộ</th>
-                <th className="text-left px-6 py-3">Sale phụ trách</th>
-                <th className="text-left px-6 py-3">Trạng thái</th>
-                <th className="text-left px-6 py-3">Hành động</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {RECENT_BOOKINGS.map((b, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 text-sm font-mono font-bold text-slate-800">{b.id}</td>
-                  <td className="px-6 py-4 text-sm"><p className="font-semibold">{b.customer}</p><p className="text-xs text-slate-400">{b.phone}</p></td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{b.property}</td>
-                  <td className="px-6 py-4 text-sm">{b.sale !== "Chưa gán" ? <span className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-pink-100"></span>{b.sale}</span> : <span className="text-slate-400">{b.sale}</span>}</td>
-                  <td className="px-6 py-4"><span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    b.status === "Mới tạo" ? "bg-blue-100 text-blue-700" : b.status === "Đã xác nhận" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                  }`}>{b.status}</span></td>
-                  <td className="px-6 py-4">
-                    <button className="text-xs bg-[#0b132b] text-white px-4 py-1.5 rounded-lg font-semibold hover:bg-slate-800">
-                      {b.status === "Mới tạo" ? <><FaEye className="inline mr-1" />Xem</> : b.status === "Đã xác nhận" ? "Gán AI" : "Gán AI"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="px-6 py-3 text-xs text-slate-400 border-t border-slate-100">Hiển thị 1-10 trong số 138 kết quả</div>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-slate-50 text-slate-900 lg:flex">
+    <aside className="bg-[#0b132b] p-5 text-white lg:min-h-screen lg:w-64"><div className="flex items-center gap-3 border-b border-white/10 pb-5"><FaRobot className="text-2xl text-teal-400"/><div><p className="font-bold">Booking Bot</p><p className="text-xs text-teal-300">Quản trị hệ thống</p></div></div><nav className="mt-6 space-y-2" aria-label="Điều hướng quản trị"><a href="#tong-quan" className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm"><FaCalendarAlt/> Tổng quan</a><a href="#bookings" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaBuilding/> Booking</a>{user?.role === "ADMIN" && <a href="#users" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaUsers/> Người dùng</a>}</nav><button onClick={() => void handleLogout()} className="mt-8 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-red-300 hover:bg-white/10"><FaSignOutAlt/> Đăng xuất</button></aside>
+    <main className="min-w-0 flex-1 p-4 sm:p-8"><header id="tong-quan" className="mb-8"><h1 className="text-2xl font-bold">Dashboard quản trị</h1><p className="mt-1 text-sm text-slate-500">Xin chào {user?.full_name}. Dữ liệu được cập nhật trực tiếp từ hệ thống.</p></header>{error && <div role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+      <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[{label:"Người dùng",value:overview?.stats.users,icon:<FaUsers/>},{label:"Bất động sản",value:overview?.stats.properties,icon:<FaBuilding/>},{label:"Tổng booking",value:overview?.stats.bookings,icon:<FaCalendarAlt/>},{label:"Đang chờ",value:overview?.stats.pending,icon:<FaCalendarAlt/>}].map((stat)=><div key={stat.label} className="rounded-2xl bg-white p-6 shadow-sm"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><span className="text-teal-600">{stat.icon}</span></div><p className="mt-2 text-3xl font-bold">{stat.value ?? "–"}</p></div>)}</section>
+      <section id="bookings" className="mb-10"><h2 className="mb-4 text-lg font-bold">Booking gần đây</h2><div className="overflow-x-auto rounded-2xl bg-white shadow-sm"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">Mã yêu cầu</th><th className="p-4">Khách hàng</th><th className="p-4">Bất động sản</th><th className="p-4">Sale</th><th className="p-4">Trạng thái</th></tr></thead><tbody className="divide-y divide-slate-100">{overview?.recent_bookings.map((booking)=><tr key={booking.id}><td className="p-4 font-mono">{booking.request_code}</td><td className="p-4">{booking.customer?.full_name}<br/><span className="text-xs text-slate-400">{booking.customer?.phone ?? booking.customer?.email}</span></td><td className="p-4">{booking.property.title}</td><td className="p-4">{booking.sale?.full_name ?? "Chưa gán"}</td><td className="p-4"><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{statusLabel[booking.status] ?? booking.status}</span></td></tr>)}{overview?.recent_bookings.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-500">Chưa có booking.</td></tr>}</tbody></table></div></section>
+      {user?.role === "ADMIN" && <section id="users"><div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><h2 className="text-lg font-bold">Quản lý người dùng</h2><div className="flex gap-2"><label className="relative"><span className="sr-only">Tìm người dùng</span><FaSearch className="absolute left-3 top-3 text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} className="rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm" placeholder="Tên, email, SĐT"/></label><select aria-label="Lọc vai trò" value={role} onChange={(e)=>setRole(e.target.value as UserRole | "")} className="rounded-xl border border-slate-200 px-3 text-sm"><option value="">Tất cả vai trò</option><option value="CUSTOMER">Khách hàng</option><option value="SALE">Sale</option><option value="COORDINATOR">Điều phối</option><option value="ADMIN">Admin</option></select></div></div><div className="overflow-x-auto rounded-2xl bg-white shadow-sm"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">Người dùng</th><th className="p-4">Vai trò</th><th className="p-4">Điện thoại</th><th className="p-4">Trạng thái</th><th className="p-4">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-100">{visibleUsers.map((item)=><tr key={item.id}><td className="p-4 font-medium">{item.full_name}<br/><span className="font-normal text-slate-400">{item.email}</span></td><td className="p-4">{item.role}</td><td className="p-4">{item.phone || "–"}</td><td className="p-4">{item.status}</td><td className="p-4"><button disabled={item.id===user.id || item.status==="DISABLED"} onClick={()=>void changeStatus(item)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">{item.status==="ACTIVE" ? "Khóa" : "Mở khóa"}</button></td></tr>)}</tbody></table></div></section>}
+    </main>
+  </div>;
 }
+
+export default function AdminDashboard() { return <ProtectedPage roles={["ADMIN", "COORDINATOR"]}><AdminDashboardContent/></ProtectedPage>; }

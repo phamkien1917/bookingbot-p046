@@ -1,74 +1,59 @@
 "use client";
+
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { FaCheckCircle, FaCalendarPlus, FaMapMarkedAlt, FaHome, FaPhone, FaComment, FaStar } from "react-icons/fa";
+import { useSearchParams } from "next/navigation";
+import { FaCalendarPlus, FaCheckCircle, FaHome, FaMapMarkedAlt, FaPhone, FaSpinner } from "react-icons/fa";
+import ProtectedPage from "@/components/ProtectedPage";
+import { apiFetch } from "@/lib/api";
+import type { Booking } from "@/lib/types";
+
+const CUSTOMER_ROLES = ["CUSTOMER"] as const;
+
+function googleCalendarUrl(booking: Booking) {
+  const compact = (value: string) => new Date(value).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const query = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `Xem nhà - ${booking.property.title}`,
+    dates: `${compact(booking.preferred_start)}/${compact(booking.preferred_end)}`,
+    details: `Mã booking: ${booking.appointment?.booking_code ?? booking.request_code}`,
+    location: booking.property.address,
+  });
+  return `https://calendar.google.com/calendar/render?${query.toString()}`;
+}
+
+function ConfirmationContent() {
+  const bookingId = useSearchParams().get("booking_id");
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!bookingId) return;
+    let active = true;
+    apiFetch<Booking>(`/bookings/${bookingId}`).then((data) => { if (active) setBooking(data); }).catch((reason: unknown) => { if (active) setError(reason instanceof Error ? reason.message : "Không tải được booking"); });
+    return () => { active = false; };
+  }, [bookingId]);
+
+  return (
+    <ProtectedPage roles={[...CUSTOMER_ROLES]}>
+      <main className="min-h-screen bg-gradient-to-b from-green-50 to-white px-4 py-14">
+        {!bookingId ? <div className="text-center">Thiếu mã booking. <Link href="/my-bookings" className="text-teal-700">Xem lịch của tôi</Link></div> : error ? <div className="max-w-lg mx-auto bg-red-50 text-red-600 p-5 rounded-xl">{error}</div> : !booking ? <div className="grid place-items-center py-24"><FaSpinner className="animate-spin text-3xl text-teal-500" /></div> : booking.status !== "BOOKED" || !booking.appointment ? <div className="max-w-lg mx-auto text-center"><h1 className="text-2xl font-bold">Booking chưa được xác nhận</h1><p className="text-slate-500 mt-2 mb-6">Trạng thái hiện tại: {booking.status}</p><Link href={`/booking/hold?booking_id=${booking.id}`} className="bg-slate-900 text-white px-6 py-3 rounded-xl">Theo dõi yêu cầu</Link></div> : (
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="w-20 h-20 bg-green-100 rounded-full grid place-items-center mx-auto mb-6"><FaCheckCircle className="text-green-500 text-4xl" /></div>
+            <h1 className="text-3xl font-bold text-slate-800">Lịch xem nhà đã được xác nhận</h1>
+            <p className="text-slate-500 mt-3 mb-9">Sale đã nhận lịch. Thông tin dưới đây được lấy trực tiếp từ booking trong hệ thống.</p>
+            <div className="grid md:grid-cols-2 gap-6 text-left">
+              <section className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm"><h2 className="font-bold text-lg mb-5">Chi tiết lịch hẹn</h2><dl className="space-y-3 text-sm"><div><dt className="text-slate-500">Mã booking</dt><dd className="font-bold">{booking.appointment.booking_code}</dd></div><div><dt className="text-slate-500">Bất động sản</dt><dd className="font-bold">{booking.property.title}</dd></div><div><dt className="text-slate-500">Thời gian</dt><dd className="font-bold">{new Date(booking.appointment.starts_at).toLocaleString("vi-VN")}</dd></div><div><dt className="text-slate-500">Địa chỉ</dt><dd className="font-bold">{booking.property.address}</dd></div></dl></section>
+              <section className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm"><h2 className="font-bold text-lg mb-5">Nhân viên tư vấn</h2><div className="w-14 h-14 rounded-full bg-teal-100 grid place-items-center text-teal-700 font-bold text-xl mb-4">{booking.sale?.full_name.charAt(0) ?? "S"}</div><p className="font-bold text-slate-800">{booking.sale?.full_name}</p><p className="text-sm text-slate-500">{booking.sale?.job_title ?? "Chuyên viên tư vấn"}</p>{booking.sale?.phone && <a href={`tel:${booking.sale.phone}`} className="mt-6 w-full border border-slate-200 py-3 rounded-xl flex justify-center items-center gap-2 hover:bg-slate-50"><FaPhone className="text-teal-500" /> Gọi {booking.sale.phone}</a>}</section>
+            </div>
+            <div className="flex flex-wrap gap-3 justify-center mt-9"><a href={googleCalendarUrl(booking)} target="_blank" rel="noreferrer" className="bg-slate-900 text-white px-6 py-3 rounded-full flex items-center gap-2"><FaCalendarPlus /> Thêm vào Google Calendar</a><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.property.address)}`} target="_blank" rel="noreferrer" className="bg-teal-500 text-white px-6 py-3 rounded-full flex items-center gap-2"><FaMapMarkedAlt /> Xem chỉ đường</a><Link href="/my-bookings" className="bg-white border border-slate-200 px-6 py-3 rounded-full flex items-center gap-2"><FaHome /> Lịch của tôi</Link></div>
+          </div>
+        )}
+      </main>
+    </ProtectedPage>
+  );
+}
 
 export default function ConfirmationPage() {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white font-sans text-slate-900 flex flex-col items-center justify-center px-4 py-16">
-      {/* Success Icon */}
-      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-8">
-        <FaCheckCircle className="text-green-500 text-4xl" />
-      </div>
-
-      <h1 className="text-3xl font-bold text-slate-800 mb-3 text-center">Lịch xem nhà đã được xác nhận</h1>
-      <p className="text-slate-500 text-center max-w-lg mb-12">Cảm ơn bạn đã đặt lịch. Chúng tôi đã gửi email xác nhận chi tiết đến địa chỉ của bạn.</p>
-
-      <div className="flex flex-col md:flex-row gap-6 max-w-3xl w-full mb-12">
-        {/* Booking Details */}
-        <div className="flex-1 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-slate-800 text-lg mb-5 flex items-center gap-2">
-            <FaCalendarPlus className="text-teal-500" /> Chi tiết lịch hẹn
-          </h3>
-          <div className="flex items-start gap-4 mb-4">
-            <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=80&q=80" alt="Property" className="w-14 h-14 rounded-xl object-cover" />
-            <div>
-              <span className="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold">#BBA-8924</span>
-            </div>
-          </div>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">Mã đặt lịch:</span><span className="font-bold">#BBA-8924</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Căn hộ:</span><span className="font-bold">The Metropole Thủ Thiêm<br/>Căn 2PN - Tòa Galleria</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Thời gian:</span><span className="font-bold">14:30 - 15:30<br/>Thứ Sáu, 15/11/2024</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Địa chỉ:</span><span className="font-bold">Khu đô thị mới Thủ Thiêm,<br/>Thành phố Thủ Đức, TP.HCM</span></div>
-          </div>
-        </div>
-
-        {/* Agent Info */}
-        <div className="flex-1 bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-slate-800 text-lg mb-5 flex items-center gap-2">
-            <span className="text-teal-500">👤</span> Nhân viên tư vấn
-          </h3>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-14 h-14 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-xl">N</div>
-            <div>
-              <p className="font-bold text-slate-800">Nguyễn Trần Quang Hải</p>
-              <p className="text-xs text-slate-500">Chuyên viên tư vấn cao cấp</p>
-              <p className="text-xs text-yellow-500 flex items-center gap-1 mt-1"><FaStar /> 4.9 (128 đánh giá)</p>
-            </div>
-          </div>
-          <div className="flex gap-3 mt-6">
-            <button className="flex-1 bg-white border border-slate-200 text-slate-700 py-3 rounded-xl text-sm font-semibold hover:bg-slate-50 flex items-center justify-center gap-2">
-              <FaPhone className="text-teal-500" /> Gọi điện
-            </button>
-            <button className="flex-1 bg-white border border-slate-200 text-slate-700 py-3 rounded-xl text-sm font-semibold hover:bg-slate-50 flex items-center justify-center gap-2">
-              <FaComment className="text-teal-500" /> Nhắn tin
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-4 justify-center">
-        <button className="bg-[#0b132b] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 hover:bg-slate-800 transition-colors">
-          <FaCalendarPlus /> Thêm vào lịch
-        </button>
-        <button className="bg-teal-500 text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 hover:bg-teal-600 transition-colors">
-          <FaMapMarkedAlt /> Xem chỉ đường
-        </button>
-        <Link href="/" className="bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-full font-semibold flex items-center gap-2 hover:bg-slate-50 transition-colors">
-          <FaHome /> Về trang chủ
-        </Link>
-      </div>
-    </div>
-  );
+  return <Suspense fallback={<div className="min-h-screen grid place-items-center"><FaSpinner className="animate-spin text-3xl text-teal-500" /></div>}><ConfirmationContent /></Suspense>;
 }

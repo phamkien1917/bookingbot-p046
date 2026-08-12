@@ -5,7 +5,6 @@ Hỗ trợ cả FAQ tĩnh và search động từ database.
 """
 
 import logging
-from typing import Optional
 
 from src.database.models import Property
 
@@ -97,7 +96,7 @@ Tôi có thể giúp bạn tìm căn hộ phù hợp với ngân sách của b�
 }
 
 
-def search_knowledge(query: str) -> Optional[dict]:
+def search_knowledge(query: str) -> dict | None:
     """Search trong knowledge base.
 
     Args:
@@ -124,7 +123,7 @@ def search_knowledge(query: str) -> Optional[dict]:
 
 # ============== Dynamic Property Search ==============
 
-async def search_property_by_name(name_query: str) -> Optional[dict]:
+async def search_property_by_name(name_query: str) -> dict | None:
     """Tìm kiếm bất động sản theo tên dự án.
 
     Args:
@@ -133,11 +132,9 @@ async def search_property_by_name(name_query: str) -> Optional[dict]:
     Returns:
         Thông tin dự án hoặc None
     """
-    from src.database.connection import get_session_context
-    from src.database.models import Property
-    from sqlalchemy import select, or_
+    from sqlalchemy import or_, select
 
-    name_lower = name_query.lower()
+    from src.database.connection import get_session_context
 
     try:
         async with get_session_context() as session:
@@ -173,7 +170,7 @@ async def search_property_by_name(name_query: str) -> Optional[dict]:
     return None
 
 
-async def get_answer(query: str) -> Optional[str]:
+async def get_answer(query: str) -> str | None:
     """Lấy câu trả lời cho câu hỏi.
 
     Thứ tự ưu tiên:
@@ -197,7 +194,7 @@ async def get_answer(query: str) -> Optional[str]:
     # Trích xuất phần text trong ngoặc kép (nếu có) để tìm kiếm chính xác tên
     match = re.search(r'["\'](.*?)["\']', query)
     search_term = match.group(1) if match else query
-    
+
     db_result = await search_property_by_name(search_term)
     if db_result and db_result["found"]:
         data = db_result["data"]

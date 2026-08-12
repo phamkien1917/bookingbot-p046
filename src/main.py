@@ -10,9 +10,9 @@ from fastapi.responses import HTMLResponse
 
 from src.api.routes import router
 from src.config import get_settings
-from src.database.connection import create_tables, close_engine
-from src.services.scheduler import start_scheduler, stop_scheduler
+from src.database.connection import close_engine, create_tables
 from src.services.memory import close_redis
+from src.services.scheduler import start_scheduler, stop_scheduler
 
 # Configure logging
 logging.basicConfig(

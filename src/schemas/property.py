@@ -1,14 +1,16 @@
-from typing import List, Optional, Any
-from uuid import UUID
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
+
 
 class PropertyMediaSchema(BaseModel):
     id: UUID
     media_type: str
     url: str
-    source: Optional[str] = None
-    caption: Optional[str] = None
+    source: str | None = None
+    caption: str | None = None
     sort_order: int
     is_cover: bool
 
@@ -19,27 +21,27 @@ class PropertySchema(BaseModel):
     code: str
     property_kind: str
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     status: str
-    address_line: Optional[str] = None
-    ward: Optional[str] = None
-    district: Optional[str] = None
-    province: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    address_line: str | None = None
+    ward: str | None = None
+    district: str | None = None
+    province: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     area_sqm: float
-    usable_area_sqm: Optional[float] = None
-    bedrooms: Optional[int] = None
-    bathrooms: Optional[int] = None
-    list_price: Optional[float] = None
+    usable_area_sqm: float | None = None
+    bedrooms: int | None = None
+    bathrooms: int | None = None
+    list_price: float | None = None
     currency: str
     features: Any
-    published_at: Optional[datetime] = None
+    published_at: datetime | None = None
 
-    media: List[PropertyMediaSchema] = []
+    media: list[PropertyMediaSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
 
 class PropertyListResponse(BaseModel):
-    items: List[PropertySchema]
+    items: list[PropertySchema]
     total: int

@@ -5,10 +5,10 @@ This agent classifies user intent and routes to appropriate sub-agents.
 
 import json
 import logging
-from typing import Any, Optional
+import re
 
 from src.agents.state import AgentState, AgentType, Intent
-from src.services.llm import get_llm, get_system_prompt
+from src.services.llm import get_llm
 from src.services.memory import get_intent_cache
 
 logger = logging.getLogger(__name__)
@@ -75,8 +75,6 @@ Phân loại tin nhắn sau và trả về JSON:"""
 # Xử lý intent đơn giản bằng pattern matching, KHÔNG qua LLM
 # Giảm thời gian phản hồi từ 10-20s xuống <100ms
 
-import re
-
 _FAST_INTENT_PATTERNS = {
     Intent.GREETING: [
         r"^(xin\s+chào|chào|hello|hi|hey|chào\s+bạn)\s*[.!]*$",
@@ -128,7 +126,7 @@ _FAST_INTENT_RESPONSES = {
 }
 
 
-def _fast_classify_intent(message: str) -> Optional[dict]:
+def _fast_classify_intent(message: str) -> dict | None:
     """Fast intent classification bằng pattern matching.
 
     Args:
@@ -156,7 +154,7 @@ def _fast_classify_intent(message: str) -> Optional[dict]:
 
 async def classify_intent(
     messages: list[dict],
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
 ) -> dict:
     """Classify user intent from messages.
 
@@ -211,7 +209,8 @@ async def classify_intent(
     prompt = f"{INTENT_CLASSIFICATION_PROMPT}\n\nTin nhắn gần nhất:\n{conversation}"
 
     from langchain_core.messages import HumanMessage
-    from src.services.llm import get_llm, reset_llm
+
+    from src.services.llm import reset_llm
 
     last_error = None
     tried_models = []
@@ -264,7 +263,7 @@ async def classify_intent(
                 continue
 
     # Tất cả đều thất bại - dùng fast classification làm fallback
-    logger.warning(f"All LLM attempts failed, using fast classification fallback")
+    logger.warning("All LLM attempts failed, using fast classification fallback")
     fast_result = _fast_classify_intent(last_user_msg) if last_user_msg else None
     if fast_result:
         if session_id and msg_hash:
@@ -292,9 +291,6 @@ async def supervisor_node(state: AgentState) -> dict:
     Returns:
         Updated state with routing information
     """
-    import time
-    start_time = time.time()
-
     messages = state.get("messages", [])
     current_agent = state.get("current_agent", AgentType.SUPERVISOR)
     session_id = state.get("session_id")

@@ -1,19 +1,17 @@
 """Assignment and sale agent tools for the agent."""
 
 import logging
-from typing import Optional
+from datetime import datetime
 from uuid import UUID
 
 from langchain_core.tools import tool
 
-from src.config import get_settings
 from src.database.connection import get_session_context
 from src.database.models import (
     Appointment,
+    Property,
     SaleProfile,
     User,
-    Property,
-    PropertySaleAssignment,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,7 +20,7 @@ logger = logging.getLogger(__name__)
 @tool
 def calculate_assignment_score(
     booking_id: str,
-    sale_id: Optional[str] = None,
+    sale_id: str | None = None,
 ) -> str:
     """Tính điểm phân công sale cho một booking.
 
@@ -41,8 +39,9 @@ def calculate_assignment_score(
         Điểm số và chi tiết breakdown
     """
     import json
-    from sqlalchemy import select, func
-    from datetime import datetime, timedelta
+    from datetime import datetime
+
+    from sqlalchemy import func, select
 
     async def _calculate():
         async with get_session_context() as session:
@@ -67,7 +66,7 @@ def calculate_assignment_score(
                     .join(User, SaleProfile.user_id == User.id)
                     .where(
                         SaleProfile.user_id == UUID(sale_id),
-                        SaleProfile.is_accepting_tours == True,
+                        SaleProfile.is_accepting_tours.is_(True),
                         User.status == "ACTIVE",
                     )
                 )
@@ -76,7 +75,7 @@ def calculate_assignment_score(
                     select(SaleProfile, User)
                     .join(User, SaleProfile.user_id == User.id)
                     .where(
-                        SaleProfile.is_accepting_tours == True,
+                        SaleProfile.is_accepting_tours.is_(True),
                         User.status == "ACTIVE",
                     )
                 )
@@ -163,7 +162,7 @@ def calculate_assignment_score(
 @tool
 def assign_sale_to_booking(
     booking_id: str,
-    sale_id: Optional[str] = None,
+    sale_id: str | None = None,
     force_assign: bool = False,
 ) -> str:
     """Phân công sale cho một booking.
@@ -179,10 +178,13 @@ def assign_sale_to_booking(
         Kết quả phân công
     """
     import json
-    from sqlalchemy import select, update
-    from src.database.models import Appointment, AppointmentStatus
+
+    from sqlalchemy import select
+
+    from src.database.models import Appointment
 
     async def _assign():
+        selected_sale_id = sale_id
         async with get_session_context() as session:
             # Get booking
             apt_stmt = select(Appointment).where(Appointment.id == UUID(booking_id))
@@ -192,16 +194,17 @@ def assign_sale_to_booking(
             if not apt:
                 return {"error": "Booking not found"}
 
-            if not sale_id:
+            if not selected_sale_id:
                 # Get best sale using score calculation
                 # For now, just pick first available
                 from sqlalchemy import select as sel
+
                 from src.database.models import SaleProfile, User
                 best_stmt = (
                     sel(SaleProfile, User)
                     .join(User, SaleProfile.user_id == User.id)
                     .where(
-                        SaleProfile.is_accepting_tours == True,
+                        SaleProfile.is_accepting_tours.is_(True),
                         User.status == "ACTIVE",
                     )
                     .limit(1)
@@ -210,11 +213,11 @@ def assign_sale_to_booking(
                 best = best_result.first()
                 if not best:
                     return {"error": "No sale available"}
-                sale_id = str(best[0].user_id)
+                selected_sale_id = str(best[0].user_id)
                 sale_name = best[1].full_name
             else:
                 # Validate sale exists
-                sale_stmt = select(User).where(User.id == UUID(sale_id))
+                sale_stmt = select(User).where(User.id == UUID(selected_sale_id))
                 sale_result = await session.execute(sale_stmt)
                 sale_user = sale_result.scalar_one_or_none()
                 if not sale_user:
@@ -222,13 +225,13 @@ def assign_sale_to_booking(
                 sale_name = sale_user.full_name
 
             # Update booking
-            apt.sale_user_id = UUID(sale_id)
+            apt.sale_user_id = UUID(selected_sale_id)
             await session.flush()
 
             return {
                 "success": True,
                 "booking_id": booking_id,
-                "sale_id": sale_id,
+                "sale_id": selected_sale_id,
                 "sale_name": sale_name,
                 "assigned_at": datetime.utcnow().isoformat(),
             }
@@ -250,8 +253,8 @@ def assign_sale_to_booking(
 
 @tool
 def get_available_sales(
-    district: Optional[str] = None,
-    property_id: Optional[str] = None,
+    district: str | None = None,
+    property_id: str | None = None,
     limit: int = 5,
 ) -> str:
     """Lấy danh sách sale đang online và nhận booking.
@@ -265,6 +268,7 @@ def get_available_sales(
         Danh sách sale có sẵn
     """
     import json
+
     from sqlalchemy import select
 
     async def _get():
@@ -273,7 +277,7 @@ def get_available_sales(
                 select(SaleProfile, User)
                 .join(User, SaleProfile.user_id == User.id)
                 .where(
-                    SaleProfile.is_accepting_tours == True,
+                    SaleProfile.is_accepting_tours.is_(True),
                     User.status == "ACTIVE",
                 )
                 .limit(limit)
@@ -328,8 +332,9 @@ def check_sale_availability(sale_id: str, check_time: str) -> str:
         Thông tin về tình trạng của sale
     """
     import json
-    from sqlalchemy import select, and_
     from datetime import datetime
+
+    from sqlalchemy import and_, select
 
     async def _check():
         async with get_session_context() as session:

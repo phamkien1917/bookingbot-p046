@@ -18,7 +18,13 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     app_host: str = "0.0.0.0"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    # Support either local hostname without creating two separate cookie sessions.
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+
+    # Authentication
+    jwt_secret_key: str = "change-this-development-secret"
+    access_token_expire_minutes: int = Field(default=10080, ge=5)
+    auth_cookie_name: str = "bookingbot_session"
 
     # OpenRouter LLM
     openrouter_api_key: str = ""

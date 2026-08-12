@@ -1,6 +1,6 @@
 """Pydantic schemas for API requests and responses."""
 
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -13,7 +13,7 @@ class ChatRequest(BaseModel):
         max_length=5000,
         description="Tin nhắn từ user"
     )
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         default=None,
         description="Session ID for conversation continuity"
     )
@@ -24,9 +24,9 @@ class ChatResponse(BaseModel):
 
     response: str = Field(..., description="Phản hồi từ agent")
     analysis: str = Field(default="", description="Phân tích nội bộ")
-    session_id: Optional[str] = Field(default=None, description="Session ID")
-    properties: Optional[list] = Field(default_factory=list, description="Danh sách bất động sản gợi ý")
-    insights: Optional[dict] = Field(default_factory=dict, description="Thông tin AI thu thập được từ người dùng")
+    session_id: str | None = Field(default=None, description="Session ID")
+    properties: list | None = Field(default_factory=list, description="Danh sách bất động sản gợi ý")
+    insights: dict | None = Field(default_factory=dict, description="Thông tin AI thu thập được từ người dùng")
 
 
 class HITLDecision(BaseModel):
@@ -43,21 +43,21 @@ class BookingStatusResponse(BaseModel):
     booking_id: str
     booking_code: str
     status: str
-    starts_at: Optional[str]
-    ends_at: Optional[str]
-    property: Optional[dict]
-    sale: Optional[dict]
+    starts_at: str | None
+    ends_at: str | None
+    property: dict | None
+    sale: dict | None
 
 
 class PropertySearchRequest(BaseModel):
     """Request schema for property search."""
 
-    district: Optional[str] = None
-    province: Optional[str] = None
-    property_kind: Optional[str] = None
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
-    min_bedrooms: Optional[int] = None
+    district: str | None = None
+    province: str | None = None
+    property_kind: str | None = None
+    min_price: float | None = None
+    max_price: float | None = None
+    min_bedrooms: int | None = None
     limit: int = Field(default=10, ge=1, le=50)
 
 

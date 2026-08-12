@@ -1,97 +1,99 @@
 "use client";
-import { useState } from "react";
+
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FaArrowLeft, FaRobot, FaClock, FaArrowRight } from "react-icons/fa";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FaArrowLeft, FaArrowRight, FaClock, FaSpinner } from "react-icons/fa";
+import ProtectedPage from "@/components/ProtectedPage";
+import { apiFetch } from "@/lib/api";
+import type { AvailabilitySlot, Booking, Property } from "@/lib/types";
 
-const TIME_SLOTS = ["09:00", "10:00", "14:00", "16:30"];
-const DAYS = [
-  { d: "T2", n: "" }, { d: "T3", n: "" }, { d: "T4", n: "" }, { d: "T5", n: "" }, { d: "T6", n: "" }, { d: "T7", n: "" }, { d: "CN", n: "" },
-  { d: "", n: "" }, { d: "", n: "1" }, { d: "", n: "2" }, { d: "", n: "3" }, { d: "", n: "4" }, { d: "", n: "5" }, { d: "", n: "" },
-  { d: "", n: "6" }, { d: "", n: "7" }, { d: "", n: "8" }, { d: "", n: "9" }, { d: "", n: "10" }, { d: "", n: "11" }, { d: "", n: "12" },
-  { d: "", n: "13" }, { d: "", n: "14" }, { d: "", n: "15" }, { d: "", n: "" }, { d: "", n: "" }, { d: "", n: "" }, { d: "", n: "" },
-];
+const CUSTOMER_ROLES = ["CUSTOMER"] as const;
 
-export default function SchedulePage() {
-  const [selectedDate, setSelectedDate] = useState("10");
-  const [selectedTime, setSelectedTime] = useState("14:00");
+function dateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function ScheduleContent() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const propertyId = params.get("property_id");
+  const dates = useMemo(() => Array.from({ length: 7 }, (_, index) => { const value = new Date(); value.setDate(value.getDate() + index + 1); return value; }), []);
+  const [selectedDate, setSelectedDate] = useState(dateKey(dates[0]));
+  const [property, setProperty] = useState<Property | null>(null);
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!propertyId) return;
+    let active = true;
+    Promise.all([
+      apiFetch<Property>(`/properties/${propertyId}`),
+      apiFetch<{ slots: AvailabilitySlot[] }>(`/bookings/availability?property_id=${propertyId}&date=${selectedDate}`),
+    ]).then(([propertyData, slotData]) => {
+      if (!active) return;
+      setProperty(propertyData);
+      setSlots(slotData.slots);
+      setSelectedSlot(slotData.slots[0] ?? null);
+      setError("");
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : "Không tải được lịch trống");
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [propertyId, selectedDate]);
+
+  const submit = async () => {
+    if (!propertyId || !selectedSlot) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const booking = await apiFetch<Booking>("/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          property_id: propertyId,
+          sale_user_id: selectedSlot.sale_user_id,
+          preferred_start: selectedSlot.starts_at,
+          preferred_end: selectedSlot.ends_at,
+          pax_count: 1,
+        }),
+      });
+      router.push(`/booking/hold?booking_id=${booking.id}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể tạo lịch xem");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!propertyId) return <div className="min-h-screen grid place-items-center"><div className="text-center"><p className="text-red-500 mb-4">Thiếu mã bất động sản.</p><Link href="/properties" className="text-teal-700 font-semibold">Chọn bất động sản</Link></div></div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-slate-50 font-sans text-slate-900">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-12">
-          <Link href="/chat" className="text-slate-500 hover:text-slate-800 flex items-center text-sm font-medium">
-            <FaArrowLeft className="mr-2" /> Quay lại
-          </Link>
-          <h1 className="text-xl font-bold text-slate-800">Booking Bot AI</h1>
-          <div></div>
+    <ProtectedPage roles={[...CUSTOMER_ROLES]}>
+      <main className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-slate-50 px-4 py-10">
+        <div className="max-w-4xl mx-auto">
+          <Link href={`/properties/${propertyId}`} className="inline-flex items-center text-slate-500 hover:text-slate-800 text-sm"><FaArrowLeft className="mr-2" /> Quay lại căn hộ</Link>
+          <h1 className="text-3xl font-bold text-slate-800 mt-8">Chọn thời gian xem nhà</h1>
+          <p className="text-slate-500 mt-2 mb-8">{property?.title ?? "Đang tải thông tin bất động sản..."}</p>
+          {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl mb-6">{error}</div>}
+          {loading ? <div className="py-20 grid place-items-center"><FaSpinner className="animate-spin text-3xl text-teal-500" /></div> : (
+            <div className="grid md:grid-cols-[1.1fr_1fr] gap-8 bg-white p-5 sm:p-8 rounded-3xl border border-slate-100 shadow-sm">
+              <section><h2 className="font-bold text-slate-800 mb-4">Chọn ngày</h2><div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{dates.map((value) => { const key = dateKey(value); return <button key={key} onClick={() => { setLoading(true); setSelectedDate(key); }} className={`p-3 rounded-xl border text-sm ${selectedDate === key ? "bg-slate-900 text-white border-slate-900" : "border-slate-200 hover:border-teal-400"}`}><span className="block font-bold">{value.toLocaleDateString("vi-VN", { weekday: "short" })}</span>{value.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</button>; })}</div></section>
+              <section><h2 className="font-bold text-slate-800 mb-4">Khung giờ còn trống</h2>{slots.length ? <div className="grid grid-cols-2 gap-3">{slots.map((slot) => <button key={`${slot.sale_user_id}-${slot.starts_at}`} onClick={() => setSelectedSlot(slot)} className={`p-4 rounded-xl border text-left ${selectedSlot?.starts_at === slot.starts_at ? "bg-teal-50 border-teal-500 ring-2 ring-teal-200" : "border-slate-200"}`}><span className="block font-bold text-slate-800">{slot.label}</span><span className="text-xs text-slate-500">{slot.sale_name}</span></button>)}</div> : <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl">Ngày này chưa có khung giờ phù hợp.</p>}</section>
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mt-8"><p className="text-sm text-slate-500 flex items-center"><FaClock className="mr-2" /> Yêu cầu được giữ 15 phút để sale xác nhận.</p><button onClick={submit} disabled={!selectedSlot || submitting} className="w-full sm:w-auto bg-slate-900 text-white px-8 py-3.5 rounded-full font-semibold disabled:opacity-50 flex items-center justify-center">{submitting ? "Đang tạo yêu cầu..." : <>Tiếp tục <FaArrowRight className="ml-2" /></>}</button></div>
         </div>
-
-        <h2 className="text-3xl font-bold text-slate-800 mb-2">Chọn thời gian bạn muốn xem căn hộ</h2>
-        <p className="text-slate-500 mb-10">Căn hộ: Vinhomes Central Park - Park 1</p>
-
-        <div className="flex gap-12">
-          {/* Calendar */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-800">Tháng 10, 2024</h3>
-              <div className="flex gap-2">
-                <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">&lt;</button>
-                <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">&gt;</button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-2">
-              {DAYS.map((day, idx) => (
-                <div key={idx} className={`w-10 h-10 flex items-center justify-center text-sm rounded-full cursor-pointer transition-colors ${
-                  day.d ? "font-bold text-slate-500 text-xs" :
-                  day.n === selectedDate ? "bg-[#0b132b] text-white font-bold" :
-                  day.n ? "hover:bg-slate-100 text-slate-700" : ""
-                }`}
-                onClick={() => day.n && setSelectedDate(day.n)}>
-                  {day.d || day.n}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Time Slots */}
-          <div className="flex-1">
-            <h3 className="font-bold text-slate-800 mb-4">Thời gian trong ngày</h3>
-            <div className="flex flex-wrap gap-3 mb-6">
-              {TIME_SLOTS.map((time) => (
-                <button key={time} onClick={() => setSelectedTime(time)}
-                  className={`px-6 py-3 rounded-xl text-sm font-semibold border transition-colors ${
-                    selectedTime === time
-                      ? "bg-teal-50 border-teal-400 text-teal-700 ring-2 ring-teal-400/50"
-                      : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-                  }`}>
-                  {time}
-                </button>
-              ))}
-              <div className="px-6 py-3 rounded-xl text-sm text-slate-400 bg-slate-100 border border-slate-200 line-through">16:30 <span className="text-xs block">Không giờ chót</span></div>
-            </div>
-
-            {/* AI Suggestion */}
-            <div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 flex items-start gap-3">
-              <FaRobot className="text-teal-600 text-xl mt-0.5 shrink-0" />
-              <div>
-                <p className="font-bold text-teal-800 text-sm mb-1">AI đề xuất</p>
-                <p className="text-sm text-teal-700">14:00 là thời gian phù hợp nhất dựa trên lịch sử xem nhà của bạn và lưu lượng giao thông dự kiến trong khu vực. Ánh sáng tự nhiên tại căn hộ cũng đạt mức tối ưu vào khung giờ này.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mt-12">
-          <div className="flex items-center text-sm text-slate-500">
-            <FaClock className="mr-2" /> Lịch xem sẽ được giữ trong 15 phút.
-          </div>
-          <Link href="/booking/hold" className="bg-[#0b132b] text-white px-8 py-3.5 rounded-full font-semibold flex items-center hover:bg-slate-800 transition-colors">
-            Tiếp tục giữ căn <FaArrowRight className="ml-2" />
-          </Link>
-        </div>
-      </div>
-    </div>
+      </main>
+    </ProtectedPage>
   );
+}
+
+export default function SchedulePage() {
+  return <Suspense fallback={<div className="min-h-screen grid place-items-center"><FaSpinner className="animate-spin text-3xl text-teal-500" /></div>}><ScheduleContent /></Suspense>;
 }
