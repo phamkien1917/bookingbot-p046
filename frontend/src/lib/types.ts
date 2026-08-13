@@ -14,6 +14,7 @@ export interface PropertyMedia {
   url: string;
   is_cover?: boolean;
   caption?: string | null;
+  sort_order?: number;
 }
 
 export interface Property {

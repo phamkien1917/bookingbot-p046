@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaSwimmingPool, FaDumbbell, FaParking, FaShieldAlt, FaTree, FaShoppingCart, FaCalendarAlt, FaClock, FaSpinner } from "react-icons/fa";
+import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaSwimmingPool, FaDumbbell, FaParking, FaShieldAlt, FaTree, FaShoppingCart, FaCalendarAlt, FaClock, FaSpinner, FaChevronLeft, FaChevronRight, FaTimes, FaImages } from "react-icons/fa";
 import { FaComments } from "react-icons/fa6";
 import { apiFetch } from "@/lib/api";
 import type { Property } from "@/lib/types";
@@ -18,6 +18,8 @@ export default function PropertyDetail() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -32,6 +34,38 @@ export default function PropertyDetail() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [id]);
+
+  const galleryImages = property
+    ? property.media?.length
+      ? [...property.media].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      : property.image
+        ? [{ url: property.image }]
+        : []
+    : [];
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxOpen(false);
+      if (event.key === "ArrowLeft" && galleryImages.length > 1) {
+        setActiveImageIndex((index) => (index - 1 + galleryImages.length) % galleryImages.length);
+      }
+      if (event.key === "ArrowRight" && galleryImages.length > 1) {
+        setActiveImageIndex((index) => (index + 1) % galleryImages.length);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [lightboxOpen, galleryImages.length]);
+
+  const showPreviousImage = () => setActiveImageIndex((index) => (index - 1 + galleryImages.length) % galleryImages.length);
+  const showNextImage = () => setActiveImageIndex((index) => (index + 1) % galleryImages.length);
+  const currentImageIndex = galleryImages.length ? Math.min(activeImageIndex, galleryImages.length - 1) : 0;
 
   const formatPrice = (price: number) => {
     if (price >= 1_000_000_000) return `${(price / 1_000_000_000).toFixed(1)} Tỷ`;
@@ -70,32 +104,23 @@ export default function PropertyDetail() {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Image Gallery */}
-        <div className="grid grid-cols-3 gap-4 mb-8 h-[400px]">
-          <div className="col-span-2 rounded-2xl overflow-hidden bg-slate-200 relative">
-            {property.media && property.media[0] ? (
-              <img src={property.media[0].url} alt="Main" className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-4xl text-slate-400">🏠</div>
-            )}
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex-1 rounded-2xl overflow-hidden bg-slate-200 relative">
-              {property.media && property.media[1] ? (
-                <img src={property.media[1].url} alt="Sub1" className="absolute inset-0 w-full h-full object-cover" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-2xl text-slate-400">📷</div>
-              )}
-            </div>
-            <div className="flex-1 rounded-2xl overflow-hidden bg-slate-200 relative">
-              {property.media && property.media[2] ? (
-                <img src={property.media[2].url} alt="Sub2" className="absolute inset-0 w-full h-full object-cover" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-2xl text-slate-400">📷</div>
-              )}
+        {/* Full image gallery */}
+        <section className="mb-8" aria-label="Thư viện ảnh bất động sản">
+          <div className="grid h-[360px] gap-3 sm:h-[460px] lg:grid-cols-[2fr_1fr]">
+            <button type="button" onClick={() => galleryImages.length && setLightboxOpen(true)} className="group relative min-h-0 overflow-hidden rounded-2xl bg-slate-200 text-left focus:outline-none focus:ring-4 focus:ring-teal-500/30">
+              {galleryImages[currentImageIndex] ? <img src={galleryImages[currentImageIndex].url} alt={galleryImages[currentImageIndex].caption || property.title} className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" /> : <div className="absolute inset-0 flex items-center justify-center text-4xl text-slate-400">🏠</div>}
+              {galleryImages.length > 0 && <span className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full bg-black/65 px-4 py-2 text-xs font-semibold text-white"><FaImages /> {galleryImages.length} ảnh · Bấm để phóng to</span>}
+            </button>
+            <div className="grid min-h-0 grid-cols-2 gap-3 lg:grid-cols-1 lg:grid-rows-2">
+              {galleryImages.slice(1, 3).map((image, offset) => {
+                const index = offset + 1;
+                return <button key={`${image.url}-${index}`} type="button" onClick={() => { setActiveImageIndex(index); setLightboxOpen(true); }} className="group relative min-h-0 overflow-hidden rounded-2xl bg-slate-200 text-left focus:outline-none focus:ring-4 focus:ring-teal-500/30"><img src={image.url} alt={image.caption || `${property.title} ${index + 1}`} className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />{index === 2 && galleryImages.length > 3 && <span className="absolute inset-0 grid place-items-center bg-black/45 text-sm font-bold text-white">+{galleryImages.length - 2} ảnh khác</span>}</button>;
+              })}
+              {galleryImages.length < 2 && <div className="hidden rounded-2xl bg-slate-100 lg:block" />}
             </div>
           </div>
-        </div>
+          {galleryImages.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Chọn ảnh"><button type="button" onClick={() => { setActiveImageIndex(0); setLightboxOpen(true); }} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border-2 ${activeImageIndex === 0 ? "border-teal-500" : "border-transparent"}`}><img src={galleryImages[0].url} alt="Ảnh đại diện" className="h-full w-full object-cover" /></button>{galleryImages.slice(1).map((image, index) => { const actualIndex = index + 1; return <button key={`${image.url}-thumb`} type="button" onClick={() => { setActiveImageIndex(actualIndex); setLightboxOpen(true); }} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-lg border-2 ${activeImageIndex === actualIndex ? "border-teal-500" : "border-transparent"}`}><img src={image.url} alt={`${property.title} ảnh ${actualIndex + 1}`} className="h-full w-full object-cover" /></button>; })}</div>}
+        </section>
 
         {/* Badges */}
         <div className="flex gap-3 mb-4">
@@ -214,6 +239,17 @@ export default function PropertyDetail() {
             </div>
           </div>
         </div>
+        {lightboxOpen && galleryImages[currentImageIndex] && <div role="dialog" aria-modal="true" aria-label="Xem ảnh bất động sản" className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-3 sm:p-6" onClick={() => setLightboxOpen(false)}>
+          <div className="relative flex h-full w-full max-w-7xl flex-col items-center justify-center" onClick={(event) => event.stopPropagation()}>
+            <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Đóng thư viện ảnh" className="absolute right-0 top-0 z-10 rounded-full bg-white/10 p-3 text-xl text-white transition hover:bg-white/20"><FaTimes /></button>
+            <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
+              {galleryImages.length > 1 && <button type="button" onClick={showPreviousImage} aria-label="Ảnh trước" className="absolute left-0 z-10 rounded-full bg-white/15 p-3 text-xl text-white transition hover:bg-white/30 sm:left-3"><FaChevronLeft /></button>}
+              <img src={galleryImages[currentImageIndex].url} alt={galleryImages[currentImageIndex].caption || `${property.title} ảnh ${currentImageIndex + 1}`} className="max-h-[78vh] max-w-full rounded-xl object-contain" />
+              {galleryImages.length > 1 && <button type="button" onClick={showNextImage} aria-label="Ảnh tiếp theo" className="absolute right-0 z-10 rounded-full bg-white/15 p-3 text-xl text-white transition hover:bg-white/30 sm:right-3"><FaChevronRight /></button>}
+            </div>
+            <div className="mt-3 flex w-full max-w-5xl items-center gap-2 overflow-x-auto pb-1"><span className="mr-2 shrink-0 text-sm font-semibold text-white">{currentImageIndex + 1} / {galleryImages.length}</span>{galleryImages.map((image, index) => <button key={`${image.url}-lightbox-thumb`} type="button" onClick={() => setActiveImageIndex(index)} aria-label={`Xem ảnh ${index + 1}`} className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${index === currentImageIndex ? "border-white" : "border-transparent opacity-60 hover:opacity-100"}`}><img src={image.url} alt="" className="h-full w-full object-cover" /></button>)}</div>
+          </div>
+        </div>}
       </main>
       <Footer />
     </div>
