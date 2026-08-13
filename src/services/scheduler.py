@@ -16,6 +16,7 @@ from src.database.models import (
     SlotStatus,
     TourSlotOption,
 )
+from src.services.booking_service import reassign_expired_requests
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,14 @@ async def expire_stale_slots() -> None:
             logger.info(f"Expired {len(expired_slots)} stale slot options")
 
 
+async def reassign_unanswered_requests() -> None:
+    """Fail over to another Sale after the response SLA expires."""
+    async with get_session_context() as session:
+        reassigned, expired = await reassign_expired_requests(session)
+        if reassigned or expired:
+            logger.info("Booking SLA: %s reassigned, %s escalated", reassigned, expired)
+
+
 async def check_no_shows() -> None:
     """Check for no-show appointments.
 
@@ -194,6 +203,14 @@ async def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=1),
         id="expire_stale_slots",
         name="Expire stale slots",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        reassign_unanswered_requests,
+        trigger=IntervalTrigger(minutes=1),
+        id="reassign_unanswered_requests",
+        name="Reassign unanswered booking requests",
         replace_existing=True,
     )
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,26 +21,44 @@ from src.services.conversation_service import (
     delete_persistent_session,
     get_persistent_session,
     list_persistent_sessions,
+    rename_persistent_session,
     save_persistent_session,
 )
+from src.services.customer_memory_service import (
+    get_customer_memory,
+    memory_summary,
+    remember_feedback,
+    remember_search_criteria,
+)
 from src.services.memory import get_short_term_memory
+from src.services.search_criteria_service import build_search_criteria
 
 from .admin import router as admin_router
 from .auth import router as auth_router
 from .bookings import router as bookings_router
 from .chat import router as chat_router
+from .favorites import router as favorites_router
+from .memory import router as memory_router
+from .notifications import router as notifications_router
 from .properties import router as properties_router
 from .sale import router as sale_router
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
+class RenameSessionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+
 router.include_router(auth_router)
 router.include_router(properties_router)
+router.include_router(favorites_router)
+router.include_router(memory_router)
 router.include_router(bookings_router)
 router.include_router(chat_router)
 router.include_router(sale_router)
 router.include_router(admin_router)
+router.include_router(notifications_router)
 
 def get_session_id(x_session_id: str | None = Header(None)) -> str:
     """Get or create session ID from header."""
@@ -82,6 +101,10 @@ async def chat(
             if owner_id and str(owner_id) != str(customer_id):
                 raise HTTPException(status_code=403, detail="Session does not belong to this user")
 
+        # Load durable preferences before invoking the agent. Redis is only a
+        # speed layer; PostgreSQL remains the source of truth for memory.
+        customer_memory = await get_customer_memory(db, customer_id) if customer_id else {}
+
         # Create initial state
         messages = []
         if session_data:
@@ -99,6 +122,16 @@ async def chat(
         # The graph appends to its message list; keep the API-owned list separate
         # so the assistant reply is persisted exactly once.
         state["messages"] = [*messages]
+        state["preferences"] = [
+            {"key": key, "value": value}
+            for key, value in customer_memory.items()
+        ]
+        state["search_criteria"] = build_search_criteria(request.message, customer_memory)
+        if user:
+            state["customer_profile"] = {
+                "full_name": user.full_name,
+                "memory_summary": memory_summary(customer_memory),
+            }
 
         # Run agent
         graph = get_agent_graph()
@@ -130,6 +163,10 @@ async def chat(
             for k, v in result["search_criteria"].items():
                 if v is not None:
                     insights[k] = v
+
+        if customer_id:
+            await remember_search_criteria(db, customer_id, result.get("search_criteria"))
+            await remember_feedback(db, customer_id, request.message)
 
         # Attach properties if any
         properties = result.get("selected_properties", [])
@@ -172,7 +209,8 @@ async def chat(
             analysis="",
             session_id=session_id,
             properties=properties,
-            insights=insights
+            insights=insights,
+            memory_summary=memory_summary(await get_customer_memory(db, customer_id)) if customer_id else "",
         )
 
     except HTTPException:
@@ -270,3 +308,29 @@ async def delete_session(
     except Exception:
         pass
     return {"success": True, "session_id": session_id}
+
+
+@router.patch("/session/{session_id}")
+async def rename_session(
+    session_id: str,
+    payload: RenameSessionRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    """Rename one conversation owned by the current user."""
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Tên cuộc trò chuyện không được để trống")
+    metadata = await rename_persistent_session(db, session_id, str(user.id), title)
+    if metadata is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    memory = get_short_term_memory()
+    try:
+        session_data = await memory.get_session(session_id)
+        if session_data and str(session_data.get("metadata", {}).get("customer_id")) == str(user.id):
+            cache_metadata = {**session_data.get("metadata", {}), "title": title}
+            await memory.save_session(session_id, session_data.get("messages", []), cache_metadata)
+    except Exception:
+        pass
+    return {"success": True, "session_id": session_id, "title": title}

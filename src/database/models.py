@@ -236,6 +236,11 @@ class User(Base, TimestampMixin):
         back_populates="user",
         uselist=False,
     )
+    saved_properties: Mapped[list["SavedProperty"]] = relationship(
+        "SavedProperty",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+    )
 
 
 class CustomerProfile(Base, TimestampMixin):
@@ -436,9 +441,36 @@ class Property(Base, TimestampMixin):
         "Appointment",
         back_populates="property",
     )
+    saved_by_customers: Mapped[list["SavedProperty"]] = relationship(
+        "SavedProperty",
+        back_populates="property",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("ix_properties_search", "project_id", "status", "property_kind", "list_price"),
+    )
+
+
+class SavedProperty(Base, TimestampMixin):
+    """A property saved by a customer for later review."""
+
+    __tablename__ = "saved_properties"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    property_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False
+    )
+
+    customer: Mapped["User"] = relationship("User", back_populates="saved_properties")
+    property: Mapped["Property"] = relationship("Property", back_populates="saved_by_customers")
+
+    __table_args__ = (
+        UniqueConstraint("customer_user_id", "property_id", name="uq_saved_properties_customer_property"),
+        Index("ix_saved_properties_customer", "customer_user_id", "created_at"),
     )
 
 

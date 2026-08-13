@@ -11,6 +11,9 @@ from src.database.models import (
     Appointment,
     AppointmentStatus,
     CustomerProfile,
+    DeliveryStatus,
+    Notification,
+    NotificationChannel,
     Property,
     PropertyStatus,
     RequestStatus,
@@ -19,6 +22,7 @@ from src.database.models import (
     TourRequest,
     TourSlotOption,
     User,
+    UserRole,
     UserStatus,
 )
 from src.schemas.booking import TourRequestCreate
@@ -169,6 +173,11 @@ async def create_tour_request(
     if data.preferred_start <= datetime.now(data.preferred_start.tzinfo or UTC):
         raise ValueError("Thời gian xem nhà phải ở tương lai")
 
+    # Serialize competing requests for the exact Sale/time window. The conflict
+    # checks and insert now happen inside the same PostgreSQL transaction.
+    lock_key = f"tour:{data.sale_user_id}:{data.preferred_start.isoformat()}:{data.preferred_end.isoformat()}"
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"), {"lock_key": lock_key})
+
     conflict = await db.scalar(
         select(func.count(Appointment.id)).where(
             Appointment.sale_user_id == data.sale_user_id,
@@ -219,6 +228,27 @@ async def create_tour_request(
         selected_at=datetime.now(UTC),
         score=100,
         score_explanation={"source": "customer_selected"},
+    ))
+    notification_payload = {
+        "request_code": request.request_code,
+        "property_id": str(prop.id),
+        "property_title": prop.title,
+        "starts_at": data.preferred_start.isoformat(),
+        "ends_at": data.preferred_end.isoformat(),
+    }
+    db.add(Notification(
+        user_id=data.sale_user_id,
+        channel=NotificationChannel.IN_APP,
+        template_key="sale_booking_request",
+        payload=notification_payload,
+        status=DeliveryStatus.PENDING,
+    ))
+    db.add(Notification(
+        user_id=customer_user_id,
+        channel=NotificationChannel.IN_APP,
+        template_key="booking_request_received",
+        payload=notification_payload,
+        status=DeliveryStatus.PENDING,
     ))
     await db.commit()
     return await _get_booking(db, request.id)
@@ -357,7 +387,43 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         confirmation_sent_at=datetime.now(UTC),
     )
     db.add(appointment)
+    await db.flush()
     row.status = RequestStatus.BOOKED
+    db.add(Notification(
+        user_id=row.customer_user_id,
+        appointment_id=appointment.id,
+        channel=NotificationChannel.IN_APP,
+        template_key="booking_confirmed",
+        payload={
+            "booking_code": appointment.booking_code,
+            "property_title": row.property.title if row.property else None,
+            "starts_at": appointment.starts_at.isoformat(),
+            "ends_at": appointment.ends_at.isoformat(),
+        },
+        status=DeliveryStatus.PENDING,
+    ))
+    reminder_specs = [
+        (row.customer_user_id, timedelta(hours=24), "tour_reminder_24h"),
+        (sale_user_id, timedelta(hours=2), "sale_departure_reminder"),
+        (row.customer_user_id, timedelta(minutes=30), "tour_reminder_30m"),
+    ]
+    for recipient_id, before, template_key in reminder_specs:
+        scheduled_at = appointment.starts_at - before
+        if scheduled_at > datetime.now(scheduled_at.tzinfo or UTC):
+            db.add(Notification(
+                user_id=recipient_id,
+                appointment_id=appointment.id,
+                channel=NotificationChannel.IN_APP,
+                template_key=template_key,
+                payload={
+                    "booking_code": appointment.booking_code,
+                    "property_title": row.property.title if row.property else None,
+                    "starts_at": appointment.starts_at.isoformat(),
+                    "meeting_address": appointment.meeting_address,
+                },
+                scheduled_at=scheduled_at,
+                status=DeliveryStatus.PENDING,
+            ))
     await db.commit()
     return serialize_booking(await _get_booking(db, row.id))
 
@@ -370,10 +436,165 @@ async def reject_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
     if not selected:
         raise PermissionError("Yêu cầu không được phân cho bạn")
     selected.status = SlotStatus.WITHDRAWN
-    row.status = RequestStatus.REJECTED
     row.extracted_requirements = {**(row.extracted_requirements or {}), "rejection_reason": reason or "Sale từ chối"}
+    reassigned = await _reassign_waiting_request(db, row, trigger="sale_rejected")
+    if not reassigned:
+        row.status = RequestStatus.REJECTED
+        await _notify_customer_and_operators(
+            db,
+            row,
+            "booking_needs_new_time",
+            "Không còn Sale phù hợp cho khung giờ đã chọn",
+        )
     await db.commit()
-    return serialize_booking(row)
+    return serialize_booking(await _get_booking(db, row.id))
+
+
+async def _notify_customer_and_operators(
+    db: AsyncSession,
+    row: TourRequest,
+    template_key: str,
+    message: str,
+) -> None:
+    payload = {
+        "request_code": row.request_code,
+        "property_title": row.property.title if row.property else None,
+        "starts_at": row.preferred_start.isoformat() if row.preferred_start else None,
+        "message": message,
+    }
+    db.add(Notification(
+        user_id=row.customer_user_id,
+        channel=NotificationChannel.IN_APP,
+        template_key=template_key,
+        payload=payload,
+        status=DeliveryStatus.PENDING,
+    ))
+    operators = (await db.execute(
+        select(User.id).where(
+            User.role.in_([UserRole.ADMIN, UserRole.COORDINATOR]),
+            User.status == UserStatus.ACTIVE,
+        )
+    )).scalars().all()
+    for user_id in operators:
+        db.add(Notification(
+            user_id=user_id,
+            channel=NotificationChannel.IN_APP,
+            template_key="booking_requires_attention",
+            payload=payload,
+            status=DeliveryStatus.PENDING,
+        ))
+
+
+async def _reassign_waiting_request(db: AsyncSession, row: TourRequest, trigger: str) -> bool:
+    """Assign the same slot to the least-busy eligible Sale not tried before."""
+    if not row.preferred_start or not row.preferred_end:
+        return False
+    tried_sale_ids = {slot.sale_user_id for slot in row.slot_options}
+    candidates = (await db.execute(
+        select(SaleProfile)
+        .join(User, User.id == SaleProfile.user_id)
+        .where(
+            SaleProfile.is_accepting_tours.is_(True),
+            User.status == UserStatus.ACTIVE,
+            SaleProfile.user_id.not_in(tried_sale_ids),
+        )
+    )).scalars().all()
+    available: list[tuple[int, SaleProfile]] = []
+    for sale in candidates:
+        confirmed = await db.scalar(select(func.count(Appointment.id)).where(
+            Appointment.sale_user_id == sale.user_id,
+            Appointment.status.in_([AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]),
+            Appointment.starts_at < row.preferred_end,
+            Appointment.ends_at > row.preferred_start,
+        ))
+        pending = await db.scalar(
+            select(func.count(TourSlotOption.id))
+            .join(TourRequest, TourRequest.id == TourSlotOption.tour_request_id)
+            .where(
+                TourSlotOption.sale_user_id == sale.user_id,
+                TourSlotOption.status == SlotStatus.SELECTED,
+                TourRequest.status == RequestStatus.WAITING_APPROVAL,
+                TourRequest.expires_at > func.now(),
+                TourSlotOption.starts_at < row.preferred_end,
+                TourSlotOption.ends_at > row.preferred_start,
+            )
+        )
+        if not confirmed and not pending:
+            workload = await db.scalar(select(func.count(Appointment.id)).where(
+                Appointment.sale_user_id == sale.user_id,
+                Appointment.starts_at >= row.preferred_start.date(),
+                Appointment.starts_at < row.preferred_start.date() + timedelta(days=1),
+            ))
+            available.append((workload or 0, sale))
+    if not available:
+        return False
+    _, sale = min(available, key=lambda item: item[0])
+    expires_at = datetime.now(UTC) + timedelta(minutes=REQUEST_HOLD_MINUTES)
+    row.status = RequestStatus.WAITING_APPROVAL
+    row.expires_at = expires_at
+    db.add(TourSlotOption(
+        tour_request_id=row.id,
+        sale_user_id=sale.user_id,
+        status=SlotStatus.SELECTED,
+        starts_at=row.preferred_start,
+        ends_at=row.preferred_end,
+        valid_until=expires_at,
+        selected_at=datetime.now(UTC),
+        score=90,
+        score_explanation={"source": "automatic_reassignment", "trigger": trigger},
+    ))
+    payload = {
+        "request_code": row.request_code,
+        "property_title": row.property.title if row.property else None,
+        "starts_at": row.preferred_start.isoformat(),
+        "trigger": trigger,
+    }
+    db.add(Notification(
+        user_id=sale.user_id,
+        channel=NotificationChannel.IN_APP,
+        template_key="sale_booking_request",
+        payload=payload,
+        status=DeliveryStatus.PENDING,
+    ))
+    db.add(Notification(
+        user_id=row.customer_user_id,
+        channel=NotificationChannel.IN_APP,
+        template_key="booking_sale_reassigned",
+        payload=payload,
+        status=DeliveryStatus.PENDING,
+    ))
+    return True
+
+
+async def reassign_expired_requests(db: AsyncSession) -> tuple[int, int]:
+    """Reassign unanswered requests; escalate only after all Sales were tried."""
+    now = datetime.now(UTC)
+    rows = (await db.execute(
+        select(TourRequest)
+        .options(*_booking_load_options())
+        .where(
+            TourRequest.status == RequestStatus.WAITING_APPROVAL,
+            TourRequest.expires_at <= now,
+        )
+        .with_for_update(skip_locked=True)
+    )).scalars().unique().all()
+    reassigned = expired = 0
+    for row in rows:
+        for slot in row.slot_options:
+            if slot.status == SlotStatus.SELECTED:
+                slot.status = SlotStatus.EXPIRED
+        if await _reassign_waiting_request(db, row, trigger="sale_timeout"):
+            reassigned += 1
+        else:
+            row.status = RequestStatus.EXPIRED
+            await _notify_customer_and_operators(
+                db,
+                row,
+                "booking_request_expired",
+                "Tất cả Sale phù hợp đều bận; cần chọn khung giờ mới",
+            )
+            expired += 1
+    return reassigned, expired
 
 
 async def list_all_bookings(db: AsyncSession, limit: int = 50) -> list[dict]:

@@ -15,11 +15,25 @@ services:
       - ./database/002_seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
       - ./database/004_crawled_data.sql:/docker-entrypoint-initdb.d/004_crawled_data.sql:ro
       - ./database/005_batdongsan_data.sql:/docker-entrypoint-initdb.d/005_batdongsan_data.sql:ro
+      - ./database/006_saved_properties.sql:/docker-entrypoint-initdb.d/006_saved_properties.sql:ro
+      - ./database/007_customer_memory.sql:/docker-entrypoint-initdb.d/007_customer_memory.sql:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 10
 
   backend:
@@ -32,10 +46,13 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-visitops}:${POSTGRES_PASSWORD:-visitops_dev_password}@db:5432/${POSTGRES_DB:-visitops}
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - ./data:/app/data
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -44,5 +61,22 @@ services:
       timeout: 10s
       retries: 3
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api/v1
+        BACKEND_INTERNAL_URL: http://backend:8000
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  redis_data:

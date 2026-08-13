@@ -105,10 +105,14 @@ async def list_persistent_sessions(db: AsyncSession, customer_id: str) -> list[d
     sessions = []
     for row in rows:
         messages = [_message_dict(message) for message in row.messages]
+        metadata = _metadata(row.summary)
         first_user = next((item["content"] for item in messages if item["role"] == "user"), "Cuộc trò chuyện mới")
+        custom_title = str(metadata.get("title") or "").strip()
+        title = custom_title or first_user[:50] + ("..." if len(first_user) > 50 else "")
         sessions.append({
             "session_id": str(row.id),
-            "preview": first_user[:50] + ("..." if len(first_user) > 50 else ""),
+            "preview": title,
+            "title": title,
             "message_count": len(messages),
             "last_active": row.updated_at.isoformat() if row.updated_at else "",
         })
@@ -119,12 +123,33 @@ async def delete_persistent_session(db: AsyncSession, session_id: str, customer_
     conversation_id, customer_uuid = _as_uuid(session_id), _as_uuid(customer_id)
     if not conversation_id or not customer_uuid:
         return False
+    result = await db.execute(delete(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.customer_user_id == customer_uuid,
+    ))
+    await db.flush()
+    return bool(result.rowcount)
+
+
+async def rename_persistent_session(
+    db: AsyncSession,
+    session_id: str,
+    customer_id: str,
+    title: str,
+) -> dict | None:
+    """Rename a conversation while preserving its existing metadata."""
+    conversation_id, customer_uuid = _as_uuid(session_id), _as_uuid(customer_id)
+    if not conversation_id or not customer_uuid:
+        return None
     row = await db.scalar(select(Conversation).where(
         Conversation.id == conversation_id,
         Conversation.customer_user_id == customer_uuid,
     ))
     if not row:
-        return False
-    await db.delete(row)
+        return None
+    metadata = _metadata(row.summary)
+    metadata["title"] = title.strip()
+    row.summary = json.dumps(metadata, ensure_ascii=False, default=str)
+    row.updated_at = datetime.now(UTC)
     await db.flush()
-    return True
+    return metadata

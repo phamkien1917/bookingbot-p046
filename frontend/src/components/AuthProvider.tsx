@@ -40,7 +40,7 @@ export function postLoginDestination(role: User["role"], next: string | null): s
   if (pathname.startsWith("/sale")) {
     return role === "SALE" ? next : roleHome(role);
   }
-  if (pathname.startsWith("/booking") || pathname.startsWith("/my-bookings")) {
+  if (pathname.startsWith("/booking") || pathname.startsWith("/my-bookings") || pathname.startsWith("/saved")) {
     return role === "CUSTOMER" ? next : roleHome(role);
   }
   return next;

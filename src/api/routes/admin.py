@@ -6,7 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.routes.auth import require_roles
 from src.database import get_session
-from src.database.models import Property, RequestStatus, TourRequest, User, UserRole, UserStatus
+from src.database.models import (
+    Appointment,
+    AppointmentStatus,
+    Property,
+    RequestStatus,
+    TourRequest,
+    User,
+    UserRole,
+    UserStatus,
+)
 from src.schemas.booking import UserStatusUpdate
 from src.services.booking_service import list_all_bookings
 
@@ -24,12 +33,17 @@ async def admin_overview(
     pending = await db.scalar(
         select(func.count(TourRequest.id)).where(TourRequest.status == RequestStatus.WAITING_APPROVAL)
     ) or 0
+    confirmed = await db.scalar(select(func.count(TourRequest.id)).where(TourRequest.status == RequestStatus.BOOKED)) or 0
+    no_shows = await db.scalar(select(func.count(Appointment.id)).where(Appointment.status == AppointmentStatus.NO_SHOW)) or 0
+    conversion_rate = round(confirmed / bookings * 100, 1) if bookings else 0.0
     return {
         "stats": {
             "users": users,
             "properties": properties,
             "bookings": bookings,
             "pending": pending,
+            "conversion_rate": conversion_rate,
+            "no_shows": no_shows,
         },
         "recent_bookings": await list_all_bookings(db, limit=20),
     }

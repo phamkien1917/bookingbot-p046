@@ -47,6 +47,9 @@ async def get_redis() -> redis.Redis:
                 encoding="utf-8",
                 decode_responses=True,
                 protocol=2,  # RESP2 for old Redis compatibility
+                socket_connect_timeout=0.5,
+                socket_timeout=0.75,
+                retry_on_timeout=False,
             )
             # Test connection
             await _redis_client.ping()

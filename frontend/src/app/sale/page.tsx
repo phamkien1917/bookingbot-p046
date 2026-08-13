@@ -1,120 +1,46 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaCalendarAlt, FaCheck, FaClock, FaHome, FaRobot, FaSignOutAlt, FaTimes } from "react-icons/fa";
+import { FaArrowRight, FaCalendarAlt, FaCheck, FaClock, FaHome, FaMapMarkerAlt, FaPhoneAlt, FaRobot, FaSignOutAlt, FaSyncAlt, FaTimes, FaUser } from "react-icons/fa";
 import ProtectedPage from "@/components/ProtectedPage";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
 import type { Booking } from "@/lib/types";
 
-interface SaleOverview {
-  stats: { pending: number; confirmed: number };
-  pending_requests: Booking[];
-  schedule: Booking[];
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-}
+interface SaleOverview { stats: { pending: number; confirmed: number }; pending_requests: Booking[]; schedule: Booking[] }
+function formatDate(value: string) { return new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
+function minutesLeft(value?: string | null) { if (!value) return null; return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 60000)); }
 
 function SaleDashboardContent() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<SaleOverview | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<Booking | null>(null);
+  const [reason, setReason] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      setData(await apiFetch<SaleOverview>("/sale/overview"));
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được dữ liệu");
-    }
-  }, []);
+  const load = useCallback(async (quiet = false) => { if (!quiet) setLoading(true); try { setData(await apiFetch<SaleOverview>("/sale/overview")); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không tải được dữ liệu vận hành"); } finally { if (!quiet) setLoading(false); } }, []);
+  useEffect(() => { const initial = window.setTimeout(() => void load(), 0); const interval = window.setInterval(() => void load(true), 15_000); return () => { window.clearTimeout(initial); window.clearInterval(interval); }; }, [load]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
+  async function decide(booking: Booking, accept: boolean, rejectReason = "") { setWorkingId(booking.id); try { await apiFetch(`/sale/requests/${booking.id}/${accept ? "accept" : "reject"}`, { method: "POST", body: accept ? undefined : JSON.stringify({ reason: rejectReason }) }); setRejecting(null); setReason(""); await load(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "Không xử lý được yêu cầu"); } finally { setWorkingId(null); } }
+  async function handleLogout() { await logout(); router.replace("/login"); }
 
-  async function decide(booking: Booking, accept: boolean) {
-    let reason = "";
-    if (!accept) {
-      reason = window.prompt("Lý do từ chối lịch này:", "Không thể phục vụ khung giờ đã chọn") ?? "";
-      if (!reason.trim()) return;
-    }
-    setWorkingId(booking.id);
-    try {
-      await apiFetch(`/sale/requests/${booking.id}/${accept ? "accept" : "reject"}`, {
-        method: "POST",
-        body: accept ? undefined : JSON.stringify({ reason }),
-      });
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xử lý được yêu cầu");
-    } finally {
-      setWorkingId(null);
-    }
-  }
+  const todaySchedule = useMemo(() => data?.schedule.filter((booking) => new Date(booking.appointment?.starts_at ?? booking.preferred_start).toDateString() === new Date().toDateString()) ?? [], [data]);
+  const nextAppointment = useMemo(() => [...(data?.schedule ?? [])].filter((item) => new Date(item.appointment?.starts_at ?? item.preferred_start) > new Date()).sort((a, b) => +new Date(a.preferred_start) - +new Date(b.preferred_start))[0], [data]);
 
-  async function handleLogout() {
-    await logout();
-    router.replace("/login");
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 lg:flex">
-      <aside className="bg-[#0b132b] p-5 text-white lg:min-h-screen lg:w-64">
-        <div className="flex items-center gap-3 border-b border-white/10 pb-5">
-          <FaRobot className="text-2xl text-teal-400" />
-          <div><p className="font-bold">Booking Bot</p><p className="text-xs text-teal-300">Cổng nhân viên Sale</p></div>
-        </div>
-        <nav className="mt-6 space-y-2" aria-label="Điều hướng Sale">
-          <a href="#tong-quan" className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm"><FaHome /> Tổng quan</a>
-          <a href="#yeu-cau" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaClock /> Yêu cầu chờ xử lý</a>
-          <a href="#lich" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaCalendarAlt /> Lịch đã xác nhận</a>
-        </nav>
-        <button onClick={() => void handleLogout()} className="mt-8 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-red-300 hover:bg-white/10"><FaSignOutAlt /> Đăng xuất</button>
-      </aside>
-
-      <main className="flex-1 p-4 sm:p-8">
-        <header id="tong-quan" className="mb-8">
-          <h1 className="text-2xl font-bold">Xin chào, {user?.full_name}</h1>
-          <p className="mt-1 text-sm text-slate-500">Các yêu cầu dưới đây là dữ liệu thực từ hệ thống.</p>
-        </header>
-        {error && <div role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>}
-        <section className="mb-8 grid gap-4 sm:grid-cols-2" aria-label="Số liệu Sale">
-          <div className="rounded-2xl bg-white p-6 shadow-sm"><p className="text-sm text-slate-500">Đang chờ xử lý</p><p className="mt-2 text-4xl font-bold text-orange-500">{data?.stats.pending ?? "–"}</p></div>
-          <div className="rounded-2xl bg-white p-6 shadow-sm"><p className="text-sm text-slate-500">Đã xác nhận</p><p className="mt-2 text-4xl font-bold text-teal-600">{data?.stats.confirmed ?? "–"}</p></div>
-        </section>
-
-        <section id="yeu-cau" className="mb-10">
-          <h2 className="mb-4 text-lg font-bold">Yêu cầu cần phản hồi</h2>
-          {!data ? <p className="text-sm text-slate-500">Đang tải…</p> : data.pending_requests.length === 0 ? (
-            <div className="rounded-2xl bg-white p-8 text-center text-slate-500">Không có yêu cầu nào đang chờ.</div>
-          ) : <div className="grid gap-4 xl:grid-cols-2">{data.pending_requests.map((booking) => (
-            <article key={booking.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap justify-between gap-3"><div><p className="font-bold">{booking.customer?.full_name}</p><a className="text-sm text-teal-700 hover:underline" href={`tel:${booking.customer?.phone ?? ""}`}>{booking.customer?.phone || booking.customer?.email}</a></div><span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">{booking.request_code}</span></div>
-              <div className="my-4 rounded-xl bg-slate-50 p-4"><p className="font-semibold">{booking.property.title}</p><p className="mt-1 text-sm text-slate-500">{booking.property.address}</p><p className="mt-2 text-sm"><FaClock className="mr-2 inline text-teal-600" />{formatDate(booking.preferred_start)}</p></div>
-              {booking.customer_note && <p className="mb-4 text-sm text-slate-600">Ghi chú: {booking.customer_note}</p>}
-              <div className="flex gap-3"><button disabled={workingId === booking.id} onClick={() => void decide(booking, false)} className="flex-1 rounded-xl border border-red-200 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"><FaTimes className="mr-2 inline" />Từ chối</button><button disabled={workingId === booking.id} onClick={() => void decide(booking, true)} className="flex-1 rounded-xl bg-teal-600 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"><FaCheck className="mr-2 inline" />Nhận lịch</button></div>
-            </article>
-          ))}</div>}
-        </section>
-
-        <section id="lich">
-          <h2 className="mb-4 text-lg font-bold">Lịch đã xác nhận</h2>
-          <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <table className="w-full min-w-[700px] text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">Thời gian</th><th className="p-4">Khách hàng</th><th className="p-4">Bất động sản</th><th className="p-4">Mã lịch</th></tr></thead><tbody className="divide-y divide-slate-100">{data?.schedule.map((booking) => <tr key={booking.id}><td className="p-4 font-medium">{formatDate(booking.appointment?.starts_at ?? booking.preferred_start)}</td><td className="p-4">{booking.customer?.full_name}<br/><a className="text-xs text-teal-700" href={`tel:${booking.customer?.phone ?? ""}`}>{booking.customer?.phone}</a></td><td className="p-4">{booking.property.title}</td><td className="p-4 font-mono">{booking.appointment?.booking_code}</td></tr>)}{data?.schedule.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-slate-500">Chưa có lịch được xác nhận.</td></tr>}</tbody></table>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
+  return <div className="min-h-screen bg-[#f4f5f1] text-[var(--ink)] lg:flex">
+    <aside className="bg-[var(--ink)] p-5 text-white lg:sticky lg:top-0 lg:min-h-screen lg:w-72"><div className="flex items-center gap-3 border-b border-white/10 pb-5"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10"><FaRobot className="text-[#a9c9b0]" /></span><div><p className="font-semibold">Nera for Sale</p><p className="text-xs text-white/40">Phòng điều phối lịch xem</p></div></div><nav className="mt-6 space-y-2" aria-label="Điều hướng Sale"><a href="#tong-quan" className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm"><FaHome /> Tổng quan</a><a href="#cho-phan-hoi" className="flex items-center justify-between rounded-xl px-4 py-3 text-sm hover:bg-white/10"><span className="flex items-center gap-3"><FaClock /> Cần phản hồi</span>{data?.stats.pending ? <b className="grid h-6 min-w-6 place-items-center rounded-full bg-[#c86548] px-1 text-[10px]">{data.stats.pending}</b> : null}</a><a href="#lich-hom-nay" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaCalendarAlt /> Lịch của tôi</a></nav><div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[#a9c9b0]">Trạng thái</p><p className="mt-3 flex items-center gap-2 text-sm"><i className="h-2 w-2 rounded-full bg-emerald-400" /> Đang nhận lịch tự động</p><p className="mt-2 text-xs leading-5 text-white/40">Hệ thống làm mới hàng đợi mỗi 15 giây.</p></div><button onClick={() => void handleLogout()} className="mt-6 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#e8a58d] hover:bg-white/10"><FaSignOutAlt /> Đăng xuất</button></aside>
+    <main className="min-w-0 flex-1 p-4 sm:p-8 xl:p-10"><header id="tong-quan" className="mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[var(--coral)]">Không gian làm việc Sale</p><h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Chào {user?.full_name?.split(" ").at(-1)}, ưu tiên phản hồi nhanh.</h1><p className="mt-2 text-sm text-[var(--muted)]">Yêu cầu mới được phân đúng Sale và sẽ chuyển người khác khi hết thời gian.</p></div><button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold"><FaSyncAlt className={loading ? "animate-spin" : ""} /> Làm mới</button></header>
+      {error && <div role="alert" className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+      <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><div className="rounded-[1.5rem] bg-white p-5 shadow-sm"><p className="text-sm text-[var(--muted)]">Cần phản hồi</p><p className="mt-3 text-4xl font-semibold text-[var(--coral)]">{data?.stats.pending ?? "–"}</p><p className="mt-2 text-xs text-[var(--muted)]">Trong hàng đợi của bạn</p></div><div className="rounded-[1.5rem] bg-white p-5 shadow-sm"><p className="text-sm text-[var(--muted)]">Lịch hôm nay</p><p className="mt-3 text-4xl font-semibold text-[var(--forest)]">{todaySchedule.length}</p><p className="mt-2 text-xs text-[var(--muted)]">Đã xác nhận</p></div><div className="rounded-[1.5rem] bg-white p-5 shadow-sm"><p className="text-sm text-[var(--muted)]">Tổng đã xác nhận</p><p className="mt-3 text-4xl font-semibold">{data?.stats.confirmed ?? "–"}</p><p className="mt-2 text-xs text-[var(--muted)]">Lịch đang phụ trách</p></div><div className="rounded-[1.5rem] bg-[var(--forest)] p-5 text-white shadow-sm"><p className="text-sm text-white/60">Cuộc hẹn tiếp theo</p><p className="mt-3 line-clamp-1 text-lg font-semibold">{nextAppointment?.customer?.full_name || "Chưa có lịch"}</p><p className="mt-2 text-xs text-white/60">{nextAppointment ? formatDate(nextAppointment.appointment?.starts_at ?? nextAppointment.preferred_start) : "Bạn đang rảnh"}</p></div></section>
+      <div className="grid gap-8 xl:grid-cols-[1.2fr_.8fr]"><section id="cho-phan-hoi"><div className="mb-4 flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-[.15em] text-[var(--coral)]">Action queue</p><h2 className="mt-1 text-xl font-semibold">Yêu cầu cần phản hồi</h2></div><p className="text-xs text-[var(--muted)]">Ưu tiên yêu cầu gần hết hạn</p></div>{loading && !data ? <div className="h-52 animate-pulse rounded-[1.5rem] bg-white" /> : data?.pending_requests.length === 0 ? <div className="rounded-[1.5rem] bg-white p-10 text-center"><FaCheck className="mx-auto text-2xl text-emerald-600" /><p className="mt-3 font-semibold">Hàng đợi đã được xử lý</p><p className="mt-1 text-sm text-[var(--muted)]">Yêu cầu mới sẽ tự xuất hiện tại đây.</p></div> : <div className="space-y-4">{data?.pending_requests.map((booking) => { const left = minutesLeft(booking.expires_at); return <article key={booking.id} className="overflow-hidden rounded-[1.5rem] border border-black/5 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-black/5 px-5 py-3"><span className="font-mono text-xs text-[var(--muted)]">{booking.request_code}</span><span className={`rounded-full px-3 py-1 text-[10px] font-bold ${left !== null && left <= 5 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>{left === null ? "Đang chờ" : left === 0 ? "Sắp chuyển Sale" : `Còn ${left} phút`}</span></div><div className="p-5"><div className="flex flex-wrap justify-between gap-3"><div><p className="flex items-center gap-2 font-semibold"><FaUser className="text-[var(--forest)]" />{booking.customer?.full_name}</p><a className="mt-1 inline-flex items-center gap-2 text-xs text-[var(--forest)]" href={`tel:${booking.customer?.phone ?? ""}`}><FaPhoneAlt />{booking.customer?.phone || booking.customer?.email}</a></div><p className="text-right text-sm font-semibold"><FaClock className="mr-2 inline text-[var(--coral)]" />{formatDate(booking.preferred_start)}</p></div><div className="my-4 rounded-xl bg-[#f5f5f1] p-4"><p className="font-semibold">{booking.property.title}</p><p className="mt-1 text-xs text-[var(--muted)]"><FaMapMarkerAlt className="mr-1 inline" />{booking.property.address}</p></div>{booking.customer_note && <p className="mb-4 text-sm text-[var(--muted)]">“{booking.customer_note}”</p>}<div className="flex gap-3"><button disabled={workingId === booking.id} onClick={() => { setRejecting(booking); setReason(""); }} className="flex-1 rounded-full border border-red-200 py-2.5 text-sm font-semibold text-red-600"><FaTimes className="mr-2 inline" />Từ chối</button><button disabled={workingId === booking.id} onClick={() => void decide(booking, true)} className="flex-1 rounded-full bg-[var(--forest)] py-2.5 text-sm font-semibold text-white"><FaCheck className="mr-2 inline" />Nhận lịch</button></div></div></article>; })}</div>}</section>
+        <section id="lich-hom-nay"><div className="mb-4"><p className="text-xs font-bold uppercase tracking-[.15em] text-[var(--coral)]">Lịch trình</p><h2 className="mt-1 text-xl font-semibold">Các buổi xem đã xác nhận</h2></div><div className="rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm">{data?.schedule.length ? <div className="space-y-1">{data.schedule.map((booking, index) => <article key={booking.id} className="relative flex gap-4 pb-6 last:pb-0"><div className="flex flex-col items-center"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#e7eee7] text-xs font-bold text-[var(--forest)]">{new Date(booking.appointment?.starts_at ?? booking.preferred_start).getDate()}</span>{index < data.schedule.length - 1 && <i className="mt-1 h-full w-px bg-black/10" />}</div><div className="min-w-0 flex-1 pt-1"><p className="text-xs font-semibold text-[var(--coral)]">{new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(booking.appointment?.starts_at ?? booking.preferred_start))}</p><h3 className="mt-1 truncate font-semibold">{booking.customer?.full_name}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--muted)]">{booking.property.title}</p><a href={`tel:${booking.customer?.phone ?? ""}`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--forest)]">Liên hệ <FaArrowRight /></a></div></article>)}</div> : <div className="py-8 text-center text-sm text-[var(--muted)]">Chưa có lịch được xác nhận.</div>}</div></section></div>
+    </main>
+    {rejecting && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"><form onSubmit={(event) => { event.preventDefault(); if (reason.trim()) void decide(rejecting, false, reason.trim()); }} className="w-full max-w-md rounded-[1.7rem] bg-white p-6 shadow-2xl"><h2 className="text-xl font-semibold">Từ chối yêu cầu?</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Hệ thống sẽ tìm Sale khác cho khách. Lý do giúp điều phối chính xác hơn.</p><textarea autoFocus value={reason} onChange={(event) => setReason(event.target.value)} rows={4} placeholder="Ví dụ: Trùng lịch ở khung giờ này" className="mt-5 w-full resize-none rounded-xl border border-black/10 p-4 text-sm outline-none focus:border-[var(--sage)]" /><div className="mt-4 flex gap-3"><button type="button" onClick={() => setRejecting(null)} className="flex-1 rounded-full border border-black/10 py-2.5 font-semibold">Quay lại</button><button disabled={!reason.trim() || workingId === rejecting.id} className="flex-1 rounded-full bg-red-600 py-2.5 font-semibold text-white disabled:opacity-40">Xác nhận từ chối</button></div></form></div>}
+  </div>;
 }
 
-export default function SaleDashboard() {
-  return <ProtectedPage roles={["SALE"]}><SaleDashboardContent /></ProtectedPage>;
-}
+export default function SaleDashboard() { return <ProtectedPage roles={["SALE"]}><SaleDashboardContent /></ProtectedPage>; }

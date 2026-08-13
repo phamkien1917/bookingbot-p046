@@ -27,6 +27,7 @@ class ChatResponse(BaseModel):
     session_id: str | None = Field(default=None, description="Session ID")
     properties: list | None = Field(default_factory=list, description="Danh sách bất động sản gợi ý")
     insights: dict | None = Field(default_factory=dict, description="Thông tin AI thu thập được từ người dùng")
+    memory_summary: str = Field(default="", description="Tóm tắt sở thích dài hạn mà người dùng cho phép lưu")
 
 
 class HITLDecision(BaseModel):

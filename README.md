@@ -19,6 +19,8 @@ psql -U visitops -d visitops -f database/001_schema.sql
 psql -U visitops -d visitops -f database/002_seed.sql
 psql -U visitops -d visitops -f database/004_crawled_data.sql
 psql -U visitops -d visitops -f database/005_batdongsan_data.sql
+psql -U visitops -d visitops -f database/006_saved_properties.sql
+psql -U visitops -d visitops -f database/007_customer_memory.sql
 ```
 
 Terminal 1 — backend:
@@ -38,13 +40,13 @@ npm.cmd run dev
 
 Mở `http://localhost:3000`. API docs ở `http://localhost:8000/docs`.
 
-Nếu muốn dùng Docker cho PostgreSQL và backend:
+Nếu muốn chạy toàn bộ hệ thống demo bằng Docker (PostgreSQL, Redis, backend và frontend):
 
 ```powershell
 docker compose up --build
 ```
 
-Sau đó vẫn chạy frontend riêng bằng `npm.cmd run dev`.
+Sau đó mở `http://localhost:3000`; không cần chạy frontend riêng. Với database Docker cũ đã có volume, chạy thêm migration 006 và 007 bằng `psql` vì thư mục init chỉ chạy khi tạo volume lần đầu.
 
 ## Tài khoản demo
 

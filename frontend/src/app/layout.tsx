@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
+import ChatLauncher from "@/components/ChatLauncher";
 
 export const metadata: Metadata = {
-  title: "Booking Bot AI - Đặt lịch xem nhà thông minh",
-  description: "Giải pháp AI thông minh giúp tối ưu hóa quy trình tìm kiếm và đặt lịch xem bất động sản.",
+  title: "Nera — Trợ lý AI tìm và đặt lịch xem nhà",
+  description: "Trợ lý tìm nhà có trí nhớ: hiểu nhu cầu, gợi ý bất động sản và kết nối Sale để đặt lịch xem.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="vi" className="h-full antialiased">
-      <body className="min-h-full flex flex-col font-sans"><AuthProvider>{children}</AuthProvider></body>
-    </html>
-  );
+  return <html lang="vi" className="h-full antialiased" data-scroll-behavior="smooth"><body className="min-h-full font-sans"><AuthProvider>{children}<ChatLauncher /></AuthProvider></body></html>;
 }
