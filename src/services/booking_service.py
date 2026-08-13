@@ -619,3 +619,43 @@ async def list_all_bookings(db: AsyncSession, limit: int = 50) -> list[dict]:
         }
         data.append(item)
     return data
+
+
+async def reschedule_customer_booking(
+    db: AsyncSession,
+    booking_id: UUID,
+    customer_id: UUID,
+    sale_user_id: UUID,
+    new_preferred_start: datetime,
+    new_preferred_end: datetime,
+) -> dict:
+    """Reschedule a booking by cancelling the old one and creating a new tour request."""
+    from src.schemas.booking import TourRequestCreate
+
+    old = await _get_booking(db, booking_id)
+    if not old or old.customer_user_id != customer_id:
+        raise LookupError("Không tìm thấy lịch xem")
+    if old.status not in (RequestStatus.BOOKED, RequestStatus.WAITING_APPROVAL):
+        raise ValueError("Chỉ có thể dời lịch đã xác nhận hoặc đang chờ")
+
+    # Cancel the old booking
+    old.status = RequestStatus.CANCELLED
+    if old.appointment:
+        old.appointment.status = AppointmentStatus.RESCHEDULED
+        old.appointment.cancelled_at = datetime.now(UTC)
+        old.appointment.cancellation_reason = "Khách hàng yêu cầu dời lịch"
+    for slot in old.slot_options:
+        slot.status = SlotStatus.WITHDRAWN
+
+    # Create a new tour request with the new times
+    new_request = TourRequestCreate(
+        property_id=old.property_id,
+        sale_user_id=sale_user_id,
+        preferred_start=new_preferred_start,
+        preferred_end=new_preferred_end,
+        pax_count=old.party_size,
+        customer_note=f"Dời lịch từ {old.request_code}",
+    )
+    new_row = await create_tour_request(db, customer_id, new_request)
+    return serialize_booking(new_row)
+

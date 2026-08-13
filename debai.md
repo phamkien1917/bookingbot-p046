@@ -10,21 +10,13 @@ B25
 BĐS – Kinh doanh O2O (Doanh nghiệp bất động sản X)
 AllTopics360
 
-
- 
- 	
 BĐS – Kinh doanh O2O (Doanh nghiệp bất động sản X)
-Bật chế độ hỗ trợ trình đọc màn hình
-Để bật chế độ hỗ trợ đọc màn hình, nhấn Ctrl+Alt+Z Để tìm hiểu thêm về các phím tắt, nhấn Ctrl+dấu gạch chéoThông báo bị ẩnChuột lang nước ẩn danh đã rời khỏi tài liệu.
 
- 
- 	
 📍 Thực trạng: Việc hẹn khách xem nhà mẫu/căn thực tế phải phối hợp lịch sale, xe đưa đón, tình trạng căn và phòng chờ; điều phối thủ công qua chat gây trùng lịch và bỏ lỡ khách.
 
 🎯 Vấn đề: Cần AI Agent hiểu yêu cầu khách bằng ngôn ngữ tự nhiên, dùng công cụ kiểm tra lịch trống của sale và trạng thái căn, đề xuất khung giờ, đặt lịch và giữ căn tạm thời (soft-hold), tự gửi nhắc và xử lý dời/hủy.
 
 🔒 Ràng buộc: HITL cho sale xác nhận trước khi chốt lịch và giữ căn; tránh double-booking bằng khóa giao dịch; bảo mật thông tin khách; xử lý lỗi khi API lịch/căn không phản hồi và cảnh báo giới hạn giữ căn.
-
 
 Tech stack gợi ý
 

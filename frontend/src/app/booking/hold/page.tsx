@@ -64,21 +64,85 @@ function HoldContent() {
 
   return (
     <ProtectedPage roles={[...CUSTOMER_ROLES]}>
-      <div className="min-h-screen bg-slate-50"><Header /><main className="max-w-4xl mx-auto px-4 py-10">
-        {!bookingId ? <div className="text-center py-20"><p className="text-red-500">Thiếu mã yêu cầu.</p><Link href="/my-bookings" className="text-teal-700">Xem lịch của tôi</Link></div> : !booking && !error ? <div className="py-24 grid place-items-center"><FaSpinner className="animate-spin text-3xl text-teal-500" /></div> : (
-          <div className="grid md:grid-cols-[1fr_320px] gap-7">
-            <section className="bg-white rounded-3xl p-7 border border-slate-100 shadow-sm">
-              {terminal ? <><FaTimesCircle className="text-5xl text-red-400 mb-5" /><h1 className="text-2xl font-bold text-slate-800">Yêu cầu không được xác nhận</h1><p className="text-slate-500 mt-2">Trạng thái: {booking?.status}. Bạn có thể chọn một khung giờ khác.</p><Link href={`/booking/schedule?property_id=${booking?.property.id}`} className="inline-block mt-6 bg-teal-500 text-white px-6 py-3 rounded-xl">Chọn lịch khác</Link></> : <><div className="flex items-center gap-3 text-teal-600 mb-5"><FaRobot className="text-3xl" /><span className="font-bold">AI đang chuyển yêu cầu đến sale phù hợp</span></div><h1 className="text-3xl font-bold text-slate-800">Đang chờ sale xác nhận</h1><p className="text-slate-500 mt-3">Trang tự động cập nhật mỗi 3 giây. Bạn có thể để trang mở hoặc xem trạng thái trong “Lịch xem của tôi”.</p><div className="mt-8 space-y-5"><div className="flex gap-3"><FaCheckCircle className="text-teal-500 mt-1" /><div><p className="font-semibold">Đã kiểm tra căn</p><p className="text-sm text-slate-500">Bất động sản khả dụng tại thời điểm gửi yêu cầu.</p></div></div><div className="flex gap-3"><FaCheckCircle className="text-teal-500 mt-1" /><div><p className="font-semibold">Đã giữ khung giờ</p><p className="text-sm text-slate-500">Khung giờ được giữ tạm trong 15 phút.</p></div></div><div className="flex gap-3"><FaSpinner className="text-orange-500 mt-1 animate-spin" /><div><p className="font-semibold">Đang chờ phản hồi</p><p className="text-sm text-slate-500">Sale có thể nhận hoặc từ chối yêu cầu trên dashboard.</p></div></div></div></>}
-              {error && <div role="alert" className="mt-6 bg-red-50 text-red-600 p-4 rounded-xl">{error}</div>}
-            </section>
-            {booking && <aside className="bg-slate-900 text-white rounded-3xl p-6 h-fit"><p className="text-xs text-slate-400 uppercase">Thời gian giữ còn lại</p><p className="text-5xl font-bold text-orange-400 my-4">{minutes}:{seconds}</p><h2 className="font-bold text-lg">{booking.property.title}</h2><p className="text-sm text-slate-300 mt-2">{booking.property.address}</p><div className="border-t border-white/10 mt-5 pt-5 text-sm space-y-2"><p><FaClock className="inline mr-2" />{new Date(booking.preferred_start).toLocaleString("vi-VN")}</p><p>Mã yêu cầu: {booking.request_code}</p></div>{!terminal && <button onClick={cancel} disabled={cancelling} className="w-full mt-6 border border-red-400 text-red-300 py-3 rounded-xl hover:bg-red-500/10 disabled:opacity-50">{cancelling ? "Đang hủy..." : "Hủy yêu cầu"}</button>}</aside>}
-          </div>
-        )}
-      </main></div>
+      <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
+        <Header />
+        <main className="max-w-5xl mx-auto px-4 py-10">
+          {!bookingId ? (
+            <div className="text-center py-20"><p className="text-[var(--coral)] mb-4">Thiếu mã yêu cầu.</p><Link href="/my-bookings" className="text-[var(--forest)] font-semibold">Xem lịch của tôi</Link></div>
+          ) : !booking && !error ? (
+            <div className="py-24 grid place-items-center"><FaSpinner className="animate-spin text-3xl text-[var(--forest)]" /></div>
+          ) : (
+            <div className="grid md:grid-cols-[1fr_360px] gap-8">
+              <section className="bg-white rounded-[1.5rem] p-8 border border-black/5 shadow-sm">
+                {terminal ? (
+                  <>
+                    <FaTimesCircle className="text-5xl text-[var(--coral)] mb-5" />
+                    <h1 className="text-3xl font-bold">Yêu cầu không được xác nhận</h1>
+                    <p className="text-[var(--muted)] mt-3">Trạng thái: {booking?.status}. Bạn có thể chọn một khung giờ khác.</p>
+                    <Link href={`/booking/schedule?property_id=${booking?.property.id}`} className="inline-block mt-8 bg-[var(--forest)] text-white px-8 py-3.5 rounded-full font-semibold transition-transform hover:scale-105">Chọn lịch khác</Link>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 text-[var(--forest)] mb-5">
+                      <FaRobot className="text-3xl" />
+                      <span className="font-bold text-sm tracking-wide uppercase">AI đang xử lý yêu cầu</span>
+                    </div>
+                    <h1 className="text-3xl font-bold">Đang chờ sale xác nhận</h1>
+                    <p className="text-[var(--muted)] mt-3">Trang tự động cập nhật mỗi 3 giây. Bạn có thể để trang mở hoặc xem trạng thái trong “Lịch xem của tôi”.</p>
+                    
+                    <div className="mt-10 space-y-6">
+                      <div className="flex gap-4">
+                        <FaCheckCircle className="text-[var(--sage)] mt-1 text-xl" />
+                        <div>
+                          <p className="font-semibold text-lg">Đã kiểm tra căn</p>
+                          <p className="text-sm text-[var(--muted)] mt-1">Bất động sản khả dụng tại thời điểm gửi yêu cầu.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <FaCheckCircle className="text-[var(--sage)] mt-1 text-xl" />
+                        <div>
+                          <p className="font-semibold text-lg">Đã giữ khung giờ</p>
+                          <p className="text-sm text-[var(--muted)] mt-1">Khung giờ được giữ tạm trong 15 phút.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <FaSpinner className="text-amber-500 mt-1 text-xl animate-spin" />
+                        <div>
+                          <p className="font-semibold text-lg">Đang chờ phản hồi</p>
+                          <p className="text-sm text-[var(--muted)] mt-1">Sale có thể nhận hoặc từ chối yêu cầu trên dashboard.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {error && <div role="alert" className="mt-8 bg-red-50 text-red-600 border border-red-200 p-4 rounded-xl">{error}</div>}
+              </section>
+              
+              {booking && (
+                <aside className="bg-[var(--ink)] text-white rounded-[1.5rem] p-7 h-fit shadow-xl">
+                  <p className="text-xs font-bold tracking-[.15em] text-[#bcd2c1] uppercase">Thời gian giữ còn lại</p>
+                  <p className="text-6xl font-bold text-[#e8a58d] my-6 font-mono">{minutes}:{seconds}</p>
+                  <h2 className="font-bold text-xl leading-tight">{booking.property.title}</h2>
+                  <p className="text-sm text-white/70 mt-2 line-clamp-2">{booking.property.address}</p>
+                  <div className="border-t border-white/15 mt-6 pt-6 text-sm space-y-3">
+                    <p className="flex items-center"><FaClock className="mr-3 text-[#a9c9b0]" />{new Date(booking.preferred_start).toLocaleString("vi-VN")}</p>
+                    <p className="flex items-center"><FaRobot className="mr-3 text-[#a9c9b0]" />Mã YC: <span className="font-mono ml-1">{booking.request_code}</span></p>
+                  </div>
+                  {!terminal && (
+                    <button onClick={cancel} disabled={cancelling} className="w-full mt-8 border border-[#e8a58d] text-[#e8a58d] py-3.5 rounded-xl font-semibold hover:bg-[#e8a58d]/10 transition-colors disabled:opacity-50">
+                      {cancelling ? "Đang hủy..." : "Hủy yêu cầu này"}
+                    </button>
+                  )}
+                </aside>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
     </ProtectedPage>
   );
 }
 
 export default function HoldPage() {
-  return <Suspense fallback={<div className="min-h-screen grid place-items-center"><FaSpinner className="animate-spin text-3xl text-teal-500" /></div>}><HoldContent /></Suspense>;
+  return <Suspense fallback={<div className="min-h-screen bg-[var(--paper)] grid place-items-center"><FaSpinner className="animate-spin text-3xl text-[var(--forest)]" /></div>}><HoldContent /></Suspense>;
 }

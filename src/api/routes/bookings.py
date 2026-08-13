@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.routes.auth import require_roles
@@ -14,10 +15,17 @@ from src.services.booking_service import (
     get_customer_booking,
     get_my_tour_requests,
     list_available_slots,
+    reschedule_customer_booking,
     serialize_booking,
 )
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
+
+
+class RescheduleRequest(BaseModel):
+    new_preferred_start: datetime
+    new_preferred_end: datetime
+    sale_user_id: UUID
 
 
 @router.get("/availability")
@@ -77,3 +85,28 @@ async def cancel_booking(
         return await cancel_customer_booking(db, booking_id, user.id, action.reason)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{booking_id}/reschedule")
+async def reschedule_booking(
+    booking_id: UUID,
+    payload: RescheduleRequest,
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
+):
+    """Request rescheduling an existing booking to a new time slot."""
+    try:
+        result = await reschedule_customer_booking(
+            db,
+            booking_id,
+            user.id,
+            payload.sale_user_id,
+            payload.new_preferred_start,
+            payload.new_preferred_end,
+        )
+        return result
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
