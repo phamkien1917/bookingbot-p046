@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import get_settings
 from src.database import get_session
 from src.database.models import User, UserRole, UserStatus
-from src.schemas.auth import Token, UserRegister, UserResponse
-from src.services.auth_service import create_access_token, register_user, verify_password
+from src.schemas.auth import Token, UserRegister, UserResponse, UserUpdate, PasswordUpdate
+from src.services.auth_service import create_access_token, register_user, verify_password, get_password_hash
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -132,3 +132,33 @@ async def logout() -> Response:
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(settings.auth_cookie_name, path="/")
     return response
+
+
+@router.put("/me", response_model=UserResponse)
+async def update_me(
+    user_data: UserUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    if user_data.full_name is not None:
+        user.full_name = user_data.full_name
+    if user_data.phone is not None:
+        user.phone = user_data.phone
+    
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
+async def update_password(
+    password_data: PasswordUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    if not verify_password(password_data.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
+        
+    user.password_hash = get_password_hash(password_data.new_password)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -114,8 +114,51 @@ export default function AIHome() {
             <div className="absolute -inset-3 rotate-1 rounded-[2.2rem] bg-[var(--forest)]/8" />
             <div className="relative overflow-hidden rounded-[2rem] border border-black/5 bg-white shadow-[0_35px_100px_rgba(21,48,42,.16)]">
               <div className="flex items-center justify-between border-b border-black/5 px-6 py-5"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span><div><p className="font-semibold">Nera</p><p className="text-xs text-[var(--muted)]">đang lắng nghe bạn</p></div></div><span className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]"><i className="h-2 w-2 rounded-full bg-emerald-500" /> Trực tuyến</span></div>
-              <div className="min-h-[340px] space-y-5 bg-[#fbfaf7] p-5 sm:p-7"><div className="max-w-[88%] animate-message-in rounded-[1.4rem] rounded-tl-md bg-white p-5 text-[15px] leading-7 shadow-sm">{firstName ? `Chào ${firstName}. ` : "Chào bạn. "}{memory?.summary ? <>Tôi vẫn nhớ bạn quan tâm <strong>{memory.summary}</strong>. Hôm nay mình tìm tiếp hay đổi điều gì?</> : "Bạn đang hình dung nơi ở tiếp theo như thế nào? Cứ nói tự nhiên — chưa cần biết chính xác quận hay dự án."}</div>{memory?.summary && <div className="ml-auto max-w-[82%] animate-message-in rounded-[1.4rem] rounded-tr-md bg-[#e4eee6] p-4 text-sm text-[var(--forest)]"><span className="mb-1 block text-xs font-bold uppercase tracking-[.14em]">Memory của bạn</span>{memory.summary}</div>}<div className="flex flex-wrap gap-2">{suggestions.map((suggestion) => <button key={suggestion} onClick={() => startConversation(suggestion)} className="rounded-full border border-black/8 bg-white px-4 py-2.5 text-left text-xs font-medium text-[var(--muted)] transition duration-300 hover:-translate-y-0.5 hover:border-[var(--sage)] hover:text-[var(--forest)] hover:shadow-sm">{suggestion}</button>)}</div></div>
-              <form onSubmit={submit} className="border-t border-black/5 bg-white p-4 sm:p-5"><div className="flex items-end gap-3 rounded-[1.35rem] border border-black/10 bg-[#fbfaf7] p-2 pl-4 focus-within:border-[var(--sage)] focus-within:ring-4 focus-within:ring-[var(--sage)]/10"><textarea aria-label="Nói điều bạn đang tìm" rows={2} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); startConversation(input); } }} placeholder="Ví dụ: Nhà cho gia đình trẻ, gần trường, nhiều ánh sáng…" className="max-h-32 min-h-12 flex-1 resize-none bg-transparent py-2 text-[15px] leading-6 outline-none placeholder:text-stone-400" /><button disabled={!input.trim()} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--ink)] text-white transition hover:scale-105 hover:bg-[var(--forest)] disabled:opacity-30" aria-label="Bắt đầu trò chuyện"><FaPaperPlane /></button></div><p className="mt-3 text-center text-[11px] text-stone-400">Enter để gửi · Câu hỏi sẽ được chuyển nguyên vẹn sang cuộc trò chuyện</p></form>
+              
+              {memory?.summary ? (
+                // RETURNING USER EXPERIENCE (PHASE 3)
+                <div className="min-h-[340px] flex flex-col justify-center bg-[#fbfaf7] p-5 sm:p-7 text-center">
+                  <span className="text-4xl mb-3">👋</span>
+                  <p className="text-[var(--forest)] font-bold text-xs uppercase tracking-wide">Chào bạn quay lại</p>
+                  <h3 className="text-2xl font-semibold mt-2">Tiếp tục từ nơi bạn đã dừng</h3>
+                  <p className="text-sm text-[var(--muted)] mt-2 mx-auto max-w-sm leading-6">Lần trước, Nera ghi nhớ bạn quan tâm: <strong>{memory.summary}</strong>.</p>
+                  
+                  <div className="mt-6 flex justify-center">
+                    <div className="flex items-center text-xs text-[var(--muted)] font-medium">
+                      <span className="flex flex-col items-center gap-1"><span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--forest)] text-white"><FaCheckCircle /></span>Nhu cầu</span>
+                      <span className="w-8 h-px bg-black/10 mx-2" />
+                      <span className="flex flex-col items-center gap-1"><span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--forest)] text-white"><FaCheckCircle /></span>Gợi ý</span>
+                      <span className="w-8 h-px bg-black/10 mx-2" />
+                      <span className="flex flex-col items-center gap-1"><span className="grid h-5 w-5 place-items-center rounded-full border border-black/20 text-black/30">3</span>Tiếp tục</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 flex flex-col gap-3">
+                    <button onClick={() => startConversation("Tiếp tục tìm kiếm với nhu cầu cũ của tôi")} className="rounded-full bg-[var(--ink)] py-3.5 px-6 text-sm font-semibold text-white transition hover:bg-[var(--forest)]">Tiếp tục hành trình →</button>
+                    <button onClick={() => startConversation("Tôi muốn thay đổi nhu cầu tìm kiếm")} className="rounded-full border border-black/10 py-3.5 px-6 text-sm font-semibold transition hover:bg-stone-50">Có, tôi muốn thay đổi nhu cầu</button>
+                  </div>
+                </div>
+              ) : (
+                // NEW USER EXPERIENCE
+                <>
+                  <div className="min-h-[340px] space-y-5 bg-[#fbfaf7] p-5 sm:p-7">
+                    <div className="max-w-[88%] animate-message-in rounded-[1.4rem] rounded-tl-md bg-white p-5 text-[15px] leading-7 shadow-sm">
+                      {firstName ? `Chào ${firstName}. ` : "Chào bạn. "}
+                      Bạn đang hình dung nơi ở tiếp theo như thế nào? Cứ nói tự nhiên — chưa cần biết chính xác quận hay dự án.
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestions.map((suggestion) => <button key={suggestion} onClick={() => startConversation(suggestion)} className="rounded-full border border-black/8 bg-white px-4 py-2.5 text-left text-xs font-medium text-[var(--muted)] transition duration-300 hover:-translate-y-0.5 hover:border-[var(--sage)] hover:text-[var(--forest)] hover:shadow-sm">{suggestion}</button>)}
+                    </div>
+                  </div>
+                  <form onSubmit={submit} className="border-t border-black/5 bg-white p-4 sm:p-5">
+                    <div className="flex items-end gap-3 rounded-[1.35rem] border border-black/10 bg-[#fbfaf7] p-2 pl-4 focus-within:border-[var(--sage)] focus-within:ring-4 focus-within:ring-[var(--sage)]/10">
+                      <textarea aria-label="Nói điều bạn đang tìm" rows={2} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); startConversation(input); } }} placeholder="Ví dụ: Nhà cho gia đình trẻ, gần trường, nhiều ánh sáng…" className="max-h-32 min-h-12 flex-1 resize-none bg-transparent py-2 text-[15px] leading-6 outline-none placeholder:text-stone-400" />
+                      <button disabled={!input.trim()} className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--ink)] text-white transition hover:scale-105 hover:bg-[var(--forest)] disabled:opacity-30" aria-label="Bắt đầu trò chuyện"><FaPaperPlane /></button>
+                    </div>
+                    <p className="mt-3 text-center text-[11px] text-stone-400">Enter để gửi · Câu hỏi sẽ được chuyển nguyên vẹn sang cuộc trò chuyện</p>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         </div>

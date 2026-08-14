@@ -144,6 +144,8 @@ async def chat(
             if next_action == "greet":
                 response_msg = "Xin chào! Tôi là BookingBot. Tôi có thể giúp bạn tìm bất động sản, đặt lịch xem nhà hoặc kiểm tra booking."
             elif next_action == "clarify":
+
+
                 response_msg = "Xin lỗi, tôi chưa hiểu rõ ý bạn. Bạn có thể mô tả lại yêu cầu hoặc hỏi về dịch vụ của chúng tôi."
             elif next_action == "check_booking_status":
                 response_msg = "Để kiểm tra trạng thái booking, vui lòng cung cấp mã booking hoặc số điện thoại đã đăng ký."
@@ -158,21 +160,22 @@ async def chat(
         insights = metadata.get("insights", {})
 
         # Merge new insights from search_criteria
-        if result.get("search_criteria"):
+        search_criteria_res = result.get("search_criteria")
+        if isinstance(search_criteria_res, dict):
             # Only update non-None values
-            for k, v in result["search_criteria"].items():
+            for k, v in search_criteria_res.items():
                 if v is not None:
                     insights[k] = v
 
         if customer_id:
-            await remember_search_criteria(db, customer_id, result.get("search_criteria"))
+            await remember_search_criteria(db, customer_id, search_criteria_res if isinstance(search_criteria_res, dict) else None)
             await remember_feedback(db, customer_id, request.message)
 
         # Attach properties if any
-        properties = result.get("selected_properties", [])
+        properties = result.get("selected_properties") or []
         # Agent tools deliberately hide internal identifiers from the LLM. Enrich
         # the final trusted API response so UI actions can open/book a property.
-        titles = [item.get("title") for item in properties if item.get("title")]
+        titles = [item.get("title") for item in properties if isinstance(item, dict) and item.get("title")]
         if titles:
             property_rows = (await db.execute(
                 select(Property.id, Property.title).where(Property.title.in_(titles))
@@ -180,10 +183,9 @@ async def chat(
             ids_by_title = {title: str(property_id) for property_id, title in property_rows}
             properties = [
                 {**item, "id": ids_by_title[item["title"]]}
-                if item.get("title") in ids_by_title else item
+                if isinstance(item, dict) and item.get("title") in ids_by_title else item
                 for item in properties
             ]
-
         messages.append({
             "role": "assistant",
             "content": response_msg,

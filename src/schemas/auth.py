@@ -28,3 +28,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+class UserUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=2)
+    phone: str | None = Field(default=None, pattern=r'^\+?[0-9]{8,15}$')
+
+class PasswordUpdate(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=6)
