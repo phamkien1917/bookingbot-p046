@@ -1,7 +1,7 @@
 """Scheduler Service - Background jobs for BookingBot."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -31,7 +31,7 @@ async def cleanup_expired_holds() -> None:
     that have passed their expiration time.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find expired holds
         stmt = select(PropertyHold).where(
@@ -60,7 +60,7 @@ async def check_running_late() -> None:
     is past their estimated end time and mark them as late.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find appointments that are past their end time but not completed
         stmt = select(Appointment).where(
@@ -95,7 +95,7 @@ async def expire_stale_slots() -> None:
     that were proposed but not selected in time.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find expired proposed slots
         stmt = select(TourSlotOption).where(
@@ -130,7 +130,7 @@ async def check_no_shows() -> None:
     where the customer didn't show up.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find confirmed appointments that ended more than 30 minutes ago
         cutoff = now - timedelta(minutes=30)

@@ -1,9 +1,8 @@
 -- XHome VisitOps - PostgreSQL schema for the MVP
 -- Scope: AI consultation -> property selection -> sale approval -> appointment -> soft hold.
--- Contains 18 business tables: the original 16-table MVP plus normalized
--- external seller data for crawled listings. Run on an empty PostgreSQL/Neon database.
--- Advanced modules such as vehicles, route optimization, nearby places,
--- customer memory, automatic rescheduling, analytics and audit logs are not included.
+-- Contains 22 business tables: the original 16-table MVP plus normalized
+-- external seller data for crawled listings, and advanced tables (preferences, analytics, audit).
+-- Run on an empty PostgreSQL/Neon database.
 
 BEGIN;
 
@@ -959,5 +958,69 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_property_holds_updated_at
 BEFORE UPDATE ON property_holds
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Advanced Modules
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE customer_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_user_id UUID NOT NULL REFERENCES customer_profiles(user_id) ON DELETE CASCADE,
+    preference_key VARCHAR(100) NOT NULL,
+    preference_value JSONB NOT NULL,
+    confidence NUMERIC(5,4) DEFAULT 1.0,
+    source VARCHAR(20) DEFAULT 'EXPLICIT',
+    last_confirmed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (customer_user_id, preference_key)
+);
+CREATE TRIGGER trg_customer_preferences_updated_at
+BEFORE UPDATE ON customer_preferences
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    appointment_id UUID REFERENCES appointments(id) ON DELETE CASCADE,
+    channel notification_channel_t NOT NULL,
+    template_key VARCHAR(100) NOT NULL,
+    payload JSONB DEFAULT '{}'::jsonb NOT NULL,
+    scheduled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    status delivery_status_t NOT NULL DEFAULT 'PENDING',
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    sent_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_notifications_due ON notifications(scheduled_at);
+
+CREATE TABLE analytics_events (
+    id SERIAL PRIMARY KEY,
+    event_name VARCHAR(100) NOT NULL,
+    customer_user_id UUID,
+    tour_request_id UUID,
+    appointment_id UUID,
+    session_id VARCHAR(128),
+    properties JSONB DEFAULT '{}'::jsonb NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_analytics_events_name_time ON analytics_events(event_name, occurred_at);
+
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    actor_user_id UUID,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(64) NOT NULL,
+    entity_id UUID,
+    request_id VARCHAR(128),
+    before_data JSONB,
+    after_data JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 COMMIT;
