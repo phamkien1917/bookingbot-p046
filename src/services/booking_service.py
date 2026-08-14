@@ -15,6 +15,7 @@ from src.database.models import (
     Notification,
     NotificationChannel,
     Property,
+    PropertySaleAssignment,
     PropertyStatus,
     RequestStatus,
     SaleProfile,
@@ -114,8 +115,13 @@ async def list_available_slots(db: AsyncSession, property_id: UUID, target_date:
     sales_result = await db.execute(
         select(SaleProfile)
         .join(User, User.id == SaleProfile.user_id)
+        .join(PropertySaleAssignment, PropertySaleAssignment.sale_user_id == SaleProfile.user_id)
         .options(selectinload(SaleProfile.user))
-        .where(SaleProfile.is_accepting_tours.is_(True), User.status == UserStatus.ACTIVE)
+        .where(
+            SaleProfile.is_accepting_tours.is_(True),
+            User.status == UserStatus.ACTIVE,
+            PropertySaleAssignment.property_id == property_id
+        )
         .order_by(SaleProfile.employee_code)
     )
     sales = sales_result.scalars().all()
@@ -304,6 +310,7 @@ async def list_sale_requests(db: AsyncSession, sale_user_id: UUID) -> list[dict]
         )
         .where(
             TourSlotOption.sale_user_id == sale_user_id,
+            TourSlotOption.status == SlotStatus.SELECTED,
             TourRequest.status.in_([RequestStatus.WAITING_APPROVAL, RequestStatus.BOOKED]),
         )
         .order_by(TourRequest.preferred_start)
