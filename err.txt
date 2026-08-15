@@ -1,1 +1,0 @@
-{"response":"Tôi là BookingBot - **TRỢ LÝ ĐẶT LỊCH XEM NHÀ & GIỮ CĂN TỰ ĐỘNG** 😊\n\nCâu hỏi của bạn tôi không trả lời được. Bạn vui lòng hỏi trực tiếp Sale khi đi xem nhà nhé.\n\nBạn có muốn tôi giữ căn này và đặt lịch xem nhà không?","analysis":"","session_id":"test-session-123","properties":[],"insights":{"property_kind":"APARTMENT"},"memory_summary":""}
