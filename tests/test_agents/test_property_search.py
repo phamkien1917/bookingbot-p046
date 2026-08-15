@@ -276,8 +276,7 @@ async def test_agent_state_reset_between_turns():
         session_id="agent-test-state-pollution",
         query="Tìm căn 3 tỷ Ba Đình",
     )
-    result1 = await agent.ainvoke(state1)
-    props1 = result1.get("selected_properties", []) or result1.get("search_results", [])
+    await agent.ainvoke(state1)
 
     # Lượt 2
     state2 = create_initial_state(
@@ -285,18 +284,11 @@ async def test_agent_state_reset_between_turns():
         query="Tìm căn 2 tỷ Cầu Giấy",
     )
     result2 = await agent.ainvoke(state2)
-    props2 = result2.get("selected_properties", []) or result2.get("search_results", [])
 
     # current_property_id phải None (state mới)
     assert result2.get("current_property_id") is None, (
         f"current_property_id không reset: {result2.get('current_property_id')}"
     )
-
-    # Nếu cả 2 lượt đều có kết quả, check overlap
-    if props1 and props2:
-        ids1 = {p.get("id") or p.get("title") for p in props1}
-        ids2 = {p.get("id") or p.get("title") for p in props2}
-        # Cho phép overlap vì có thể trùng tiêu chí
 
 
 # ============================================================================
