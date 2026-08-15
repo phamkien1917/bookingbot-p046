@@ -11,8 +11,6 @@ from src.database import get_session
 from src.database.models import (
     Appointment,
     AppointmentStatus,
-    Property,
-    SaleProfile,
     User,
     UserRole,
 )

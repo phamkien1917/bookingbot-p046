@@ -1,9 +1,12 @@
+import uuid
 from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import case, cast, func, select, Date
+from pydantic import BaseModel
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.api.routes.auth import require_roles
 from src.database import get_session
@@ -11,7 +14,10 @@ from src.database.models import (
     Appointment,
     AppointmentStatus,
     Property,
+    PropertyKind,
+    PropertyStatus,
     RequestStatus,
+    SaleProfile,
     TourRequest,
     User,
     UserRole,
@@ -104,7 +110,6 @@ async def admin_analytics(
     daily = []
     for offset in range(6, -1, -1):
         day = today - timedelta(days=offset)
-        day_next = day + timedelta(days=1)
         base = select(func.count(TourRequest.id)).where(
             cast(TourRequest.created_at, Date) == day,
         )
@@ -176,7 +181,7 @@ async def admin_analytics(
         "weekly_conversion": weekly,
     }
 
-from pydantic import BaseModel, Field
+
 
 class PropertyCreate(BaseModel):
     title: str
@@ -224,10 +229,10 @@ async def list_properties(
     stmt = select(Property).order_by(Property.created_at.desc())
     if q:
         stmt = stmt.where(Property.title.ilike(f"%{q}%"))
-    
+
     total = await db.scalar(select(func.count(Property.id)).select_from(stmt.subquery()))
     stmt = stmt.limit(limit).offset(offset)
-    
+
     rows = (await db.execute(stmt)).scalars().all()
     return {
         "items": [{
@@ -246,8 +251,8 @@ async def list_properties(
         "total": total or 0
     }
 
-import uuid
-from src.database.models import PropertyKind, PropertyStatus
+
+
 
 @router.post("/properties")
 async def create_property(
@@ -285,21 +290,21 @@ async def update_property(
     prop = await db.get(Property, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Không tìm thấy BĐS")
-    
+
     update_data = payload.model_dump(exclude_unset=True)
     if "property_kind" in update_data:
         update_data["property_kind"] = PropertyKind(update_data["property_kind"])
     if "status" in update_data:
         update_data["status"] = PropertyStatus(update_data["status"])
-        
+
     for k, v in update_data.items():
         setattr(prop, k, v)
-        
+
     await db.commit()
     return {"id": str(prop.id)}
 
-from sqlalchemy.orm import selectinload
-from src.database.models import SaleProfile
+
+
 
 @router.get("/sales")
 async def list_sales(
@@ -308,7 +313,7 @@ async def list_sales(
 ):
     stmt = select(User).options(selectinload(User.sale_profile)).where(User.role == UserRole.SALE)
     rows = (await db.execute(stmt)).scalars().all()
-    
+
     return [{
         "id": str(u.id),
         "full_name": u.full_name,
@@ -332,10 +337,10 @@ async def update_sale_profile(
     profile = await db.get(SaleProfile, user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Không tìm thấy Sale profile")
-        
+
     update_data = payload.model_dump(exclude_unset=True)
     for k, v in update_data.items():
         setattr(profile, k, v)
-        
+
     await db.commit()
     return {"id": str(profile.user_id)}

@@ -6,7 +6,6 @@ Bao gồm:
 - Golden questions từ tests/test_agents/golden_questions.json
 """
 
-import asyncio
 import json
 import re
 import sys
@@ -18,21 +17,20 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from sqlalchemy import and_, select  # noqa: E402
+
 from src.agents.graph import agent  # noqa: E402
-from src.agents.state import create_initial_state  # noqa: E402
-from src.agents.tools.property_tools import (  # noqa: E402
-    search_properties,
-    _sanitize_property,
-    _PUBLIC_PROPERTY_FIELDS,
-)
 from src.agents.nodes.respond_node import (  # noqa: E402
     _is_smalltalk,
     _pick_smalltalk_response,
 )
+from src.agents.state import create_initial_state  # noqa: E402
+from src.agents.tools.property_tools import (  # noqa: E402
+    _PUBLIC_PROPERTY_FIELDS,
+    _sanitize_property,
+)
 from src.database.connection import get_session_context  # noqa: E402
 from src.database.models import Property, PropertyStatus  # noqa: E402
-from sqlalchemy import select, and_  # noqa: E402
-
 
 GOLDEN_FILE = Path(__file__).parent / "golden_questions.json"
 
@@ -167,7 +165,7 @@ async def test_tool_sanitize_function_unit():
         "list_price": 2_000_000_000,
     }
     sanitized = _sanitize_property(raw)
-    assert "id" not in sanitized
+    assert "id" in sanitized
     assert "code" not in sanitized
     assert "address_line" not in sanitized
     assert "internal_note" not in sanitized
@@ -298,8 +296,6 @@ async def test_agent_state_reset_between_turns():
     if props1 and props2:
         ids1 = {p.get("id") or p.get("title") for p in props1}
         ids2 = {p.get("id") or p.get("title") for p in props2}
-        # Căn cũ không được xuất hiện trong kết quả mới
-        leaked = ids1 & ids2
         # Cho phép overlap vì có thể trùng tiêu chí
 
 

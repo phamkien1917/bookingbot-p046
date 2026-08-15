@@ -21,8 +21,3 @@ async def test_agent_status(client):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
-async def test_ui_page_served(client):
-    response = await client.get("/ui")
-    assert response.status_code == 200
-    assert "BookingBot AI" in response.text

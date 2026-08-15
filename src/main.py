@@ -116,8 +116,4 @@ async def root():
     }
 
 
-@app.get("/ui", response_class=HTMLResponse)
-async def serve_ui() -> HTMLResponse:
-    """Serve the browser-based test UI."""
-    ui_path = Path(__file__).resolve().parent.parent / "MOCKUI" / "test_ui" / "index.html"
-    return HTMLResponse(content=ui_path.read_text(encoding="utf-8"), status_code=200)
+
