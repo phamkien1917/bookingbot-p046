@@ -70,6 +70,22 @@ Tài khoản seed dùng mật khẩu demo chỉ được chấp nhận khi `APP_
 
 Phiên đăng nhập dùng cookie HttpOnly. API Sale/Admin và lịch sử chatbot đều kiểm tra vai trò và chủ sở hữu ở backend.
 
+## Sample queries (test agent qua `/api/v1/chat`)
+
+Các câu dưới đây khớp với các `Intent` agent đã cài (`src/agents/state.py`), dùng để test end-to-end sau khi đã điền `OPENAI_API_KEY`/`OPENROUTER_API_KEY` thật trong `.env`:
+
+```
+Tôi muốn tìm căn hộ 2 phòng ngủ ở quận 7, giá dưới 4 tỷ          -> SEARCH_PROPERTY
+Cho tôi xem thêm căn nào gần đó có ban công không                -> SEARCH_PROPERTY (follow-up)
+Tôi muốn đặt lịch xem căn này vào cuối tuần                       -> BOOK_APPOINTMENT
+Đổi lịch xem nhà sang chiều thứ 7 được không                     -> RESCHEDULE
+Tôi muốn huỷ lịch xem nhà đã đặt                                  -> CANCEL_BOOKING
+Lịch xem nhà của tôi đang ở trạng thái nào rồi                    -> CHECK_STATUS
+Mua nhà cần chuẩn bị giấy tờ gì                                   -> GENERAL_QA (không search DB)
+```
+
+Kỳ vọng output: agent trả lời bằng tiếng Việt tự nhiên, có gọi tool tương ứng (`search_properties`, `create_booking`, `propose_time_slots`...), không bịa property/giá không có trong DB.
+
 ## Kiểm tra chất lượng
 
 ```powershell
