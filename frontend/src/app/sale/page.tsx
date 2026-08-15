@@ -316,24 +316,28 @@ function SaleDashboardContent() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              {overview?.pending_requests.map((item) => (
-                <article key={item.id} className="rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm animate-card-rise">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-bold">{item.customer?.full_name}</p>
-                      <p className="text-xs text-[var(--muted)]">{item.customer?.phone}</p>
+              {overview?.pending_requests.map((item) => {
+                const isReschedule = item.customer_note?.includes("Dời lịch từ");
+                return (
+                  <article key={item.id} className="rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm animate-card-rise">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-bold">{item.customer?.full_name}</p>
+                        <p className="text-xs text-[var(--muted)]">{item.customer?.phone}</p>
+                      </div>
+                      {item.expires_at && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"><FaClock className="inline mr-1" />{remaining(item.expires_at)}</span>}
                     </div>
-                    {item.expires_at && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"><FaClock className="inline mr-1" />{remaining(item.expires_at)}</span>}
-                  </div>
-                  <p className="mt-3 font-semibold text-sm line-clamp-2">{item.property.title}</p>
-                  <p className="text-xs text-[var(--muted)]">{item.property.address}</p>
-                  <p className="mt-2 flex items-center gap-2 text-xs text-[var(--muted)]"><FaCalendarAlt />{new Date(item.preferred_start).toLocaleString("vi-VN")}</p>
-                  <div className="mt-4 flex gap-2">
-                    <button onClick={() => void handleAccept(item.id)} className="flex-1 rounded-xl bg-[var(--forest)] py-2.5 text-sm font-semibold text-white">✓ Nhận</button>
-                    <button onClick={() => setReject({ id: item.id, reason: "" })} className="flex-1 rounded-xl border border-[var(--coral)] py-2.5 text-sm font-semibold text-[var(--coral)]">✗ Từ chối</button>
-                  </div>
-                </article>
-              ))}
+                    {isReschedule && <p className="mt-3 text-xs font-semibold text-[var(--coral)]">🔄 Yêu cầu dời lịch</p>}
+                    <p className={`font-semibold text-sm line-clamp-2 ${isReschedule ? 'mt-1' : 'mt-3'}`}>{item.property.title}</p>
+                    <p className="text-xs text-[var(--muted)]">{item.property.address}</p>
+                    <p className="mt-2 flex items-center gap-2 text-xs text-[var(--muted)]"><FaCalendarAlt />{new Date(item.preferred_start).toLocaleString("vi-VN")}</p>
+                    <div className="mt-4 flex gap-2">
+                      <button onClick={() => void handleAccept(item.id)} className="flex-1 rounded-xl bg-[var(--forest)] py-2.5 text-sm font-semibold text-white">✓ {isReschedule ? "Đồng ý dời" : "Nhận"}</button>
+                      <button onClick={() => setReject({ id: item.id, reason: "" })} className="flex-1 rounded-xl border border-[var(--coral)] py-2.5 text-sm font-semibold text-[var(--coral)]">✗ {isReschedule ? "Từ chối dời" : "Từ chối"}</button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

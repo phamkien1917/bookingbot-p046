@@ -13,6 +13,7 @@ const getNoticeText = (item: Notice) => {
     booking_confirmed: "Lịch xem đã xác nhận",
     booking_cancelled_by_customer: "Khách hàng đã hủy lịch",
     sale_booking_request: "Yêu cầu xem nhà mới",
+    sale_reschedule_request: "Khách hàng muốn dời lịch",
     booking_sale_reassigned: "Đang chuyển Sale khác",
     booking_needs_new_time: "Các Sale đều đã kín lịch",
     booking_request_expired: "Yêu cầu đã hết hạn",
@@ -22,6 +23,8 @@ const getNoticeText = (item: Notice) => {
   let desc = String(item.payload.property_title ?? "Nera");
   if (item.template_key === "booking_cancelled_by_customer" && item.payload.reason) {
     desc = `${desc} - Lý do: ${item.payload.reason}`;
+  } else if (item.template_key === "sale_reschedule_request") {
+    desc = `Khách hàng đề xuất dời lịch cho căn ${desc}`;
   } else if (item.template_key === "booking_sale_reassigned") {
     desc = `Sale trước đang bận. Đang tìm chuyên viên mới cho căn ${desc}`;
   }

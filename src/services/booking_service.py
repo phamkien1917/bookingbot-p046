@@ -245,7 +245,7 @@ async def create_tour_request(
     db.add(Notification(
         user_id=data.sale_user_id,
         channel=NotificationChannel.IN_APP,
-        template_key="sale_booking_request",
+        template_key="sale_reschedule_request" if data.is_reschedule else "sale_booking_request",
         payload=notification_payload,
         status=DeliveryStatus.PENDING,
     ))
@@ -684,6 +684,7 @@ async def reschedule_customer_booking(
         preferred_end=new_preferred_end,
         pax_count=old.party_size,
         customer_note=f"Dời lịch từ {old.request_code}",
+        is_reschedule=True,
     )
     new_row = await create_tour_request(db, customer_id, new_request)
     return serialize_booking(new_row)

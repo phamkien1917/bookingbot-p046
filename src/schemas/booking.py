@@ -11,6 +11,7 @@ class TourRequestCreate(BaseModel):
     preferred_end: datetime
     pax_count: int = Field(default=1, ge=1, le=20)
     customer_note: str | None = Field(default=None, max_length=1000)
+    is_reschedule: bool = False
 
     @model_validator(mode="after")
     def validate_time_range(self):
