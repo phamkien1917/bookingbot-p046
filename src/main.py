@@ -4,11 +4,9 @@ import io
 import logging
 import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 
 from src.api.routes import router
 from src.config import get_settings
