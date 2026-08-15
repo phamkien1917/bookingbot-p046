@@ -27,6 +27,9 @@ export default function MyBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cancellingBooking, setCancellingBooking] = useState<Booking | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const load = useCallback(async () => {
     try { setBookings(await apiFetch<Booking[]>("/bookings/my")); setError(""); }
@@ -41,10 +44,20 @@ export default function MyBookingsPage() {
   const tab = TABS.find((item) => item.key === activeTab) ?? TABS[0];
   const filtered = useMemo(() => bookings.filter((booking) => (tab.statuses as readonly string[]).includes(booking.status)), [bookings, tab.statuses]);
 
-  const cancel = async (booking: Booking) => {
-    if (!window.confirm(`Hủy yêu cầu ${booking.request_code}?`)) return;
-    try { await apiFetch(`/bookings/${booking.id}/cancel`, { method: "POST", body: JSON.stringify({ reason: "Khách hàng hủy từ danh sách" }) }); await load(); }
+  const submitCancel = async () => {
+    if (!cancellingBooking) return;
+    setIsCancelling(true);
+    try { 
+      await apiFetch(`/bookings/${cancellingBooking.id}/cancel`, { 
+        method: "POST", 
+        body: JSON.stringify({ reason: cancelReason || "Khách hàng yêu cầu hủy" }) 
+      }); 
+      setCancellingBooking(null);
+      setCancelReason("");
+      await load(); 
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Không thể hủy lịch"); }
+    finally { setIsCancelling(false); }
   };
 
   return (
@@ -116,7 +129,7 @@ export default function MyBookingsPage() {
                       </div>
                       
                       {!["CANCELLED", "REJECTED", "EXPIRED", "COMPLETED"].includes(booking.status) && (
-                        <button onClick={() => cancel(booking)} className="w-full mt-3 text-red-500 py-2 rounded-xl text-sm font-semibold hover:bg-red-50 transition-colors">Hủy lịch này</button>
+                        <button onClick={() => setCancellingBooking(booking)} className="w-full mt-3 text-red-500 py-2 rounded-xl text-sm font-semibold hover:bg-red-50 transition-colors">Hủy lịch này</button>
                       )}
                     </div>
                   </div>
@@ -125,6 +138,57 @@ export default function MyBookingsPage() {
             </div>
           )}
         </main>
+
+        {cancellingBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-in fade-in">
+            <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden">
+              <div className="p-6">
+                <h3 className="text-xl font-bold mb-2">Hủy lịch xem nhà</h3>
+                <p className="text-sm text-[var(--muted)] mb-5">
+                  Bạn đang hủy lịch xem căn <strong className="text-[var(--ink)]">{cancellingBooking.property.title}</strong>.
+                </p>
+                
+                <label className="block text-sm font-semibold mb-2">Lý do hủy</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {["Tôi có việc bận đột xuất", "Tôi đã tìm được căn khác", "Đổi ý không xem nữa"].map(reason => (
+                    <button
+                      key={reason}
+                      onClick={() => setCancelReason(reason)}
+                      className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${cancelReason === reason ? "bg-[var(--coral)] text-white border-[var(--coral)]" : "bg-white text-[var(--muted)] border-black/10 hover:border-black/30"}`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+                
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Nhập lý do khác..."
+                  className="w-full border border-black/10 rounded-xl p-3 text-sm focus:outline-none focus:border-[var(--forest)] resize-none"
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex gap-3 p-4 bg-stone-50 border-t border-black/5">
+                <button 
+                  onClick={() => { setCancellingBooking(null); setCancelReason(""); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-[var(--muted)] hover:bg-black/5 transition-colors"
+                >
+                  Đóng
+                </button>
+                <button 
+                  disabled={isCancelling}
+                  onClick={submitCancel}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 flex justify-center items-center"
+                >
+                  {isCancelling ? <FaSpinner className="animate-spin" /> : "Xác nhận hủy"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <Footer />
       </div>
     </ProtectedPage>

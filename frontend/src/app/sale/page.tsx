@@ -24,6 +24,7 @@ import {
 import ProtectedPage from "@/components/ProtectedPage";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
+import NotificationBell from "@/components/NotificationBell";
 
 interface SaleOverview {
   user: { id: string; full_name: string };
@@ -89,8 +90,13 @@ function WeekCalendar({
   const dayNames = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
   function getBlocks(day: Date) {
-    const dayStr = day.toISOString().slice(0, 10);
-    return appointments.filter((a) => a.starts_at?.slice(0, 10) === dayStr);
+    const dayStr = day.getFullYear() + "-" + String(day.getMonth() + 1).padStart(2, '0') + "-" + String(day.getDate()).padStart(2, '0');
+    return appointments.filter((a) => {
+      if (!a.starts_at) return false;
+      const localDate = new Date(a.starts_at);
+      const localStr = localDate.getFullYear() + "-" + String(localDate.getMonth() + 1).padStart(2, '0') + "-" + String(localDate.getDate()).padStart(2, '0');
+      return localStr === dayStr;
+    });
   }
 
   function getPosition(a: CalendarAppointment) {
@@ -275,7 +281,10 @@ function SaleDashboardContent() {
             <p className="text-xs font-bold uppercase tracking-[.18em] text-[var(--coral)]">Sale Dashboard</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Xin chào {overview?.user.full_name ?? user?.full_name}</h1>
           </div>
-          <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold"><FaSyncAlt className={loading ? "animate-spin" : ""} /> Làm mới</button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold"><FaSyncAlt className={loading ? "animate-spin" : ""} /> Làm mới</button>
+            <NotificationBell />
+          </div>
         </header>
 
         {error && <div role="alert" className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{error}</div>}

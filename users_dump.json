@@ -1,0 +1,182 @@
+[
+  {
+    "name": "Nguyễn Quản Trị",
+    "email": "admin.demo@example.com",
+    "role": "ADMIN"
+  },
+  {
+    "name": "Trần Điều Phối",
+    "email": "coordinator.demo@example.com",
+    "role": "COORDINATOR"
+  },
+  {
+    "name": "Hoàng Văn Ân",
+    "email": "an.hv.sale17@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Nguyễn Văn An",
+    "email": "an.nv.sale10@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Trần Thị Bích",
+    "email": "bich.tt.sale11@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Lê Hoàng Công",
+    "email": "cong.lh.sale7@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Phạm Thị Dung",
+    "email": "dung.pt.sale16@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Đặng Văn Giang",
+    "email": "giang.dv.sale15@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Bùi Thị Hạnh",
+    "email": "hanh.bt.sale0@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Vũ Thị Hoa",
+    "email": "hoa.vt.sale5@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Đỗ Văn Inh",
+    "email": "inh.dv.sale18@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Phạm Kiên",
+    "email": "kien.sale@example.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Hồ Thị Kim",
+    "email": "kim.ht.sale4@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Ngô Văn Lâm",
+    "email": "lam.nv.sale12@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Dương Thị Mai",
+    "email": "mai.dt.sale3@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Trần Minh Quân",
+    "email": "minhquan.sale.demo@example.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Lý Văn Nam",
+    "email": "nam.lv.sale9@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Đinh Thị Oanh",
+    "email": "oanh.dt.sale8@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Đoàn Văn Phong",
+    "email": "phong.dv.sale14@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Trịnh Văn Quân",
+    "email": "quan.tv.sale19@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Lâm Thị Quỳnh",
+    "email": "quynh.lt.sale6@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Nguyễn Thu Trang",
+    "email": "thutrang.sale.demo@example.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Đào Văn Tuấn",
+    "email": "tuan.dv.sale1@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Phan Thị Xuân",
+    "email": "xuan.pt.sale13@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Mai Thị Yến",
+    "email": "yen.mt.sale2@xhome.com",
+    "role": "SALE"
+  },
+  {
+    "name": "Nguyễn Minh Anh",
+    "email": "customer.demo@example.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Đỗ Gia Huy",
+    "email": "giahuy.customer.demo@example.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Trần Hoàng Nam",
+    "email": "hoangnam.customer.demo@example.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Nguyen Van A",
+    "email": "kienpt04@gmail.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Phạm Trung Kiên",
+    "email": "kienpt041@gmail.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Nguyen Van A",
+    "email": "kienpt047@gmail.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Phạm Trung Kiên",
+    "email": "kienpt048@gmail.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Vũ Ngọc Lan",
+    "email": "ngoclan.customer.demo@example.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Nguyen Van A",
+    "email": "nguyenvana@gmail.com",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Test User Auto",
+    "email": "testuser_auto@xhome.vn",
+    "role": "CUSTOMER"
+  },
+  {
+    "name": "Lê Thu Hà",
+    "email": "thuha.customer.demo@example.com",
+    "role": "CUSTOMER"
+  }
+]

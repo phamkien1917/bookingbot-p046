@@ -289,6 +289,28 @@ async def cancel_customer_booking(db: AsyncSession, booking_id: UUID, customer_i
         raise LookupError("Không tìm thấy lịch xem")
     if row.status in (RequestStatus.CANCELLED, RequestStatus.EXPIRED, RequestStatus.REJECTED):
         return serialize_booking(row)
+    # Notify the assigned Sale if any
+    sale_user_id = None
+    if row.appointment:
+        sale_user_id = row.appointment.sale_user_id
+    else:
+        selected_slot = next((s for s in row.slot_options if s.status == SlotStatus.SELECTED), None)
+        if selected_slot:
+            sale_user_id = selected_slot.sale_user_id
+
+    if sale_user_id:
+        db.add(Notification(
+            user_id=sale_user_id,
+            channel=NotificationChannel.IN_APP,
+            template_key="booking_cancelled_by_customer",
+            payload={
+                "request_code": row.request_code,
+                "property_title": row.property.title if row.property else None,
+                "reason": reason or "Khách hàng yêu cầu hủy",
+            },
+            status=DeliveryStatus.PENDING,
+        ))
+
     row.status = RequestStatus.CANCELLED
     if row.appointment:
         row.appointment.status = AppointmentStatus.CANCELLED

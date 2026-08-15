@@ -75,6 +75,8 @@ async def sale_schedule(
                 "id": str(a.property.id),
                 "title": a.property.title,
                 "address": ", ".join(filter(None, [a.property.address_line, a.property.district, a.property.province])),
+                "latitude": float(a.property.latitude) if a.property.latitude else None,
+                "longitude": float(a.property.longitude) if a.property.longitude else None,
             } if a.property else None,
         }
         for a in rows
