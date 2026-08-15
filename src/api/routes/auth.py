@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import get_settings
 from src.database import get_session
 from src.database.models import User, UserRole, UserStatus
-from src.schemas.auth import Token, UserRegister, UserResponse, UserUpdate, PasswordUpdate
-from src.services.auth_service import create_access_token, register_user, verify_password, get_password_hash
+from src.schemas.auth import PasswordUpdate, Token, UserRegister, UserResponse, UserUpdate
+from src.services.auth_service import create_access_token, get_password_hash, register_user, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -144,7 +144,7 @@ async def update_me(
         user.full_name = user_data.full_name
     if user_data.phone is not None:
         user.phone = user_data.phone
-    
+
     await db.commit()
     await db.refresh(user)
     return user
@@ -158,7 +158,7 @@ async def update_password(
 ):
     if not verify_password(password_data.current_password, user.password_hash):
         raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
-        
+
     user.password_hash = get_password_hash(password_data.new_password)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

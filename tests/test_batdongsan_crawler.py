@@ -4,12 +4,10 @@ from copy import deepcopy
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-
 DATABASE_DIR = Path(__file__).resolve().parents[1] / "database"
 sys.path.insert(0, str(DATABASE_DIR))
 
 import crawler_batdongsan as crawler  # noqa: E402
-
 
 SAMPLE_URL = (
     "https://batdongsan.com.vn/ban-dat-phuong-hung-thang-1/"

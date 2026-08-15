@@ -13,8 +13,8 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from src.main import app
 from src.database.connection import close_engine
+from src.main import app
 
 
 @pytest_asyncio.fixture(autouse=True)

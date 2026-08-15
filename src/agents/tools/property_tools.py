@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 # Chỉ những field này mới được phép trả về cho LLM/UI.
 # Tránh lộ UUID nội bộ, mã code, address đầy đủ, internal_note.
 _PUBLIC_PROPERTY_FIELDS = (
+    "id",
     "title",
     "property_kind",
     "district",
@@ -176,6 +177,7 @@ async def search_properties(
                     image_url = cover.url
 
                 raw.append({
+                    "id": str(p.id),
                     "title": p.title,
                     "property_kind": p.property_kind.value if p.property_kind else None,
                     "district": p.district,
