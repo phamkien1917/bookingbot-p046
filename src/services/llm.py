@@ -4,7 +4,6 @@ Supports free tier models and fallback to paid models when credits run out.
 """
 
 import logging
-from typing import Any, Optional
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
@@ -13,8 +12,6 @@ from langchain_core.tools import BaseTool
 
 from src.config import get_settings
 from src.services.models import (
-    FALLBACK_MODELS,
-    FREE_MODELS,
     MODEL_DISPLAY_NAMES,
     MODEL_PRIORITY,
     SYSTEM_PROMPT_VI,
@@ -32,7 +29,7 @@ class OpenRouterLLM:
 
     def __init__(
         self,
-        preferred_model: Optional[str] = None,
+        preferred_model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
     ):
@@ -48,10 +45,15 @@ class OpenRouterLLM:
         self.max_tokens = max_tokens
         self.current_model_index = 0
         self.current_model = preferred_model or self.settings.model_name
+        self.is_direct_openai = not self.settings.openrouter_api_key and bool(self.settings.openai_api_key)
 
         # If user specifies a model, use only that model
         if preferred_model:
             self.models = [preferred_model]
+        elif self.is_direct_openai:
+            self.models = ["gpt-4o-mini", "gpt-4o"]
+            self.current_model = self.models[0]
+            self.current_model_index = 0
         else:
             # Use priority list
             self.models = MODEL_PRIORITY
@@ -60,16 +62,20 @@ class OpenRouterLLM:
                 self.current_model_index = MODEL_PRIORITY.index(self.current_model)
 
         logger.info(
-            f"OpenRouterLLM initialized with model: {self.current_model} "
-            f"(index: {self.current_model_index}/{len(self.models)})"
+            f"LLM initialized with model: {self.current_model} "
+            f"(index: {self.current_model_index}/{len(self.models)}), direct_openai: {self.is_direct_openai}"
         )
 
-    def _get_base_url(self) -> str:
+    def _get_base_url(self) -> str | None:
         """Get the API base URL."""
+        if self.is_direct_openai:
+            return None
         return self.settings.openrouter_base_url
 
-    def _get_headers(self) -> dict:
+    def _get_headers(self) -> dict | None:
         """Get HTTP headers for OpenRouter API."""
+        if self.is_direct_openai:
+            return None
         return {
             "HTTP-Referer": self.settings.openrouter_site_url,
             "X-Title": self.settings.openrouter_site_name,
@@ -79,8 +85,16 @@ class OpenRouterLLM:
         """Create a ChatOpenAI instance for the current model."""
         from langchain_openai import ChatOpenAI
 
-        # Determine API key (prefer OpenRouter key)
-        api_key = self.settings.openrouter_api_key or self.settings.openai_api_key
+        if self.is_direct_openai:
+            api_key = self.settings.openai_api_key
+        else:
+            # Ensure OpenRouter API key is provided
+            api_key = self.settings.openrouter_api_key
+            if not api_key:
+                raise ValueError(
+                    "OPENROUTER_API_KEY is missing in your .env file. "
+                    "Please get a free API key from https://openrouter.ai/ and add it."
+                )
 
         return ChatOpenAI(
             model=self.models[self.current_model_index],
@@ -90,7 +104,7 @@ class OpenRouterLLM:
             max_tokens=self.max_tokens,
             timeout=60,
             max_retries=1,
-            extra_headers=self._get_headers(),
+            default_headers=self._get_headers(),
         )
 
     def _try_next_model(self) -> bool:
@@ -115,7 +129,7 @@ class OpenRouterLLM:
         self,
         messages: list[BaseMessage],
         *,
-        tools: Optional[list[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> ChatResult:
         """Invoke the LLM with automatic fallback.
 
@@ -126,7 +140,7 @@ class OpenRouterLLM:
         Returns:
             ChatResult from the LLM
         """
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(len(self.models) - self.current_model_index):
             try:
@@ -189,11 +203,11 @@ class OpenRouterLLM:
 
 
 # Singleton instance cache
-_llm_instance: Optional[OpenRouterLLM] = None
+_llm_instance: OpenRouterLLM | None = None
 
 
 def get_llm(
-    preferred_model: Optional[str] = None,
+    preferred_model: str | None = None,
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ) -> OpenRouterLLM:

@@ -1,11 +1,16 @@
 """Database connection and session management.
 
 Supports both PostgreSQL (production) and SQLite (development).
+
+Race condition fix: Khi chạy pytest, dùng NullPool để tránh
+"Event loop is closed" / "attached to different loop" khi pytest-asyncio
+tạo loop mới cho mỗi test. Production vẫn dùng AsyncAdaptedQueuePool (mặc định).
 """
 
 import logging
+import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -54,8 +59,14 @@ def _create_engine() -> AsyncEngine:
     if "sqlite" in url:
         # SQLite doesn't support connection pool well
         poolclass = NullPool
+    elif _is_test_environment():
+        # Race condition fix: pytest-asyncio tạo event loop mới cho mỗi test.
+        # Pool mặc định cache connection từ loop cũ → "Event loop is closed".
+        # NullPool = tạo connection mới mỗi session, không pool → an toàn.
+        poolclass = NullPool
+        logger.info("Test environment detected — using NullPool")
     else:
-        poolclass = None
+        poolclass = None  # Default AsyncAdaptedQueuePool
 
     engine = create_async_engine(
         url,
@@ -66,6 +77,21 @@ def _create_engine() -> AsyncEngine:
 
     logger.info(f"Database engine created: {url.split('@')[-1] if '@' in url else url}")
     return engine
+
+
+def _is_test_environment() -> bool:
+    """Phát hiện môi trường test.
+
+    Returns True nếu đang chạy pytest (đặt bởi pytest_asyncio plugin
+    thông qua biến PYTEST_CURRENT_TEST) hoặc APP_ENV=test.
+    """
+    # Cách 1: pytest tự set biến này
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return True
+    # Cách 2: explicit env var
+    if os.environ.get("APP_ENV") == "test":
+        return True
+    return False
 
 
 # Global engine instance

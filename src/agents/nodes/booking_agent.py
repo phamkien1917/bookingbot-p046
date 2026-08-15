@@ -3,18 +3,15 @@
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 
 from src.agents.state import AgentState, AgentType
 from src.agents.tools.booking_tools import (
-    calculate_viewing_time,
-    create_booking,
-    propose_time_slots,
-    get_booking_status,
     cancel_booking,
+    create_booking,
+    get_booking_status,
+    propose_time_slots,
 )
-from src.agents.tools.property_tools import hold_property, release_hold
-from src.config import get_settings
+from src.agents.tools.property_tools import hold_property
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +26,6 @@ async def booking_agent(state: AgentState) -> dict:
         Updated state with booking information
     """
     intent = state.get("intent")
-    entities = state.get("metadata", {}).get("entities", {})
-    customer_id = state.get("customer_id")
-    current_property_id = state.get("current_property_id")
-    booking_id = state.get("booking_id")
-
-    settings = get_settings()
-
     # Handle different booking intents
     if intent == "CANCEL_BOOKING":
         return await _handle_cancel(state)
@@ -125,12 +115,9 @@ async def _handle_booking_flow(state: AgentState) -> dict:
     Returns:
         Updated state with booking information
     """
-    customer_id = state.get("customer_id")
     property_id = state.get("current_property_id")
     selected_slots = state.get("selected_slots", [])
     selected_slot_id = state.get("selected_slot_id")
-    search_criteria = state.get("search_criteria", {})
-
     # Step 1: Check if we have property
     if not property_id:
         # Get property from entities or selected properties
@@ -309,7 +296,7 @@ async def _create_booking(state: AgentState, slot_id: str) -> dict:
         date_str = start.strftime("%A, %d/%m/%Y")
         time_str = start.strftime("%H:%M")
 
-        response = f"🎉 **Đặt lịch thành công!**\n\n"
+        response = "🎉 **Đặt lịch thành công!**\n\n"
         response += f"**Mã booking:** `{booking_code}`\n"
         response += f"**Ngày:** {date_str}\n"
         response += f"**Giờ:** {time_str}\n"

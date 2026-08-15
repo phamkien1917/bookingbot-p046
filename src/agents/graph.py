@@ -8,16 +8,16 @@ from typing import Literal
 
 from langgraph.graph import END, StateGraph
 
-from src.agents.state import AgentState, AgentType
 from src.agents.nodes import (
-    supervisor_node,
-    route_from_supervisor,
-    inventory_agent,
-    booking_agent,
     assignment_agent,
+    booking_agent,
     hitl_agent,
+    inventory_agent,
     respond_node,
+    route_from_supervisor,
+    supervisor_node,
 )
+from src.agents.state import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -57,32 +57,7 @@ def build_agent_graph() -> StateGraph:
     """Build the multi-agent state graph.
 
     Graph Structure:
-    ┌─────────────┐
-    │  SUPERVISOR │ (Entry point - classifies intent)
-    └──────┬──────┘
-           │
-    ┌──────┼──────┐
-    │      │      │
-    ▼      ▼      ▼
-┌──────┐ ┌─────┐ ┌──────────┐
-│  IN- │ │BOOK-│ │RESPOND   │◄───(for simple responses)
-│VENTORY│ │ING  │ │          │
-└──┬───┘ └──┬──┘ └──────────┘
-   │        │
-   │        ▼
-   │   ┌──────────┐
-   │   │ASSIGNMENT│
-   │   └────┬─────┘
-   │        │
-   │        ▼
-   │   ┌─────────┐
-   └──►│ HITL    │ (if needed)
-       └────┬────┘
-            │
-            ▼
-       ┌──────────┐
-       │ RESPOND  │
-       └──────────┘
+
 
     Returns:
         Compiled StateGraph
@@ -110,6 +85,7 @@ def build_agent_graph() -> StateGraph:
             "assignment": "assignment",
             "hitl": "hitl",
             "respond": "respond",
+            "__end__": END,
         }
     )
 

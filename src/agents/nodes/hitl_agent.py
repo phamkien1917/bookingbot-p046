@@ -1,13 +1,10 @@
 """HITL (Human-in-the-Loop) Agent - Handles cases requiring human intervention."""
 
-import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
 
-from src.agents.state import AgentState, AgentType
-from src.config import get_settings
+from src.agents.state import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +48,6 @@ async def _create_hitl_case(state: AgentState) -> dict:
     Returns:
         Updated state with HITL case
     """
-    settings = get_settings()
     hitl_reason = state.get("hitl_reason")
     hitl_context = state.get("hitl_context", {})
 
@@ -245,7 +241,7 @@ def get_pending_hitl_cases() -> list[dict]:
     ]
 
 
-def get_hitl_case(case_id: str) -> Optional[dict]:
+def get_hitl_case(case_id: str) -> dict | None:
     """Get a specific HITL case.
 
     Args:

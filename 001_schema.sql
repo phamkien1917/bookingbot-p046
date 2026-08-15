@@ -1,6 +1,8 @@
--- XHome VisitOps - balanced PostgreSQL schema
--- Scope: complete MVP plus the planned advanced features, without production-only overengineering.
--- Target: PostgreSQL 16+
+-- XHome VisitOps - PostgreSQL schema for the MVP
+-- Scope: AI consultation -> property selection -> sale approval -> appointment -> soft hold.
+-- Contains 22 business tables: the original 16-table MVP plus normalized
+-- external seller data for crawled listings, and advanced tables (preferences, analytics, audit).
+-- Run on an empty PostgreSQL/Neon database.
 
 BEGIN;
 
@@ -8,17 +10,27 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
+-- ---------------------------------------------------------------------------
+-- Shared types
+-- ---------------------------------------------------------------------------
+
 CREATE TYPE user_role_t AS ENUM ('CUSTOMER', 'SALE', 'COORDINATOR', 'ADMIN');
 CREATE TYPE user_status_t AS ENUM ('ACTIVE', 'LOCKED', 'DISABLED');
-CREATE TYPE property_kind_t AS ENUM ('LAND', 'APARTMENT', 'HOUSE', 'VILLA', 'TOWNHOUSE', 'COMMERCIAL');
-CREATE TYPE property_status_t AS ENUM ('DRAFT', 'AVAILABLE', 'UNDER_OFFER', 'SOLD', 'HIDDEN', 'MAINTENANCE');
+CREATE TYPE property_kind_t AS ENUM (
+    'LAND', 'APARTMENT', 'HOUSE', 'VILLA', 'TOWNHOUSE', 'COMMERCIAL'
+);
+CREATE TYPE property_status_t AS ENUM (
+    'DRAFT', 'AVAILABLE', 'UNDER_OFFER', 'SOLD', 'HIDDEN', 'MAINTENANCE'
+);
 CREATE TYPE tour_mode_t AS ENUM ('IN_PERSON', 'VIDEO');
 CREATE TYPE request_status_t AS ENUM (
     'DRAFT', 'COLLECTING', 'OPTIONS_PROPOSED', 'WAITING_APPROVAL',
     'APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED', 'BOOKED'
 );
 CREATE TYPE slot_status_t AS ENUM ('PROPOSED', 'SELECTED', 'EXPIRED', 'WITHDRAWN');
-CREATE TYPE approval_status_t AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED');
+CREATE TYPE approval_status_t AS ENUM (
+    'PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'CANCELLED'
+);
 CREATE TYPE appointment_status_t AS ENUM (
     'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'NO_SHOW', 'RESCHEDULED', 'CANCELLED'
 );
@@ -27,8 +39,6 @@ CREATE TYPE message_role_t AS ENUM ('USER', 'ASSISTANT', 'TOOL', 'SYSTEM');
 CREATE TYPE notification_channel_t AS ENUM ('IN_APP', 'EMAIL', 'SMS', 'WEB_PUSH');
 CREATE TYPE delivery_status_t AS ENUM ('PENDING', 'SENT', 'DELIVERED', 'FAILED', 'CANCELLED');
 CREATE TYPE sync_status_t AS ENUM ('NOT_REQUESTED', 'PENDING', 'SYNCED', 'FAILED');
-CREATE TYPE route_status_t AS ENUM ('DRAFT', 'OPTIMIZED', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
-CREATE TYPE reschedule_status_t AS ENUM ('PROPOSED', 'APPROVED', 'REJECTED', 'EXPIRED', 'APPLIED');
 
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER
@@ -41,7 +51,7 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 1-4. Accounts, customer/sale profiles and vehicles
+-- 1-3. Users and role-specific profiles
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE users (
@@ -93,7 +103,8 @@ CREATE TABLE sale_profiles (
     branch_name VARCHAR(150),
     job_title VARCHAR(100),
     specialties JSONB NOT NULL DEFAULT '[]'::JSONB,
-    working_hours JSONB NOT NULL DEFAULT '{"mon":["08:00","18:00"],"tue":["08:00","18:00"],"wed":["08:00","18:00"],"thu":["08:00","18:00"],"fri":["08:00","18:00"],"sat":["08:00","18:00"]}'::JSONB,
+    working_hours JSONB NOT NULL DEFAULT
+        '{"mon":["08:00","18:00"],"tue":["08:00","18:00"],"wed":["08:00","18:00"],"thu":["08:00","18:00"],"fri":["08:00","18:00"],"sat":["08:00","18:00"]}'::JSONB,
     max_daily_tours SMALLINT NOT NULL DEFAULT 8,
     is_accepting_tours BOOLEAN NOT NULL DEFAULT TRUE,
     calendar_provider VARCHAR(20),
@@ -107,20 +118,6 @@ CREATE TABLE sale_profiles (
     )
 );
 
-CREATE TABLE vehicles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(32) NOT NULL UNIQUE,
-    registration_number VARCHAR(32) NOT NULL UNIQUE,
-    display_name VARCHAR(100) NOT NULL,
-    seat_count SMALLINT NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
-    metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT vehicle_seats_positive CHECK (seat_count > 0),
-    CONSTRAINT vehicle_status_valid CHECK (status IN ('AVAILABLE', 'MAINTENANCE', 'INACTIVE'))
-);
-
 CREATE OR REPLACE FUNCTION assert_profile_role()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -131,7 +128,8 @@ DECLARE
 BEGIN
     SELECT role INTO actual_role FROM users WHERE id = NEW.user_id;
     IF actual_role IS DISTINCT FROM expected_role THEN
-        RAISE EXCEPTION 'User % must have role %, actual role is %', NEW.user_id, expected_role, actual_role;
+        RAISE EXCEPTION 'User % must have role %, actual role is %',
+            NEW.user_id, expected_role, actual_role;
     END IF;
     RETURN NEW;
 END;
@@ -146,7 +144,7 @@ BEFORE INSERT OR UPDATE OF user_id ON sale_profiles
 FOR EACH ROW EXECUTE FUNCTION assert_profile_role('SALE');
 
 -- ---------------------------------------------------------------------------
--- 5-9. Real-estate inventory, media, sale assignment and sale time off
+-- 4-10. Property inventory, external sellers and sale availability
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE projects (
@@ -168,7 +166,9 @@ CREATE TABLE projects (
     metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT project_status_valid CHECK (status IN ('DRAFT', 'ACTIVE', 'PAUSED', 'COMPLETED')),
+    CONSTRAINT project_status_valid CHECK (
+        status IN ('DRAFT', 'ACTIVE', 'PAUSED', 'COMPLETED')
+    ),
     CONSTRAINT project_geo_valid CHECK (
         (latitude IS NULL OR latitude BETWEEN -90 AND 90)
         AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)
@@ -215,13 +215,17 @@ CREATE TABLE properties (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT property_area_positive CHECK (area_sqm > 0),
-    CONSTRAINT property_usable_area_positive CHECK (usable_area_sqm IS NULL OR usable_area_sqm > 0),
+    CONSTRAINT property_usable_area_positive CHECK (
+        usable_area_sqm IS NULL OR usable_area_sqm > 0
+    ),
     CONSTRAINT property_rooms_non_negative CHECK (
-        (bedrooms IS NULL OR bedrooms >= 0) AND (bathrooms IS NULL OR bathrooms >= 0)
+        (bedrooms IS NULL OR bedrooms >= 0)
+        AND (bathrooms IS NULL OR bathrooms >= 0)
     ),
     CONSTRAINT property_price_non_negative CHECK (list_price IS NULL OR list_price >= 0),
     CONSTRAINT property_land_measurements_positive CHECK (
-        (frontage_m IS NULL OR frontage_m > 0) AND (road_width_m IS NULL OR road_width_m > 0)
+        (frontage_m IS NULL OR frontage_m > 0)
+        AND (road_width_m IS NULL OR road_width_m > 0)
     ),
     CONSTRAINT property_geo_valid CHECK (
         (latitude IS NULL OR latitude BETWEEN -90 AND 90)
@@ -229,11 +233,86 @@ CREATE TABLE properties (
     )
 );
 
+CREATE TABLE external_sellers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source VARCHAR(40) NOT NULL,
+    source_seller_key VARCHAR(255) NOT NULL,
+    source_account_id VARCHAR(100),
+    display_name VARCHAR(200) NOT NULL,
+    seller_type VARCHAR(20) NOT NULL DEFAULT 'UNKNOWN',
+    is_company BOOLEAN,
+    source_verified BOOLEAN,
+    is_professional BOOLEAN,
+    profile_url TEXT,
+    avatar_url TEXT,
+    public_phone_masked VARCHAR(50),
+    joined_text VARCHAR(100),
+    active_listing_count INTEGER,
+    rating NUMERIC(3, 2),
+    has_zalo BOOLEAN,
+    has_chat BOOLEAN,
+    raw_data JSONB NOT NULL DEFAULT '{}'::JSONB,
+    first_seen_at TIMESTAMPTZ NOT NULL,
+    last_seen_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (source, source_seller_key),
+    CONSTRAINT external_seller_source_not_blank CHECK (length(trim(source)) > 0),
+    CONSTRAINT external_seller_key_not_blank CHECK (length(trim(source_seller_key)) > 0),
+    CONSTRAINT external_seller_name_not_blank CHECK (length(trim(display_name)) > 0),
+    CONSTRAINT external_seller_type_valid CHECK (
+        seller_type IN ('OWNER', 'BROKER', 'COMPANY', 'UNKNOWN')
+    ),
+    CONSTRAINT external_seller_rating_valid CHECK (rating IS NULL OR rating BETWEEN 0 AND 5),
+    CONSTRAINT external_seller_listing_count_valid CHECK (
+        active_listing_count IS NULL OR active_listing_count >= 0
+    ),
+    CONSTRAINT external_seller_seen_time_valid CHECK (last_seen_at >= first_seen_at)
+);
+
+CREATE UNIQUE INDEX uq_external_sellers_source_account
+ON external_sellers(source, source_account_id)
+WHERE source_account_id IS NOT NULL;
+
+CREATE INDEX ix_external_sellers_source_name
+ON external_sellers(source, display_name);
+
+CREATE TABLE property_external_sellers (
+    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    external_seller_id UUID NOT NULL REFERENCES external_sellers(id) ON DELETE RESTRICT,
+    relationship_type VARCHAR(30) NOT NULL DEFAULT 'LISTING_POSTER',
+    is_primary BOOLEAN NOT NULL DEFAULT TRUE,
+    source_listing_id VARCHAR(150) NOT NULL,
+    source_url TEXT NOT NULL,
+    first_seen_at TIMESTAMPTZ NOT NULL,
+    last_seen_at TIMESTAMPTZ NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (property_id, external_seller_id),
+    CONSTRAINT property_external_seller_relationship_valid CHECK (
+        relationship_type IN ('LISTING_POSTER', 'OWNER', 'BROKER', 'COMPANY', 'UNKNOWN')
+    ),
+    CONSTRAINT property_external_seller_listing_id_not_blank CHECK (
+        length(trim(source_listing_id)) > 0
+    ),
+    CONSTRAINT property_external_seller_url_not_blank CHECK (length(trim(source_url)) > 0),
+    CONSTRAINT property_external_seller_seen_time_valid CHECK (last_seen_at >= first_seen_at)
+);
+
+CREATE UNIQUE INDEX uq_property_primary_external_seller
+ON property_external_sellers(property_id)
+WHERE is_primary;
+
+CREATE INDEX ix_property_external_sellers_seller
+ON property_external_sellers(external_seller_id, last_seen_at DESC);
+
 CREATE TABLE property_media (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     media_type VARCHAR(20) NOT NULL,
     url TEXT NOT NULL,
+    source VARCHAR(40) NOT NULL DEFAULT 'INTERNAL',
     caption VARCHAR(255),
     sort_order SMALLINT NOT NULL DEFAULT 0,
     is_cover BOOLEAN NOT NULL DEFAULT FALSE,
@@ -241,10 +320,15 @@ CREATE TABLE property_media (
     CONSTRAINT property_media_type_valid CHECK (
         media_type IN ('IMAGE', 'VIDEO', 'FLOOR_PLAN', 'VIRTUAL_TOUR')
     ),
+    CONSTRAINT property_media_source_not_blank CHECK (length(trim(source)) > 0),
     CONSTRAINT property_media_sort_valid CHECK (sort_order >= 0)
 );
 
-CREATE UNIQUE INDEX uq_property_cover_media ON property_media(property_id) WHERE is_cover;
+CREATE UNIQUE INDEX uq_property_cover_media
+ON property_media(property_id) WHERE is_cover;
+
+CREATE INDEX ix_property_media_source
+ON property_media(property_id, source);
 
 CREATE TABLE property_sale_assignments (
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
@@ -280,19 +364,25 @@ CREATE INDEX ix_sale_unavailability_range
 ON sale_unavailability USING GIST (sale_user_id, unavailable_during);
 
 -- ---------------------------------------------------------------------------
--- 10-14. Agent conversation, request, suggested slots and HITL approval
+-- 11-15. AI conversation, tour request, proposed slot and HITL approval
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_user_id UUID NOT NULL REFERENCES customer_profiles(user_id) ON DELETE CASCADE,
+    customer_user_id UUID NOT NULL
+        REFERENCES customer_profiles(user_id) ON DELETE CASCADE,
     status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
     summary TEXT,
     started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     closed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT conversation_status_valid CHECK (status IN ('OPEN', 'CLOSED', 'ARCHIVED'))
+    CONSTRAINT conversation_status_valid CHECK (
+        status IN ('OPEN', 'CLOSED', 'ARCHIVED')
+    ),
+    CONSTRAINT conversation_close_time_valid CHECK (
+        closed_at IS NULL OR closed_at >= started_at
+    )
 );
 
 CREATE TABLE messages (
@@ -310,7 +400,8 @@ CREATE TABLE tour_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_code VARCHAR(32) NOT NULL UNIQUE,
     conversation_id UUID REFERENCES conversations(id) ON DELETE SET NULL,
-    customer_user_id UUID NOT NULL REFERENCES customer_profiles(user_id) ON DELETE RESTRICT,
+    customer_user_id UUID NOT NULL
+        REFERENCES customer_profiles(user_id) ON DELETE RESTRICT,
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
     status request_status_t NOT NULL DEFAULT 'DRAFT',
     tour_mode tour_mode_t NOT NULL DEFAULT 'IN_PERSON',
@@ -324,10 +415,6 @@ CREATE TABLE tour_requests (
         END
     ) STORED,
     party_size SMALLINT NOT NULL DEFAULT 1,
-    needs_pickup BOOLEAN NOT NULL DEFAULT FALSE,
-    pickup_address TEXT,
-    pickup_latitude NUMERIC(9, 6),
-    pickup_longitude NUMERIC(9, 6),
     customer_note TEXT,
     request_text_redacted TEXT,
     extracted_requirements JSONB NOT NULL DEFAULT '{}'::JSONB,
@@ -337,13 +424,15 @@ CREATE TABLE tour_requests (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT tour_request_preference_pair CHECK (
         (preferred_start IS NULL AND preferred_end IS NULL)
-        OR (preferred_start IS NOT NULL AND preferred_end IS NOT NULL AND preferred_end > preferred_start)
+        OR (
+            preferred_start IS NOT NULL
+            AND preferred_end IS NOT NULL
+            AND preferred_end > preferred_start
+        )
     ),
     CONSTRAINT tour_request_party_size_positive CHECK (party_size > 0),
-    CONSTRAINT tour_request_pickup_valid CHECK (NOT needs_pickup OR pickup_address IS NOT NULL),
-    CONSTRAINT tour_request_pickup_geo_valid CHECK (
-        (pickup_latitude IS NULL OR pickup_latitude BETWEEN -90 AND 90)
-        AND (pickup_longitude IS NULL OR pickup_longitude BETWEEN -180 AND 180)
+    CONSTRAINT tour_request_expiry_valid CHECK (
+        expires_at IS NULL OR expires_at > created_at
     ),
     UNIQUE (id, customer_user_id, property_id)
 );
@@ -352,11 +441,13 @@ CREATE TABLE tour_slot_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tour_request_id UUID NOT NULL REFERENCES tour_requests(id) ON DELETE CASCADE,
     sale_user_id UUID NOT NULL REFERENCES sale_profiles(user_id) ON DELETE RESTRICT,
-    vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
     status slot_status_t NOT NULL DEFAULT 'PROPOSED',
     starts_at TIMESTAMPTZ NOT NULL,
     ends_at TIMESTAMPTZ NOT NULL,
-    slot_during TSTZRANGE GENERATED ALWAYS AS (tstzrange(starts_at, ends_at, '[)')) STORED,
+    slot_during TSTZRANGE GENERATED ALWAYS AS (
+        tstzrange(starts_at, ends_at, '[)')
+    ) STORED,
+    meeting_address TEXT,
     waiting_room_name VARCHAR(100),
     score NUMERIC(7, 4),
     score_explanation JSONB NOT NULL DEFAULT '{}'::JSONB,
@@ -365,14 +456,16 @@ CREATE TABLE tour_slot_options (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT tour_slot_time_valid CHECK (ends_at > starts_at),
+    CONSTRAINT tour_slot_validity_time CHECK (valid_until > created_at),
     CONSTRAINT tour_slot_score_valid CHECK (score IS NULL OR score BETWEEN 0 AND 100),
-    CONSTRAINT tour_slot_selected_at_valid CHECK (status <> 'SELECTED' OR selected_at IS NOT NULL),
+    CONSTRAINT tour_slot_selected_at_valid CHECK (
+        status <> 'SELECTED' OR selected_at IS NOT NULL
+    ),
     UNIQUE (id, tour_request_id)
 );
 
 CREATE UNIQUE INDEX uq_one_selected_slot_per_request
-ON tour_slot_options(tour_request_id)
-WHERE status = 'SELECTED';
+ON tour_slot_options(tour_request_id) WHERE status = 'SELECTED';
 
 CREATE TABLE approval_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -386,7 +479,6 @@ CREATE TABLE approval_requests (
     decided_at TIMESTAMPTZ,
     decision_note TEXT,
     approved_sale_user_id UUID REFERENCES sale_profiles(user_id) ON DELETE RESTRICT,
-    approved_vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
     approved_starts_at TIMESTAMPTZ,
     approved_ends_at TIMESTAMPTZ,
     version INTEGER NOT NULL DEFAULT 1,
@@ -407,17 +499,17 @@ CREATE TABLE approval_requests (
             AND approved_ends_at > approved_starts_at
         )
     ),
-    CONSTRAINT approval_slot_matches_request FOREIGN KEY (slot_option_id, tour_request_id)
+    CONSTRAINT approval_slot_matches_request
+        FOREIGN KEY (slot_option_id, tour_request_id)
         REFERENCES tour_slot_options(id, tour_request_id) ON DELETE RESTRICT,
     UNIQUE (id, tour_request_id)
 );
 
 CREATE UNIQUE INDEX uq_one_pending_approval_per_request
-ON approval_requests(tour_request_id)
-WHERE status = 'PENDING';
+ON approval_requests(tour_request_id) WHERE status = 'PENDING';
 
 -- ---------------------------------------------------------------------------
--- 15-17. Confirmed booking, soft-hold and confirmations
+-- 16-18. Confirmed appointment, temporary property hold and notifications
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE appointments (
@@ -425,17 +517,18 @@ CREATE TABLE appointments (
     booking_code VARCHAR(32) NOT NULL UNIQUE,
     tour_request_id UUID NOT NULL UNIQUE,
     approval_request_id UUID NOT NULL UNIQUE,
-    customer_user_id UUID NOT NULL REFERENCES customer_profiles(user_id) ON DELETE RESTRICT,
+    customer_user_id UUID NOT NULL
+        REFERENCES customer_profiles(user_id) ON DELETE RESTRICT,
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
     sale_user_id UUID NOT NULL REFERENCES sale_profiles(user_id) ON DELETE RESTRICT,
-    vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
     status appointment_status_t NOT NULL DEFAULT 'CONFIRMED',
     tour_mode tour_mode_t NOT NULL DEFAULT 'IN_PERSON',
     starts_at TIMESTAMPTZ NOT NULL,
     ends_at TIMESTAMPTZ NOT NULL,
-    appointment_during TSTZRANGE GENERATED ALWAYS AS (tstzrange(starts_at, ends_at, '[)')) STORED,
+    appointment_during TSTZRANGE GENERATED ALWAYS AS (
+        tstzrange(starts_at, ends_at, '[)')
+    ) STORED,
     party_size SMALLINT NOT NULL DEFAULT 1,
-    pickup_address TEXT,
     meeting_address TEXT,
     waiting_room_name VARCHAR(100),
     customer_note TEXT,
@@ -453,12 +546,17 @@ CREATE TABLE appointments (
     CONSTRAINT appointment_time_valid CHECK (ends_at > starts_at),
     CONSTRAINT appointment_party_size_positive CHECK (party_size > 0),
     CONSTRAINT appointment_checkout_valid CHECK (
-        checked_out_at IS NULL OR (checked_in_at IS NOT NULL AND checked_out_at >= checked_in_at)
+        checked_out_at IS NULL
+        OR (checked_in_at IS NOT NULL AND checked_out_at >= checked_in_at)
     ),
-    CONSTRAINT appointment_cancel_valid CHECK (status <> 'CANCELLED' OR cancelled_at IS NOT NULL),
-    CONSTRAINT appointment_matches_request FOREIGN KEY (tour_request_id, customer_user_id, property_id)
+    CONSTRAINT appointment_cancel_valid CHECK (
+        status <> 'CANCELLED' OR cancelled_at IS NOT NULL
+    ),
+    CONSTRAINT appointment_matches_request
+        FOREIGN KEY (tour_request_id, customer_user_id, property_id)
         REFERENCES tour_requests(id, customer_user_id, property_id) ON DELETE RESTRICT,
-    CONSTRAINT appointment_matches_approval FOREIGN KEY (approval_request_id, tour_request_id)
+    CONSTRAINT appointment_matches_approval
+        FOREIGN KEY (approval_request_id, tour_request_id)
         REFERENCES approval_requests(id, tour_request_id) ON DELETE RESTRICT,
     EXCLUDE USING GIST (
         sale_user_id WITH =,
@@ -468,10 +566,6 @@ CREATE TABLE appointments (
         property_id WITH =,
         appointment_during WITH &&
     ) WHERE (status IN ('CONFIRMED', 'IN_PROGRESS')),
-    EXCLUDE USING GIST (
-        vehicle_id WITH =,
-        appointment_during WITH &&
-    ) WHERE (vehicle_id IS NOT NULL AND status IN ('CONFIRMED', 'IN_PROGRESS')),
     UNIQUE (id, property_id, customer_user_id)
 );
 
@@ -481,6 +575,7 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     approval_row approval_requests%ROWTYPE;
+    current_property_status property_status_t;
 BEGIN
     SELECT * INTO approval_row
     FROM approval_requests
@@ -492,10 +587,26 @@ BEGIN
     END IF;
 
     IF NEW.sale_user_id IS DISTINCT FROM approval_row.approved_sale_user_id
-       OR NEW.vehicle_id IS DISTINCT FROM approval_row.approved_vehicle_id
        OR NEW.starts_at IS DISTINCT FROM approval_row.approved_starts_at
        OR NEW.ends_at IS DISTINCT FROM approval_row.approved_ends_at THEN
         RAISE EXCEPTION 'Appointment details must match the sale-approved details';
+    END IF;
+
+    SELECT status INTO current_property_status
+    FROM properties
+    WHERE id = NEW.property_id;
+
+    IF current_property_status NOT IN ('AVAILABLE', 'UNDER_OFFER') THEN
+        RAISE EXCEPTION 'Property % is not available for a viewing', NEW.property_id;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM sale_unavailability su
+        WHERE su.sale_user_id = NEW.sale_user_id
+          AND su.unavailable_during && tstzrange(NEW.starts_at, NEW.ends_at, '[)')
+    ) THEN
+        RAISE EXCEPTION 'Sale % is unavailable during the requested time', NEW.sale_user_id;
     END IF;
 
     RETURN NEW;
@@ -503,16 +614,19 @@ END;
 $$;
 
 CREATE TRIGGER trg_validate_approved_appointment
-BEFORE INSERT OR UPDATE OF approval_request_id, sale_user_id, vehicle_id, starts_at, ends_at
+BEFORE INSERT OR UPDATE OF
+    approval_request_id, sale_user_id, property_id, starts_at, ends_at
 ON appointments
 FOR EACH ROW EXECUTE FUNCTION validate_approved_appointment();
 
 CREATE TABLE property_holds (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hold_code VARCHAR(32) NOT NULL UNIQUE,
-    appointment_id UUID NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE RESTRICT,
+    appointment_id UUID NOT NULL UNIQUE
+        REFERENCES appointments(id) ON DELETE RESTRICT,
     property_id UUID NOT NULL REFERENCES properties(id) ON DELETE RESTRICT,
-    customer_user_id UUID NOT NULL REFERENCES customer_profiles(user_id) ON DELETE RESTRICT,
+    customer_user_id UUID NOT NULL
+        REFERENCES customer_profiles(user_id) ON DELETE RESTRICT,
     approved_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     status hold_status_t NOT NULL DEFAULT 'ACTIVE',
     starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -527,19 +641,19 @@ CREATE TABLE property_holds (
         expires_at > starts_at AND max_expires_at >= expires_at
     ),
     CONSTRAINT property_hold_extension_valid CHECK (extension_count >= 0),
-    CONSTRAINT property_hold_release_valid CHECK (status = 'ACTIVE' OR released_at IS NOT NULL),
-    CONSTRAINT property_hold_matches_appointment FOREIGN KEY (
-        appointment_id, property_id, customer_user_id
-    ) REFERENCES appointments(id, property_id, customer_user_id) ON DELETE RESTRICT
+    CONSTRAINT property_hold_release_valid CHECK (
+        status = 'ACTIVE' OR released_at IS NOT NULL
+    ),
+    CONSTRAINT property_hold_matches_appointment
+        FOREIGN KEY (appointment_id, property_id, customer_user_id)
+        REFERENCES appointments(id, property_id, customer_user_id) ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX uq_one_active_hold_per_property
-ON property_holds(property_id)
-WHERE status = 'ACTIVE';
+ON property_holds(property_id) WHERE status = 'ACTIVE';
 
 CREATE INDEX ix_property_holds_expiry
-ON property_holds(expires_at)
-WHERE status = 'ACTIVE';
+ON property_holds(expires_at) WHERE status = 'ACTIVE';
 
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -559,156 +673,96 @@ CREATE TABLE notifications (
 );
 
 -- ---------------------------------------------------------------------------
--- 18-24. Planned advanced features and observability
+-- Transactional soft-hold and lifecycle helpers
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE customer_preferences (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_user_id UUID NOT NULL REFERENCES customer_profiles(user_id) ON DELETE CASCADE,
-    preference_key VARCHAR(100) NOT NULL,
-    preference_value JSONB NOT NULL,
-    confidence NUMERIC(5, 4) NOT NULL DEFAULT 1,
-    source VARCHAR(20) NOT NULL DEFAULT 'EXPLICIT',
-    last_confirmed_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT preference_confidence_valid CHECK (confidence BETWEEN 0 AND 1),
-    CONSTRAINT preference_source_valid CHECK (source IN ('EXPLICIT', 'INFERRED', 'IMPORT')),
-    UNIQUE (customer_user_id, preference_key)
-);
+CREATE OR REPLACE FUNCTION create_property_hold(
+    p_appointment_id UUID,
+    p_approved_by_user_id UUID,
+    p_hold_minutes SMALLINT DEFAULT NULL
+)
+RETURNS property_holds
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    appointment_row appointments%ROWTYPE;
+    project_row projects%ROWTYPE;
+    hold_row property_holds%ROWTYPE;
+    effective_minutes SMALLINT;
+BEGIN
+    SELECT * INTO appointment_row
+    FROM appointments
+    WHERE id = p_appointment_id;
 
-CREATE TABLE route_plans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sale_user_id UUID NOT NULL REFERENCES sale_profiles(user_id) ON DELETE RESTRICT,
-    vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
-    plan_date DATE NOT NULL,
-    version SMALLINT NOT NULL DEFAULT 1,
-    status route_status_t NOT NULL DEFAULT 'DRAFT',
-    algorithm VARCHAR(50),
-    total_distance_m INTEGER,
-    total_duration_seconds INTEGER,
-    optimization_score NUMERIC(7, 4),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT route_version_positive CHECK (version > 0),
-    CONSTRAINT route_metrics_non_negative CHECK (
-        (total_distance_m IS NULL OR total_distance_m >= 0)
-        AND (total_duration_seconds IS NULL OR total_duration_seconds >= 0)
-    ),
-    UNIQUE (sale_user_id, plan_date, version)
-);
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Appointment % does not exist', p_appointment_id;
+    END IF;
 
-CREATE TABLE route_stops (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    route_plan_id UUID NOT NULL REFERENCES route_plans(id) ON DELETE CASCADE,
-    appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE RESTRICT,
-    stop_order SMALLINT NOT NULL,
-    stop_type VARCHAR(20) NOT NULL DEFAULT 'PROPERTY',
-    address TEXT NOT NULL,
-    latitude NUMERIC(9, 6),
-    longitude NUMERIC(9, 6),
-    planned_arrival_at TIMESTAMPTZ,
-    planned_departure_at TIMESTAMPTZ,
-    travel_seconds_from_previous INTEGER,
-    distance_m_from_previous INTEGER,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT route_stop_order_positive CHECK (stop_order > 0),
-    CONSTRAINT route_stop_type_valid CHECK (stop_type IN ('PICKUP', 'PROPERTY', 'SHOWROOM', 'DROPOFF')),
-    CONSTRAINT route_stop_geo_valid CHECK (
-        (latitude IS NULL OR latitude BETWEEN -90 AND 90)
-        AND (longitude IS NULL OR longitude BETWEEN -180 AND 180)
-    ),
-    CONSTRAINT route_stop_time_valid CHECK (
-        planned_departure_at IS NULL
-        OR planned_arrival_at IS NULL
-        OR planned_departure_at >= planned_arrival_at
-    ),
-    UNIQUE (route_plan_id, stop_order),
-    UNIQUE (route_plan_id, appointment_id, stop_type)
-);
+    -- Row lock serializes concurrent hold attempts for the same property.
+    PERFORM 1 FROM properties
+    WHERE id = appointment_row.property_id
+    FOR UPDATE;
 
-CREATE TABLE reschedule_proposals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
-    reason VARCHAR(255) NOT NULL,
-    proposed_sale_user_id UUID NOT NULL REFERENCES sale_profiles(user_id) ON DELETE RESTRICT,
-    proposed_vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
-    proposed_starts_at TIMESTAMPTZ NOT NULL,
-    proposed_ends_at TIMESTAMPTZ NOT NULL,
-    status reschedule_status_t NOT NULL DEFAULT 'PROPOSED',
-    score NUMERIC(7, 4),
-    expires_at TIMESTAMPTZ NOT NULL,
-    decided_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    decided_at TIMESTAMPTZ,
-    applied_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT reschedule_time_valid CHECK (proposed_ends_at > proposed_starts_at),
-    CONSTRAINT reschedule_score_valid CHECK (score IS NULL OR score BETWEEN 0 AND 100)
-);
+    UPDATE property_holds
+    SET status = 'EXPIRED',
+        released_at = now(),
+        release_reason = COALESCE(release_reason, 'AUTO_EXPIRED'),
+        updated_at = now()
+    WHERE property_id = appointment_row.property_id
+      AND status = 'ACTIVE'
+      AND expires_at <= now();
 
-CREATE UNIQUE INDEX uq_one_active_reschedule_proposal
-ON reschedule_proposals(appointment_id)
-WHERE status IN ('PROPOSED', 'APPROVED');
+    IF EXISTS (
+        SELECT 1 FROM property_holds
+        WHERE property_id = appointment_row.property_id
+          AND status = 'ACTIVE'
+    ) THEN
+        RAISE EXCEPTION 'Property % already has an active hold', appointment_row.property_id;
+    END IF;
 
-CREATE TABLE nearby_places (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-    provider VARCHAR(20) NOT NULL,
-    provider_place_id VARCHAR(255) NOT NULL,
-    category VARCHAR(50) NOT NULL,
-    name VARCHAR(200) NOT NULL,
-    address TEXT,
-    latitude NUMERIC(9, 6) NOT NULL,
-    longitude NUMERIC(9, 6) NOT NULL,
-    distance_m INTEGER,
-    travel_seconds INTEGER,
-    rating NUMERIC(3, 2),
-    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at TIMESTAMPTZ,
-    CONSTRAINT nearby_place_provider_valid CHECK (provider IN ('GOOGLE', 'MAPBOX', 'HERE', 'OSM')),
-    CONSTRAINT nearby_place_geo_valid CHECK (
-        latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180
-    ),
-    CONSTRAINT nearby_place_metrics_valid CHECK (
-        (distance_m IS NULL OR distance_m >= 0)
-        AND (travel_seconds IS NULL OR travel_seconds >= 0)
-        AND (rating IS NULL OR rating BETWEEN 0 AND 5)
-    ),
-    UNIQUE (property_id, provider, provider_place_id)
-);
+    SELECT pr.* INTO project_row
+    FROM properties p
+    LEFT JOIN projects pr ON pr.id = p.project_id
+    WHERE p.id = appointment_row.property_id;
 
-CREATE TABLE analytics_events (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    event_name VARCHAR(100) NOT NULL,
-    customer_user_id UUID REFERENCES customer_profiles(user_id) ON DELETE SET NULL,
-    tour_request_id UUID REFERENCES tour_requests(id) ON DELETE SET NULL,
-    appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
-    session_id VARCHAR(128),
-    properties JSONB NOT NULL DEFAULT '{}'::JSONB,
-    occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+    effective_minutes := COALESCE(
+        p_hold_minutes,
+        project_row.default_hold_minutes,
+        30
+    );
 
-CREATE TABLE audit_logs (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    action VARCHAR(100) NOT NULL,
-    entity_type VARCHAR(64) NOT NULL,
-    entity_id UUID,
-    request_id VARCHAR(128),
-    before_data JSONB,
-    after_data JSONB,
-    ip_address INET,
-    user_agent TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+    IF effective_minutes <= 0 THEN
+        RAISE EXCEPTION 'Hold duration must be positive';
+    END IF;
 
--- ---------------------------------------------------------------------------
--- Expiry and lifecycle helpers
--- ---------------------------------------------------------------------------
+    INSERT INTO property_holds (
+        hold_code,
+        appointment_id,
+        property_id,
+        customer_user_id,
+        approved_by_user_id,
+        expires_at,
+        max_expires_at
+    ) VALUES (
+        'HOLD-' || upper(substr(replace(gen_random_uuid()::TEXT, '-', ''), 1, 12)),
+        appointment_row.id,
+        appointment_row.property_id,
+        appointment_row.customer_user_id,
+        p_approved_by_user_id,
+        now() + make_interval(mins => effective_minutes),
+        now() + make_interval(
+            mins => effective_minutes * (1 + COALESCE(project_row.max_hold_extensions, 1))
+        )
+    )
+    RETURNING * INTO hold_row;
 
-CREATE OR REPLACE FUNCTION expire_stale_booking_records(cutoff TIMESTAMPTZ DEFAULT now())
+    RETURN hold_row;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION expire_stale_booking_records(
+    cutoff TIMESTAMPTZ DEFAULT now()
+)
 RETURNS JSONB
 LANGUAGE plpgsql
 AS $$
@@ -716,7 +770,6 @@ DECLARE
     expired_slots INTEGER;
     expired_approvals INTEGER;
     expired_holds INTEGER;
-    expired_reschedules INTEGER;
 BEGIN
     UPDATE tour_slot_options
     SET status = 'EXPIRED', updated_at = cutoff
@@ -724,26 +777,25 @@ BEGIN
     GET DIAGNOSTICS expired_slots = ROW_COUNT;
 
     UPDATE approval_requests
-    SET status = 'EXPIRED', decided_at = cutoff, version = version + 1, updated_at = cutoff
+    SET status = 'EXPIRED',
+        decided_at = cutoff,
+        version = version + 1,
+        updated_at = cutoff
     WHERE status = 'PENDING' AND expires_at <= cutoff;
     GET DIAGNOSTICS expired_approvals = ROW_COUNT;
 
     UPDATE property_holds
-    SET status = 'EXPIRED', released_at = cutoff,
-        release_reason = COALESCE(release_reason, 'AUTO_EXPIRED'), updated_at = cutoff
+    SET status = 'EXPIRED',
+        released_at = cutoff,
+        release_reason = COALESCE(release_reason, 'AUTO_EXPIRED'),
+        updated_at = cutoff
     WHERE status = 'ACTIVE' AND expires_at <= cutoff;
     GET DIAGNOSTICS expired_holds = ROW_COUNT;
-
-    UPDATE reschedule_proposals
-    SET status = 'EXPIRED', updated_at = cutoff
-    WHERE status = 'PROPOSED' AND expires_at <= cutoff;
-    GET DIAGNOSTICS expired_reschedules = ROW_COUNT;
 
     RETURN jsonb_build_object(
         'slots', expired_slots,
         'approvals', expired_approvals,
-        'holds', expired_holds,
-        'reschedules', expired_reschedules
+        'holds', expired_holds
     );
 END;
 $$;
@@ -753,9 +805,11 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    IF NEW.status IN ('CANCELLED', 'RESCHEDULED') AND OLD.status IS DISTINCT FROM NEW.status THEN
+    IF NEW.status IN ('CANCELLED', 'RESCHEDULED')
+       AND OLD.status IS DISTINCT FROM NEW.status THEN
         UPDATE property_holds
-        SET status = 'RELEASED', released_at = now(),
+        SET status = 'RELEASED',
+            released_at = now(),
             release_reason = 'APPOINTMENT_' || NEW.status::TEXT,
             updated_at = now()
         WHERE appointment_id = NEW.id AND status = 'ACTIVE';
@@ -769,7 +823,7 @@ AFTER UPDATE OF status ON appointments
 FOR EACH ROW EXECUTE FUNCTION release_hold_after_appointment_close();
 
 -- ---------------------------------------------------------------------------
--- Indexes and views used by the web API
+-- Indexes and API views
 -- ---------------------------------------------------------------------------
 
 CREATE INDEX ix_properties_search
@@ -808,17 +862,7 @@ CREATE INDEX ix_appointments_property
 ON appointments(property_id, starts_at);
 
 CREATE INDEX ix_notifications_due
-ON notifications(scheduled_at)
-WHERE status = 'PENDING';
-
-CREATE INDEX ix_route_plans_sale_date
-ON route_plans(sale_user_id, plan_date, status);
-
-CREATE INDEX ix_nearby_places_property_category
-ON nearby_places(property_id, category, distance_m);
-
-CREATE INDEX ix_analytics_events_name_time
-ON analytics_events(event_name, occurred_at DESC);
+ON notifications(scheduled_at) WHERE status = 'PENDING';
 
 CREATE VIEW v_property_live_status AS
 SELECT
@@ -838,7 +882,9 @@ FROM properties p
 LEFT JOIN LATERAL (
     SELECT hold_code, expires_at
     FROM property_holds
-    WHERE property_id = p.id AND status = 'ACTIVE' AND expires_at > now()
+    WHERE property_id = p.id
+      AND status = 'ACTIVE'
+      AND expires_at > now()
     LIMIT 1
 ) h ON TRUE;
 
@@ -854,42 +900,127 @@ SELECT
     a.status,
     p.code AS property_code,
     p.title AS property_title,
-    a.pickup_address
+    a.meeting_address
 FROM appointments a
 JOIN users u ON u.id = a.sale_user_id
 JOIN properties p ON p.id = a.property_id
 WHERE a.status IN ('CONFIRMED', 'IN_PROGRESS');
 
 -- updated_at triggers
-CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users
+CREATE TRIGGER trg_users_updated_at
+BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_customer_profiles_updated_at BEFORE UPDATE ON customer_profiles
+
+CREATE TRIGGER trg_customer_profiles_updated_at
+BEFORE UPDATE ON customer_profiles
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_sale_profiles_updated_at BEFORE UPDATE ON sale_profiles
+
+CREATE TRIGGER trg_sale_profiles_updated_at
+BEFORE UPDATE ON sale_profiles
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_vehicles_updated_at BEFORE UPDATE ON vehicles
+
+CREATE TRIGGER trg_projects_updated_at
+BEFORE UPDATE ON projects
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_projects_updated_at BEFORE UPDATE ON projects
+
+CREATE TRIGGER trg_properties_updated_at
+BEFORE UPDATE ON properties
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_properties_updated_at BEFORE UPDATE ON properties
+
+CREATE TRIGGER trg_external_sellers_updated_at
+BEFORE UPDATE ON external_sellers
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_conversations_updated_at BEFORE UPDATE ON conversations
+
+CREATE TRIGGER trg_property_external_sellers_updated_at
+BEFORE UPDATE ON property_external_sellers
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_tour_requests_updated_at BEFORE UPDATE ON tour_requests
+
+CREATE TRIGGER trg_conversations_updated_at
+BEFORE UPDATE ON conversations
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_tour_slot_options_updated_at BEFORE UPDATE ON tour_slot_options
+
+CREATE TRIGGER trg_tour_requests_updated_at
+BEFORE UPDATE ON tour_requests
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_approval_requests_updated_at BEFORE UPDATE ON approval_requests
+
+CREATE TRIGGER trg_tour_slot_options_updated_at
+BEFORE UPDATE ON tour_slot_options
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_appointments_updated_at BEFORE UPDATE ON appointments
+
+CREATE TRIGGER trg_approval_requests_updated_at
+BEFORE UPDATE ON approval_requests
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_property_holds_updated_at BEFORE UPDATE ON property_holds
+
+CREATE TRIGGER trg_appointments_updated_at
+BEFORE UPDATE ON appointments
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_customer_preferences_updated_at BEFORE UPDATE ON customer_preferences
+
+CREATE TRIGGER trg_property_holds_updated_at
+BEFORE UPDATE ON property_holds
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_route_plans_updated_at BEFORE UPDATE ON route_plans
+
+-- ---------------------------------------------------------------------------
+-- Advanced Modules
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE customer_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_user_id UUID NOT NULL REFERENCES customer_profiles(user_id) ON DELETE CASCADE,
+    preference_key VARCHAR(100) NOT NULL,
+    preference_value JSONB NOT NULL,
+    confidence NUMERIC(5,4) DEFAULT 1.0,
+    source VARCHAR(20) DEFAULT 'EXPLICIT',
+    last_confirmed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (customer_user_id, preference_key)
+);
+CREATE TRIGGER trg_customer_preferences_updated_at
+BEFORE UPDATE ON customer_preferences
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_reschedule_proposals_updated_at BEFORE UPDATE ON reschedule_proposals
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    appointment_id UUID REFERENCES appointments(id) ON DELETE CASCADE,
+    channel notification_channel_t NOT NULL,
+    template_key VARCHAR(100) NOT NULL,
+    payload JSONB DEFAULT '{}'::jsonb NOT NULL,
+    scheduled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    status delivery_status_t NOT NULL DEFAULT 'PENDING',
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    sent_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_notifications_due ON notifications(scheduled_at);
+
+CREATE TABLE analytics_events (
+    id SERIAL PRIMARY KEY,
+    event_name VARCHAR(100) NOT NULL,
+    customer_user_id UUID,
+    tour_request_id UUID,
+    appointment_id UUID,
+    session_id VARCHAR(128),
+    properties JSONB DEFAULT '{}'::jsonb NOT NULL,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_analytics_events_name_time ON analytics_events(event_name, occurred_at);
+
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    actor_user_id UUID,
+    action VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(64) NOT NULL,
+    entity_id UUID,
+    request_id VARCHAR(128),
+    before_data JSONB,
+    after_data JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 COMMIT;

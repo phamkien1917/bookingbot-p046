@@ -2,15 +2,12 @@
 
 import json
 import logging
-from typing import Optional
 
 from src.agents.state import AgentState, AgentType
 from src.agents.tools.assignment_tools import (
-    calculate_assignment_score,
     assign_sale_to_booking,
-    get_available_sales,
+    calculate_assignment_score,
 )
-from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +28,6 @@ async def assignment_agent(state: AgentState) -> dict:
     """
     booking_id = state.get("booking_id")
     property_id = state.get("current_property_id")
-    intent = state.get("intent")
-
     # Skip if no booking to assign
     if not booking_id:
         logger.info("No booking to assign, skipping assignment agent")
@@ -173,7 +168,7 @@ async def get_top_sales_for_booking(
 
 async def reassign_booking(
     booking_id: str,
-    new_sale_id: Optional[str] = None,
+    new_sale_id: str | None = None,
 ) -> dict:
     """Reassign a booking to a different sale.
 

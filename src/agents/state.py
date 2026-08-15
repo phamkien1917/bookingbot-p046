@@ -23,6 +23,7 @@ class AgentState(TypedDict, total=False):
     # ============== Customer Context ==============
     customer_id: str | None  # Customer UUID
     customer_profile: dict | None  # Cached customer data
+    customer_authenticated: bool  # Whether the customer is authenticated
     preferences: list[dict]  # From long-term memory
     preferred_time_slots: list[str]  # e.g., ["weekends", "after_18h"]
 
@@ -89,6 +90,7 @@ class Intent:
     CANCEL_BOOKING = "CANCEL_BOOKING"
     RESCHEDULE = "RESCHEDULE"
     GET_INFO = "GET_INFO"
+    GENERAL_QA = "GENERAL_QA"  # Câu hỏi tổng quát về BĐS — KHÔNG search DB
     CHECK_STATUS = "CHECK_STATUS"
     GREETING = "GREETING"
     FALLBACK = "FALLBACK"
@@ -131,6 +133,7 @@ def create_initial_state(
         # Customer
         customer_id=customer_id,
         customer_profile=None,
+        customer_authenticated=customer_id is not None,
         preferences=[],
         preferred_time_slots=[],
         # Booking

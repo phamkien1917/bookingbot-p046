@@ -1,29 +1,27 @@
 """Scheduler Service - Background jobs for BookingBot."""
 
-import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, UTC
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select, update, and_
+from sqlalchemy import and_, select
 
-from src.config import get_settings
 from src.database.connection import get_session_context
 from src.database.models import (
     Appointment,
     AppointmentStatus,
-    PropertyHold,
     HoldStatus,
-    TourSlotOption,
+    PropertyHold,
     SlotStatus,
+    TourSlotOption,
 )
+from src.services.booking_service import reassign_expired_requests
 
 logger = logging.getLogger(__name__)
 
 # Global scheduler instance
-_scheduler: Optional[AsyncIOScheduler] = None
+_scheduler: AsyncIOScheduler | None = None
 
 
 async def cleanup_expired_holds() -> None:
@@ -33,7 +31,7 @@ async def cleanup_expired_holds() -> None:
     that have passed their expiration time.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find expired holds
         stmt = select(PropertyHold).where(
@@ -62,7 +60,7 @@ async def check_running_late() -> None:
     is past their estimated end time and mark them as late.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find appointments that are past their end time but not completed
         stmt = select(Appointment).where(
@@ -97,7 +95,7 @@ async def expire_stale_slots() -> None:
     that were proposed but not selected in time.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find expired proposed slots
         stmt = select(TourSlotOption).where(
@@ -117,6 +115,14 @@ async def expire_stale_slots() -> None:
             logger.info(f"Expired {len(expired_slots)} stale slot options")
 
 
+async def reassign_unanswered_requests() -> None:
+    """Fail over to another Sale after the response SLA expires."""
+    async with get_session_context() as session:
+        reassigned, expired = await reassign_expired_requests(session)
+        if reassigned or expired:
+            logger.info("Booking SLA: %s reassigned, %s escalated", reassigned, expired)
+
+
 async def check_no_shows() -> None:
     """Check for no-show appointments.
 
@@ -124,7 +130,7 @@ async def check_no_shows() -> None:
     where the customer didn't show up.
     """
     async with get_session_context() as session:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find confirmed appointments that ended more than 30 minutes ago
         cutoff = now - timedelta(minutes=30)
@@ -197,6 +203,14 @@ async def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=1),
         id="expire_stale_slots",
         name="Expire stale slots",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        reassign_unanswered_requests,
+        trigger=IntervalTrigger(minutes=1),
+        id="reassign_unanswered_requests",
+        name="Reassign unanswered booking requests",
         replace_existing=True,
     )
 

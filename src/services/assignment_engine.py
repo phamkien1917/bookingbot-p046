@@ -1,11 +1,10 @@
 """Assignment Engine - Sale agent assignment and routing optimization."""
 
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.connection import get_session_context
@@ -14,7 +13,6 @@ from src.database.models import (
     AppointmentStatus,
     SaleProfile,
     User,
-    Property,
 )
 
 logger = logging.getLogger(__name__)
@@ -200,7 +198,7 @@ class AssignmentEngine:
         self,
         session: AsyncSession,
         sale_id: UUID,
-        booking: Optional[Appointment] = None,
+        booking: Appointment | None = None,
     ) -> dict:
         """Calculate total assignment score for a sale.
 
@@ -242,7 +240,7 @@ class AssignmentEngine:
     async def get_available_sales(
         self,
         session: AsyncSession,
-        booking: Optional[Appointment] = None,
+        booking: Appointment | None = None,
         limit: int = 10,
     ) -> list[dict]:
         """Get available sales with scores.
@@ -260,7 +258,7 @@ class AssignmentEngine:
             select(SaleProfile, User)
             .join(User, SaleProfile.user_id == User.id)
             .where(
-                SaleProfile.is_accepting_tours == True,
+                SaleProfile.is_accepting_tours.is_(True),
                 User.status == "ACTIVE",
             )
         )
@@ -327,7 +325,7 @@ class AssignmentEngine:
 
 
 # Singleton instance
-_assignment_engine: Optional[AssignmentEngine] = None
+_assignment_engine: AssignmentEngine | None = None
 
 
 def get_assignment_engine() -> AssignmentEngine:

@@ -1,0 +1,8 @@
+Visual direction: white background, navy headings, blue/green/orange/purple accents sampled conceptually from the three user-provided process diagrams.
+
+User-provided assets:
+- C:\Users\Admin\AppData\Local\Temp\codex-clipboard-b6774342-7299-4d27-9bfe-b63761aac880.png — overall AI-assisted home-search flow.
+- C:\Users\Admin\AppData\Local\Temp\codex-clipboard-d9c09d47-520f-4c91-86e5-cd502dff77df.png — sale handoff and viewing-booking flow.
+- C:\Users\Admin\AppData\Local\Temp\codex-clipboard-41e052f0-5ba5-4d71-bb15-17d61f4d9f97.png — data flow and no-hallucination principle.
+
+No external claims or web assets are used.

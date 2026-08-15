@@ -11,7 +11,6 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
-    Column,
     Date,
     DateTime,
     Enum,
@@ -24,16 +23,14 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.sql import expression
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database.connection import Base
 
-
 # ============== Enums ==============
 
-class UserRole(str, enum.Enum):
+class UserRole(enum.StrEnum):
     """User role enumeration."""
 
     CUSTOMER = "CUSTOMER"
@@ -42,7 +39,7 @@ class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
 
 
-class UserStatus(str, enum.Enum):
+class UserStatus(enum.StrEnum):
     """User status enumeration."""
 
     ACTIVE = "ACTIVE"
@@ -50,7 +47,7 @@ class UserStatus(str, enum.Enum):
     DISABLED = "DISABLED"
 
 
-class PropertyKind(str, enum.Enum):
+class PropertyKind(enum.StrEnum):
     """Property kind enumeration."""
 
     LAND = "LAND"
@@ -61,7 +58,7 @@ class PropertyKind(str, enum.Enum):
     COMMERCIAL = "COMMERCIAL"
 
 
-class PropertyStatus(str, enum.Enum):
+class PropertyStatus(enum.StrEnum):
     """Property status enumeration."""
 
     DRAFT = "DRAFT"
@@ -72,7 +69,7 @@ class PropertyStatus(str, enum.Enum):
     MAINTENANCE = "MAINTENANCE"
 
 
-class RequestStatus(str, enum.Enum):
+class RequestStatus(enum.StrEnum):
     """Tour request status enumeration."""
 
     DRAFT = "DRAFT"
@@ -86,7 +83,7 @@ class RequestStatus(str, enum.Enum):
     BOOKED = "BOOKED"
 
 
-class SlotStatus(str, enum.Enum):
+class SlotStatus(enum.StrEnum):
     """Tour slot option status."""
 
     PROPOSED = "PROPOSED"
@@ -95,7 +92,7 @@ class SlotStatus(str, enum.Enum):
     WITHDRAWN = "WITHDRAWN"
 
 
-class AppointmentStatus(str, enum.Enum):
+class AppointmentStatus(enum.StrEnum):
     """Appointment/booking status."""
 
     CONFIRMED = "CONFIRMED"
@@ -106,7 +103,7 @@ class AppointmentStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
-class HoldStatus(str, enum.Enum):
+class HoldStatus(enum.StrEnum):
     """Property hold status."""
 
     ACTIVE = "ACTIVE"
@@ -115,7 +112,7 @@ class HoldStatus(str, enum.Enum):
     CONVERTED = "CONVERTED"
 
 
-class MessageRole(str, enum.Enum):
+class MessageRole(enum.StrEnum):
     """Message role in conversation."""
 
     USER = "USER"
@@ -124,7 +121,7 @@ class MessageRole(str, enum.Enum):
     SYSTEM = "SYSTEM"
 
 
-class NotificationChannel(str, enum.Enum):
+class NotificationChannel(enum.StrEnum):
     """Notification delivery channel."""
 
     IN_APP = "IN_APP"
@@ -133,7 +130,7 @@ class NotificationChannel(str, enum.Enum):
     WEB_PUSH = "WEB_PUSH"
 
 
-class DeliveryStatus(str, enum.Enum):
+class DeliveryStatus(enum.StrEnum):
     """Notification delivery status."""
 
     PENDING = "PENDING"
@@ -143,11 +140,33 @@ class DeliveryStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
-class TourMode(str, enum.Enum):
+class TourMode(enum.StrEnum):
     """Tour mode."""
 
     IN_PERSON = "IN_PERSON"
     VIDEO = "VIDEO"
+
+
+# ============== Enum name mapping ==============
+# Map ORM enum classes sang đúng tên type có sẵn trong PostgreSQL schema
+# (do 001_schema.sql tạo). Nếu không map đúng, SQLAlchemy sẽ ép kiểu về
+# enum type do chính nó tạo (vd: 'propertystatus') — DB báo lỗi
+# "operator does not exist: property_status_t = propertystatus".
+# name=... bảo SQLAlchemy KHÔNG tạo type mới (create_type=False)
+# và dùng đúng type name có sẵn trong DB.
+
+ENUM_USER_ROLE = Enum(UserRole, name="user_role_t", create_type=False, native_enum=True)
+ENUM_USER_STATUS = Enum(UserStatus, name="user_status_t", create_type=False, native_enum=True)
+ENUM_PROPERTY_KIND = Enum(PropertyKind, name="property_kind_t", create_type=False, native_enum=True)
+ENUM_PROPERTY_STATUS = Enum(PropertyStatus, name="property_status_t", create_type=False, native_enum=True)
+ENUM_REQUEST_STATUS = Enum(RequestStatus, name="request_status_t", create_type=False, native_enum=True)
+ENUM_SLOT_STATUS = Enum(SlotStatus, name="slot_status_t", create_type=False, native_enum=True)
+ENUM_APPOINTMENT_STATUS = Enum(AppointmentStatus, name="appointment_status_t", create_type=False, native_enum=True)
+ENUM_HOLD_STATUS = Enum(HoldStatus, name="hold_status_t", create_type=False, native_enum=True)
+ENUM_MESSAGE_ROLE = Enum(MessageRole, name="message_role_t", create_type=False, native_enum=True)
+ENUM_NOTIFICATION_CHANNEL = Enum(NotificationChannel, name="notification_channel_t", create_type=False, native_enum=True)
+ENUM_DELIVERY_STATUS = Enum(DeliveryStatus, name="delivery_status_t", create_type=False, native_enum=True)
+ENUM_TOUR_MODE = Enum(TourMode, name="tour_mode_t", create_type=False, native_enum=True)
 
 
 # ============== Base Models ==============
@@ -180,28 +199,28 @@ class User(Base, TimestampMixin):
         primary_key=True,
         default=uuid.uuid4,
     )
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
+    role: Mapped[UserRole] = mapped_column(ENUM_USER_ROLE, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
-    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[UserStatus] = mapped_column(
-        Enum(UserStatus),
+        ENUM_USER_STATUS,
         default=UserStatus.ACTIVE,
         nullable=False,
     )
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Ho_Chi_Minh")
     locale: Mapped[str] = mapped_column(String(16), default="vi-VN")
-    email_verified_at: Mapped[Optional[datetime]] = mapped_column(
+    email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    phone_verified_at: Mapped[Optional[datetime]] = mapped_column(
+    phone_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    last_login_at: Mapped[Optional[datetime]] = mapped_column(
+    last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -217,6 +236,11 @@ class User(Base, TimestampMixin):
         back_populates="user",
         uselist=False,
     )
+    saved_properties: Mapped[list["SavedProperty"]] = relationship(
+        "SavedProperty",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+    )
 
 
 class CustomerProfile(Base, TimestampMixin):
@@ -230,19 +254,19 @@ class CustomerProfile(Base, TimestampMixin):
         primary_key=True,
     )
     customer_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
-    identity_verified_at: Mapped[Optional[datetime]] = mapped_column(
+    identity_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
     preferred_contact_channel: Mapped[NotificationChannel] = mapped_column(
-        Enum(NotificationChannel),
+        ENUM_NOTIFICATION_CHANNEL,
         default=NotificationChannel.IN_APP,
     )
-    budget_min: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
-    budget_max: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
-    desired_move_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    budget_min: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    budget_max: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    desired_move_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
     marketing_consent: Mapped[bool] = mapped_column(Boolean, default=False)
-    internal_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    internal_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="customer_profile")
@@ -271,8 +295,8 @@ class SaleProfile(Base, TimestampMixin):
         primary_key=True,
     )
     employee_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
-    branch_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    job_title: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    branch_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    job_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
     specialties: Mapped[list] = mapped_column(JSONB, default=list)
     working_hours: Mapped[dict] = mapped_column(
         JSONB,
@@ -287,8 +311,8 @@ class SaleProfile(Base, TimestampMixin):
     )
     max_daily_tours: Mapped[int] = mapped_column(Integer, default=8)
     is_accepting_tours: Mapped[bool] = mapped_column(Boolean, default=True)
-    calendar_provider: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    external_calendar_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    calendar_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    external_calendar_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="sale_profile")
@@ -320,19 +344,19 @@ class Project(Base, TimestampMixin):
     )
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    developer_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    developer_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     address_line: Mapped[str] = mapped_column(Text, nullable=False)
-    ward: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    district: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    ward: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     province: Mapped[str] = mapped_column(String(100), nullable=False)
-    latitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
-    longitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
     default_hold_minutes: Mapped[int] = mapped_column(Integer, default=30)
     hold_warning_minutes: Mapped[int] = mapped_column(Integer, default=5)
     max_hold_extensions: Mapped[int] = mapped_column(Integer, default=1)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    extra_data: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
     # Relationships
     properties: Mapped[list["Property"]] = relationship(
@@ -351,42 +375,42 @@ class Property(Base, TimestampMixin):
         primary_key=True,
         default=uuid.uuid4,
     )
-    project_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="SET NULL"),
         nullable=True,
     )
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     property_kind: Mapped[PropertyKind] = mapped_column(
-        Enum(PropertyKind),
+        ENUM_PROPERTY_KIND,
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[PropertyStatus] = mapped_column(
-        Enum(PropertyStatus),
+        ENUM_PROPERTY_STATUS,
         default=PropertyStatus.DRAFT,
     )
-    address_line: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    ward: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    district: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    province: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    latitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
-    longitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
+    address_line: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ward: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    province: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
     area_sqm: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    usable_area_sqm: Mapped[Optional[float]] = mapped_column(
+    usable_area_sqm: Mapped[float | None] = mapped_column(
         Numeric(12, 2),
         nullable=True,
     )
-    bedrooms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    bathrooms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    floor_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    orientation: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    legal_status: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    list_price: Mapped[Optional[float]] = mapped_column(Numeric(18, 2), nullable=True)
+    bedrooms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    bathrooms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    floor_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    orientation: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    legal_status: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    list_price: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="VND")
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
-    published_at: Mapped[Optional[datetime]] = mapped_column(
+    published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -417,9 +441,36 @@ class Property(Base, TimestampMixin):
         "Appointment",
         back_populates="property",
     )
+    saved_by_customers: Mapped[list["SavedProperty"]] = relationship(
+        "SavedProperty",
+        back_populates="property",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("ix_properties_search", "project_id", "status", "property_kind", "list_price"),
+    )
+
+
+class SavedProperty(Base, TimestampMixin):
+    """A property saved by a customer for later review."""
+
+    __tablename__ = "saved_properties"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    property_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("properties.id", ondelete="CASCADE"), nullable=False
+    )
+
+    customer: Mapped["User"] = relationship("User", back_populates="saved_properties")
+    property: Mapped["Property"] = relationship("Property", back_populates="saved_by_customers")
+
+    __table_args__ = (
+        UniqueConstraint("customer_user_id", "property_id", name="uq_saved_properties_customer_property"),
+        Index("ix_saved_properties_customer", "customer_user_id", "created_at"),
     )
 
 
@@ -440,7 +491,7 @@ class PropertyMedia(Base):
     )
     media_type: Mapped[str] = mapped_column(String(20), nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
-    caption: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    caption: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_cover: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -472,7 +523,7 @@ class PropertySaleAssignment(Base):
         DateTime(timezone=True),
         server_default=func.now(),
     )
-    unassigned_at: Mapped[Optional[datetime]] = mapped_column(
+    unassigned_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -506,12 +557,12 @@ class Conversation(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[str] = mapped_column(String(20), default="OPEN")
-    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
-    closed_at: Mapped[Optional[datetime]] = mapped_column(
+    closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -547,11 +598,11 @@ class Message(Base):
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
     )
-    role: Mapped[MessageRole] = mapped_column(Enum(MessageRole), nullable=False)
-    content_redacted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    role: Mapped[MessageRole] = mapped_column(ENUM_MESSAGE_ROLE, nullable=False)
+    content_redacted: Mapped[str | None] = mapped_column(Text, nullable=True)
     structured_payload: Mapped[dict] = mapped_column(JSONB, default=dict)
-    model_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    tool_call_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tool_call_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -581,7 +632,7 @@ class TourRequest(Base, TimestampMixin):
         default=uuid.uuid4,
     )
     request_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
-    conversation_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("conversations.id", ondelete="SET NULL"),
         nullable=True,
@@ -597,32 +648,30 @@ class TourRequest(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[RequestStatus] = mapped_column(
-        Enum(RequestStatus),
+        ENUM_REQUEST_STATUS,
         default=RequestStatus.DRAFT,
     )
     tour_mode: Mapped[TourMode] = mapped_column(
-        Enum(TourMode),
+        ENUM_TOUR_MODE,
         default=TourMode.IN_PERSON,
     )
-    preferred_start: Mapped[Optional[datetime]] = mapped_column(
+    preferred_start: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    preferred_end: Mapped[Optional[datetime]] = mapped_column(
+    preferred_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
     party_size: Mapped[int] = mapped_column(Integer, default=1)
-    needs_pickup: Mapped[bool] = mapped_column(Boolean, default=False)
-    pickup_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    customer_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    request_text_redacted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    customer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    request_text_redacted: Mapped[str | None] = mapped_column(Text, nullable=True)
     extracted_requirements: Mapped[dict] = mapped_column(JSONB, default=dict)
-    submitted_at: Mapped[Optional[datetime]] = mapped_column(
+    submitted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
+    expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -678,7 +727,7 @@ class TourSlotOption(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[SlotStatus] = mapped_column(
-        Enum(SlotStatus),
+        ENUM_SLOT_STATUS,
         default=SlotStatus.PROPOSED,
     )
     starts_at: Mapped[datetime] = mapped_column(
@@ -689,17 +738,17 @@ class TourSlotOption(Base, TimestampMixin):
         DateTime(timezone=True),
         nullable=False,
     )
-    waiting_room_name: Mapped[Optional[str]] = mapped_column(
+    waiting_room_name: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    score: Mapped[Optional[float]] = mapped_column(Numeric(7, 4), nullable=True)
+    score: Mapped[float | None] = mapped_column(Numeric(7, 4), nullable=True)
     score_explanation: Mapped[dict] = mapped_column(JSONB, default=dict)
     valid_until: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
     )
-    selected_at: Mapped[Optional[datetime]] = mapped_column(
+    selected_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -739,6 +788,11 @@ class Appointment(Base, TimestampMixin):
         nullable=False,
         unique=True,
     )
+    approval_request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+        unique=True,
+    )
     customer_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("customer_profiles.user_id", ondelete="RESTRICT"),
@@ -755,11 +809,11 @@ class Appointment(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[AppointmentStatus] = mapped_column(
-        Enum(AppointmentStatus),
+        ENUM_APPOINTMENT_STATUS,
         default=AppointmentStatus.CONFIRMED,
     )
     tour_mode: Mapped[TourMode] = mapped_column(
-        Enum(TourMode),
+        ENUM_TOUR_MODE,
         default=TourMode.IN_PERSON,
     )
     starts_at: Mapped[datetime] = mapped_column(
@@ -771,35 +825,34 @@ class Appointment(Base, TimestampMixin):
         nullable=False,
     )
     party_size: Mapped[int] = mapped_column(Integer, default=1)
-    pickup_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    meeting_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    waiting_room_name: Mapped[Optional[str]] = mapped_column(
+    meeting_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    waiting_room_name: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    customer_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    internal_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    external_calendar_event_id: Mapped[Optional[str]] = mapped_column(
+    customer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    internal_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    external_calendar_event_id: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    confirmation_sent_at: Mapped[Optional[datetime]] = mapped_column(
+    confirmation_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    checked_in_at: Mapped[Optional[datetime]] = mapped_column(
+    checked_in_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    checked_out_at: Mapped[Optional[datetime]] = mapped_column(
+    checked_out_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    cancelled_at: Mapped[Optional[datetime]] = mapped_column(
+    cancelled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    cancellation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     tour_request: Mapped["TourRequest"] = relationship(
@@ -864,7 +917,7 @@ class PropertyHold(Base, TimestampMixin):
         nullable=False,
     )
     status: Mapped[HoldStatus] = mapped_column(
-        Enum(HoldStatus),
+        ENUM_HOLD_STATUS,
         default=HoldStatus.ACTIVE,
     )
     starts_at: Mapped[datetime] = mapped_column(
@@ -880,11 +933,11 @@ class PropertyHold(Base, TimestampMixin):
         nullable=False,
     )
     extension_count: Mapped[int] = mapped_column(Integer, default=0)
-    released_at: Mapped[Optional[datetime]] = mapped_column(
+    released_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    release_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    release_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     appointment: Mapped["Appointment"] = relationship(
@@ -922,11 +975,11 @@ class CustomerPreference(Base, TimestampMixin):
     preference_value: Mapped[dict] = mapped_column(JSONB, nullable=False)
     confidence: Mapped[float] = mapped_column(Numeric(5, 4), default=1.0)
     source: Mapped[str] = mapped_column(String(20), default="EXPLICIT")
-    last_confirmed_at: Mapped[Optional[datetime]] = mapped_column(
+    last_confirmed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
+    expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -959,13 +1012,13 @@ class Notification(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    appointment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    appointment_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("appointments.id", ondelete="CASCADE"),
         nullable=True,
     )
     channel: Mapped[NotificationChannel] = mapped_column(
-        Enum(NotificationChannel),
+        ENUM_NOTIFICATION_CHANNEL,
         nullable=False,
     )
     template_key: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -975,19 +1028,19 @@ class Notification(Base):
         server_default=func.now(),
     )
     status: Mapped[DeliveryStatus] = mapped_column(
-        Enum(DeliveryStatus),
+        ENUM_DELIVERY_STATUS,
         default=DeliveryStatus.PENDING,
     )
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
-    sent_at: Mapped[Optional[datetime]] = mapped_column(
+    sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    delivered_at: Mapped[Optional[datetime]] = mapped_column(
+    delivered_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -1013,19 +1066,19 @@ class AnalyticsEvent(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     event_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    customer_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    customer_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
     )
-    tour_request_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    tour_request_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
     )
-    appointment_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    appointment_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
     )
-    session_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     properties: Mapped[dict] = mapped_column(JSONB, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -1043,21 +1096,21 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    actor_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
     )
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
     )
-    request_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    before_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    after_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
-    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    before_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    after_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

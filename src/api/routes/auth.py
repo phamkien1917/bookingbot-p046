@@ -1,0 +1,164 @@
+from collections.abc import Callable
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.config import get_settings
+from src.database import get_session
+from src.database.models import User, UserRole, UserStatus
+from src.schemas.auth import Token, UserRegister, UserResponse, UserUpdate, PasswordUpdate
+from src.services.auth_service import create_access_token, register_user, verify_password, get_password_hash
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+settings = get_settings()
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=settings.auth_cookie_name,
+        value=token,
+        httponly=True,
+        secure=settings.app_env == "production",
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+
+@router.post("/register", response_model=UserResponse)
+async def register(user_data: UserRegister, db: AsyncSession = Depends(get_session)):
+    try:
+        new_user = await register_user(db, user_data)
+        if not new_user:
+            raise HTTPException(status_code=400, detail="Email or Phone already registered")
+        return new_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Registration error: {str(e)}")
+
+@router.post("/login", response_model=Token)
+async def login(
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_session),
+):
+    # Find user by email
+    stmt = select(User).where(User.email == form_data.username)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+
+    if (
+        not user
+        or user.status != UserStatus.ACTIVE
+        or not verify_password(form_data.password, user.password_hash)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user.last_login_at = datetime.now(UTC)
+    access_token = create_access_token(
+        data={"user_id": str(user.id), "role": user.role.value}
+    )
+    _set_auth_cookie(response, access_token)
+    return {"access_token": access_token, "token_type": "bearer", "user": user}
+
+
+async def get_optional_current_user(
+    request: Request,
+    token: str | None = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_session),
+) -> User | None:
+    import jwt
+
+    from src.services.auth_service import ALGORITHM, SECRET_KEY
+
+    token = token or request.cookies.get(settings.auth_cookie_name)
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("user_id")
+        if user_id is None:
+            return None
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if not user or user.status != UserStatus.ACTIVE:
+            return None
+        return user
+    except jwt.PyJWTError:
+        return None
+
+
+async def get_current_user(
+    user: User | None = Depends(get_optional_current_user),
+) -> User:
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+async def get_current_user_id(user: User = Depends(get_current_user)) -> str:
+    return str(user.id)
+
+
+def require_roles(*roles: UserRole) -> Callable:
+    async def dependency(user: User = Depends(get_current_user)) -> User:
+        if user.role not in roles:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return user
+
+    return dependency
+
+
+@router.get("/me", response_model=UserResponse)
+async def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout() -> Response:
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(settings.auth_cookie_name, path="/")
+    return response
+
+
+@router.put("/me", response_model=UserResponse)
+async def update_me(
+    user_data: UserUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    if user_data.full_name is not None:
+        user.full_name = user_data.full_name
+    if user_data.phone is not None:
+        user.phone = user_data.phone
+    
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
+async def update_password(
+    password_data: PasswordUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+):
+    if not verify_password(password_data.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
+        
+    user.password_hash = get_password_hash(password_data.new_password)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -2,6 +2,8 @@
 
 Short-term memory: Redis (session state, conversation context)
 Long-term memory: PostgreSQL (customer preferences, learned patterns)
+
+This module re-exports from redis_service for backward compatibility.
 """
 
 import json
@@ -9,66 +11,42 @@ import logging
 from typing import Any, Optional
 from uuid import UUID
 
-import redis.asyncio as redis
-
-from src.config import get_settings
+from src.services.redis_service import (
+    InMemoryFallback,
+    close_redis,  # noqa: F401 - backward-compatible re-export
+    get_redis,
+)
+from src.services.redis_service import (
+    get_session_memory as _get_redis_session_memory,
+)
 
 logger = logging.getLogger(__name__)
 
 
-# ============== Redis Connection ==============
-
-_redis_client: Optional[redis.Redis] = None
-
-
-async def get_redis() -> redis.Redis:
-    """Get or create Redis client."""
-    global _redis_client
-    if _redis_client is None:
-        settings = get_settings()
-        _redis_client = redis.from_url(
-            settings.redis_url,
-            encoding="utf-8",
-            decode_responses=True,
-        )
-    return _redis_client
-
-
-async def close_redis() -> None:
-    """Close Redis connection."""
-    global _redis_client
-    if _redis_client is not None:
-        await _redis_client.close()
-        _redis_client = None
+# Re-export for backward compatibility
+_in_memory_store = InMemoryFallback()
 
 
 # ============== Short-term Memory (Session) ==============
 
 class ShortTermMemory:
-    """Redis-based session memory for conversation context."""
+    """Redis-based session memory with in-process fallback.
+
+    Now uses redis_service for Redis operations with graceful fallback.
+    """
 
     SESSION_PREFIX = "session:"
     SESSION_TTL = 3600  # 1 hour default
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
-        """Initialize with Redis client."""
-        self._redis = redis_client
-
-    async def _get_client(self) -> redis.Redis:
-        """Get Redis client."""
-        if self._redis is None:
-            self._redis = await get_redis()
-        return self._redis
-
-    def _session_key(self, session_id: str) -> str:
-        """Get Redis key for session."""
-        return f"{self.SESSION_PREFIX}{session_id}"
+    def __init__(self):
+        """Initialize session memory."""
+        self._redis_memory = _get_redis_session_memory()
 
     async def save_session(
         self,
         session_id: str,
         messages: list[dict],
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         ttl: int = SESSION_TTL,
     ) -> None:
         """Save session data to Redis.
@@ -79,20 +57,10 @@ class ShortTermMemory:
             metadata: Optional session metadata
             ttl: Time to live in seconds
         """
-        client = await self._get_client()
-        key = self._session_key(session_id)
-
-        data = {
-            "messages": json.dumps(messages),
-            "metadata": json.dumps(metadata or {}),
-        }
-
-        await client.hset(key, mapping=data)
-        await client.expire(key, ttl)
-
+        await self._redis_memory.save_session(session_id, messages, metadata, ttl)
         logger.debug(f"Saved session {session_id} with TTL {ttl}s")
 
-    async def get_session(self, session_id: str) -> Optional[dict]:
+    async def get_session(self, session_id: str) -> dict | None:
         """Get session data from Redis.
 
         Args:
@@ -101,17 +69,7 @@ class ShortTermMemory:
         Returns:
             Session data dict or None if not found
         """
-        client = await self._get_client()
-        key = self._session_key(session_id)
-
-        data = await client.hgetall(key)
-        if not data:
-            return None
-
-        return {
-            "messages": json.loads(data.get("messages", "[]")),
-            "metadata": json.loads(data.get("metadata", "{}")),
-        }
+        return await self._redis_memory.get_session(session_id)
 
     async def append_message(
         self,
@@ -144,11 +102,12 @@ class ShortTermMemory:
         Returns:
             True if session existed and was extended
         """
-        client = await self._get_client()
-        key = self._session_key(session_id)
-
-        if await client.exists(key):
-            await client.expire(key, ttl)
+        if await self._redis_memory.session_exists(session_id):
+            await self._redis_memory.save_session(
+                session_id,
+                (await self.get_session(session_id))["messages"],
+                ttl=ttl
+            )
             return True
         return False
 
@@ -158,33 +117,12 @@ class ShortTermMemory:
         Args:
             session_id: Session identifier
         """
-        client = await self._get_client()
-        key = self._session_key(session_id)
-        await client.delete(key)
+        await self._redis_memory.delete_session(session_id)
         logger.debug(f"Deleted session {session_id}")
 
     async def get_all_sessions(self, customer_id: str) -> list[str]:
-        """Get all active session IDs for a customer.
-
-        Args:
-            customer_id: Customer UUID
-
-        Returns:
-            List of session IDs
-        """
-        client = await self._get_client()
-        pattern = f"{self.SESSION_PREFIX}*"
-        keys = []
-
-        async for key in client.scan_iter(match=pattern):
-            # Check if this session belongs to customer
-            data = await client.hget(key, "metadata")
-            if data:
-                metadata = json.loads(data)
-                if metadata.get("customer_id") == customer_id:
-                    keys.append(key.replace(self.SESSION_PREFIX, ""))
-
-        return keys
+        """Get active session summaries for a customer."""
+        return await self._redis_memory.list_sessions(customer_id)
 
 
 # ============== Long-term Memory (Preferences) ==============
@@ -224,7 +162,7 @@ class LongTermMemory:
 
         async with get_session_context() as session:
             import uuid
-            from datetime import datetime, timedelta
+            from datetime import datetime
 
             # Check if preference exists
             from sqlalchemy import select
@@ -273,9 +211,10 @@ class LongTermMemory:
         Returns:
             List of preference dicts
         """
+        from sqlalchemy import select
+
         from src.database.connection import get_session_context
         from src.database.models import CustomerPreference
-        from sqlalchemy import select
 
         async with get_session_context() as session:
             stmt = select(CustomerPreference).where(
@@ -300,7 +239,7 @@ class LongTermMemory:
         self,
         customer_id: str,
         key: str,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Get a specific preference.
 
         Args:
@@ -395,9 +334,10 @@ class LongTermMemory:
         Returns:
             True if deleted
         """
+        from sqlalchemy import delete
+
         from src.database.connection import get_session_context
         from src.database.models import CustomerPreference
-        from sqlalchemy import delete
 
         async with get_session_context() as session:
             stmt = delete(CustomerPreference).where(
@@ -410,8 +350,9 @@ class LongTermMemory:
 
 # ============== Singleton instances ==============
 
-_short_term_memory: Optional[ShortTermMemory] = None
-_long_term_memory: Optional[LongTermMemory] = None
+_short_term_memory: ShortTermMemory | None = None
+_long_term_memory: LongTermMemory | None = None
+_intent_cache: Optional["IntentCache"] = None
 
 
 def get_short_term_memory() -> ShortTermMemory:
@@ -428,3 +369,66 @@ def get_long_term_memory() -> LongTermMemory:
     if _long_term_memory is None:
         _long_term_memory = LongTermMemory()
     return _long_term_memory
+
+
+# ============== Intent Cache (short-lived) ==============
+
+class IntentCache:
+    """Cache kết quả classify_intent trong vài giây.
+
+    Giúp tránh gọi LLM classify lặp lại khi user chat nhiều câu ngắn
+    liên tiếp cùng chủ đề (vd: "Cảm ơn!", "OK", "Hiểu rồi" — nhưng những
+    câu này giờ đã có fast-path smalltalk nên chủ yếu dùng cho câu dài).
+    """
+
+    PREFIX = "intent_cache:"
+    TTL_SECONDS = 30
+
+    def __init__(self):
+        self._mem: dict = {}  # Fallback nếu Redis không khả dụng
+
+    @staticmethod
+    def make_key(session_id: str, message_hash: str) -> str:
+        return f"{IntentCache.PREFIX}{session_id}:{message_hash}"
+
+    @staticmethod
+    def hash_messages(messages: list[dict]) -> str:
+        """Hash ngắn gọn từ 5 message gần nhất để làm cache key."""
+        import hashlib
+        recent = messages[-5:] if messages else []
+        joined = "|".join(f"{m.get('role', '?')}:{m.get('content', '')}" for m in recent)
+        return hashlib.sha1(joined.encode("utf-8")).hexdigest()[:16]
+
+    async def get(self, session_id: str, message_hash: str) -> dict | None:
+        key = self.make_key(session_id, message_hash)
+        # Thử Redis trước
+        try:
+            client = await get_redis()
+            data = await client.get(key)
+            if data:
+                return json.loads(data)
+        except Exception:
+            pass
+        # Fallback in-memory
+        return self._mem.get(key)
+
+    async def set(self, session_id: str, message_hash: str, result: dict) -> None:
+        key = self.make_key(session_id, message_hash)
+        payload = json.dumps(result, ensure_ascii=False)
+        # Thử Redis trước
+        try:
+            client = await get_redis()
+            await client.set(key, payload, ex=self.TTL_SECONDS)
+            return
+        except Exception:
+            pass
+        # Fallback in-memory (không TTL thật, nhưng đủ cho phiên test)
+        self._mem[key] = result
+
+
+def get_intent_cache() -> IntentCache:
+    """Get intent cache singleton."""
+    global _intent_cache
+    if _intent_cache is None:
+        _intent_cache = IntentCache()
+    return _intent_cache

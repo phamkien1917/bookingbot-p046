@@ -18,7 +18,13 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     app_host: str = "0.0.0.0"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    # Support either local hostname without creating two separate cookie sessions.
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+
+    # Authentication
+    jwt_secret_key: str = "change-this-development-secret"
+    access_token_expire_minutes: int = Field(default=10080, ge=5)
+    auth_cookie_name: str = "bookingbot_session"
 
     # OpenRouter LLM
     openrouter_api_key: str = ""
@@ -29,22 +35,30 @@ class Settings(BaseSettings):
     # Fallback: OpenAI
     openai_api_key: str = ""
 
+    # Database
+    database_url: str = "postgresql+asyncpg://visitops:change-this-local-password@localhost:5432/visitops"
+
     # Model settings
-    model_name: str = "google/gemma-2-9b-it"  # Default to free model
+    model_name: str = "nvidia/nemotron-3-ultra-550b-a55b:free"  # Default to Nemotron (free)
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=4096, ge=1, le=128000)
 
-    # Database (PostgreSQL)
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/bookingbot"
-
     # Redis
     redis_url: str = "redis://localhost:6379/0"
+
+    # Redis Cache Settings
+    cache_property_ttl: int = Field(default=60, ge=1, description="Property availability cache TTL (seconds)")
+    cache_search_ttl: int = Field(default=300, ge=1, description="Property search cache TTL (seconds)")
+    cache_session_ttl: int = Field(default=3600, ge=60, description="Session memory TTL (seconds)")
+
+    # Rate Limiting
+    rate_limit_requests: int = Field(default=30, ge=1, description="Max requests per window")
+    rate_limit_window: int = Field(default=60, ge=1, description="Rate limit window (seconds)")
 
     # Google Calendar
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
-
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"
 
