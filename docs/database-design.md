@@ -163,3 +163,4 @@ SELECT expire_stale_booking_records();
 - Điện thoại chuẩn hóa E.164 trước khi insert.
 - Không lưu OAuth token thô trong database.
 - Dùng Alembic cho mọi thay đổi sau lần khởi tạo đầu tiên.
+ 
