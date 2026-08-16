@@ -2,7 +2,7 @@
 
 ## System Overview
 
-HomeMate AI (repo name: Booking Bot AI) là hệ thống tìm bất động sản và đặt lịch xem nhà, gồm frontend Next.js, backend FastAPI, một multi-agent LangGraph điều phối theo mô hình supervisor–workers, PostgreSQL làm nguồn dữ liệu chuẩn và Redis cho cache/session/property hold. Toàn bộ 4 service (db, redis, backend, frontend) chạy được qua Docker Compose, đã kiểm chứng chạy thật ngày 15/08/2026.
+Repo này (đặt tên nội bộ là Booking Bot AI) làm một việc cụ thể: giúp người dùng tìm bất động sản và đặt lịch xem nhà qua hội thoại tự nhiên thay vì filter/form. Phần khó không nằm ở giao diện mà ở chỗ ai/cái gì được quyền quyết định — LLM chỉ được đề xuất, còn việc chốt lịch, giữ căn hay xác nhận booking luôn đi qua một lớp nghiệp vụ có transaction thật (PostgreSQL) để tránh hai người cùng giữ một căn cùng lúc. Bốn mảnh ghép chính là Next.js (giao diện), FastAPI (API + nghiệp vụ), một LangGraph multi-agent kiểu supervisor-workers (điều phối hội thoại), và PostgreSQL/Redis (dữ liệu + cache). Cả bốn đã dựng qua Docker Compose và chạy thật, kiểm tra lại ngày 15/08/2026 chứ không chỉ đọc code suy ra.
 
 ## Architecture Diagram
 
@@ -37,31 +37,22 @@ graph TB
 ## Components
 
 ### 1. Frontend (Next.js)
-- **Purpose:** Giao diện cho 3 vai trò — Khách hàng (tìm nhà, chat, đặt lịch xem, xem booking của mình), Sale (`/sale` — nhận/từ chối yêu cầu), Admin (`/admin` — quản lý booking & tài khoản).
-- **Key Features:** Trang chủ + danh sách property có ảnh, chatbot, luồng đặt lịch, dashboard sale/admin.
-- **Auth:** Session qua cookie HttpOnly, backend kiểm tra vai trò + quyền sở hữu ở mọi API nhạy cảm.
+
+Ba vai trò dùng chung một app nhưng thấy ba giao diện khác nhau: khách hàng tìm nhà/chat/đặt lịch ở trang chủ, sale nhận hoặc từ chối yêu cầu ở `/sale`, admin quản lý booking và tài khoản ở `/admin`. Đăng nhập dùng cookie HttpOnly, và mọi API nhạy cảm đều kiểm tra vai trò + quyền sở hữu ở phía backend chứ không tin frontend — vì frontend luôn có thể bị bypass.
 
 ### 2. Backend (FastAPI)
-- **Purpose:** REST API + orchestration cho agent.
-- **API Design:** RESTful, chia theo domain — `src/api/routes/{auth,properties,bookings,chat,favorites,memory,notifications,sale,admin}.py`.
-- **Authentication:** JWT (cookie), field cấu hình `JWT_SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `AUTH_COOKIE_NAME`.
 
-### 3. AI Agent (LangGraph) — supervisor-workers, không phải ReAct đơn lẻ
-- **State schema** (`src/agents/state.py`, `AgentState`, TypedDict ~30 field): hội thoại (`query`, `messages`, `session_id`), context khách hàng (`customer_id`, `preferences`, `preferred_time_slots`), booking context (`selected_properties`, `selected_slots`, `booking_id`), search criteria, routing (`current_agent`, `intent`, `missing_fields`), HITL (`awaiting_human`, `hitl_case_id`, `human_decision`), tool calls/results, response, error handling.
-- **Nodes** (`src/agents/graph.py::build_agent_graph`): `supervisor` (entry point, điều phối) → `inventory` (tìm property) / `booking` (tạo yêu cầu đặt lịch) / `assignment` (gán sale) / `hitl` (chờ người duyệt) / `respond` (sinh câu trả lời cuối).
-- **Routing thật** (đọc trực tiếp từ code, không suy đoán):
-  - `supervisor` → định tuyến có điều kiện tới 1 trong 5 nhánh: `inventory | booking | assignment | hitl | respond | end`.
-  - `inventory` → `respond` → `END`.
-  - `booking` → `assignment` (booking luôn cần gán sale tiếp theo).
-  - `assignment` → có điều kiện: nếu `awaiting_human` thì sang `hitl`, ngược lại sang `respond`.
-  - `hitl` → luôn sang `respond`.
-  - Có sẵn `build_simple_graph()` — bản rút gọn chỉ 2 node (`supervisor` → `respond`) dùng để test nhanh không cần chạy đủ 6 node.
-- **Tools** (`src/agents/tools/`):
-  - `property_tools.py`: `search_properties`, `check_property_availability`, `hold_property`, `release_hold`.
-  - `booking_tools.py`: `calculate_viewing_time`, `create_booking`, `propose_time_slots`, `get_booking_status`, `cancel_booking`.
-  - `assignment_tools.py`: `calculate_assignment_score`, `assign_sale_to_booking`, `get_available_sales`, `check_sale_availability`.
-  - `map_tools.py`: `get_property_location`, `get_property_map_embed`, `get_map_link_for_address`.
-- **Flow (đúng theo `build_agent_graph()`):**
+REST API chia theo domain, mỗi file route lo một mảng nghiệp vụ riêng (`src/api/routes/{auth,properties,bookings,chat,favorites,memory,notifications,sale,admin}.py`). Auth dùng JWT qua cookie, cấu hình qua `JWT_SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `AUTH_COOKIE_NAME`. Một điểm dễ gây nhầm: có sẵn một endpoint WebSocket `/chat/ws` trông giống chat thật nhưng thực ra là mock cũ (comment ngay trong code ghi rõ), còn endpoint thật gọi agent là `POST /api/v1/chat` ở `src/api/routes/__init__.py` — nếu ai đó demo nhầm route WebSocket sẽ tưởng hệ thống đang trả lời "giả", cần lưu ý khi tích hợp frontend.
+
+### 3. AI Agent (LangGraph)
+
+Đây là phần dễ mô tả sai nhất nếu chỉ đọc lướt code, nên toàn bộ routing dưới đây lấy trực tiếp từ `build_agent_graph()`, không suy đoán từ tên hàm. Mô hình là supervisor-workers chứ không phải một vòng ReAct đơn lẻ: một node `supervisor` đóng vai trò điều phối, đọc hội thoại rồi quyết định giao việc cho node chuyên trách nào.
+
+State (`AgentState` trong `src/agents/state.py`, một TypedDict khoảng 30 field) mang theo gần như mọi thứ một lượt hội thoại cần: nội dung chat (`query`, `messages`, `session_id`), thông tin khách (`customer_id`, `preferences`, `preferred_time_slots`), ngữ cảnh booking (`selected_properties`, `selected_slots`, `booking_id`), tiêu chí tìm kiếm, thông tin routing (`current_agent`, `intent`, `missing_fields`), trạng thái chờ người duyệt (`awaiting_human`, `hitl_case_id`, `human_decision`), cùng kết quả tool call và lỗi nếu có.
+
+Sáu node trong graph: `supervisor` (điểm vào, điều phối) → `inventory` (tìm property) / `booking` (tạo yêu cầu đặt lịch) / `assignment` (gán sale) / `hitl` (chờ người duyệt) / `respond` (sinh câu trả lời cuối). Đường đi thực tế: từ `supervisor` rẽ có điều kiện sang một trong `inventory | booking | assignment | hitl | respond | end`; `inventory` luôn kết thúc ở `respond`; `booking` luôn phải qua `assignment` trước (vì đặt lịch nào cũng cần gán sale); `assignment` rẽ tiếp sang `hitl` nếu cần người duyệt, không thì thẳng tới `respond`; và `hitl` luôn kết ở `respond`. Ngoài ra còn có `build_simple_graph()` — bản rút gọn chỉ 2 node (`supervisor` → `respond`), dùng để test nhanh khi không cần chạy hết cả 6 node.
+
+Bốn nhóm tool tương ứng bốn node nghiệp vụ: `property_tools.py` (`search_properties`, `check_property_availability`, `hold_property`, `release_hold`), `booking_tools.py` (`calculate_viewing_time`, `create_booking`, `propose_time_slots`, `get_booking_status`, `cancel_booking`), `assignment_tools.py` (`calculate_assignment_score`, `assign_sale_to_booking`, `get_available_sales`, `check_sale_availability`), và `map_tools.py` (`get_property_location`, `get_property_map_embed`, `get_map_link_for_address`).
 
 ```mermaid
 graph LR
@@ -81,16 +72,16 @@ graph LR
 ```
 
 ### 4. LLM Service (`src/services/llm.py`)
-- Ưu tiên OpenRouter (đa model, có danh sách `MODEL_PRIORITY` để fallback khi 1 model lỗi/hết quota); nếu không có `OPENROUTER_API_KEY` thì fallback trực tiếp OpenAI với `["gpt-4o-mini", "gpt-4o"]`.
-- **Trạng thái tại thời điểm viết tài liệu này: `.env` chưa có key thật (`OPENAI_API_KEY`/`OPENROUTER_API_KEY` vẫn là placeholder) — agent chưa được test với LLM thật, đây là việc cần làm ngay cho Gate 2.**
 
-### 5. Database (PostgreSQL, không dùng Alembic — quản lý bằng SQL script tuần tự)
-- **Tables:** 24 bảng, nạp qua 7 file `database/001_schema.sql` → `007_customer_memory.sql` (users, properties, tour_requests, tour_slot_options, property_holds, appointments, saved_properties, customer_memory...).
-- **Seed/data thật:** `002_seed.sql`, `004_crawled_data.sql`, `005_batdongsan_data.sql` — dữ liệu crawl thật từ batdongsan.com.vn và chotot.com (`database/crawler_batdongsan.py`, `database/crawler_chotot.py`).
+Ưu tiên OpenRouter — có danh sách `MODEL_PRIORITY` để tự chuyển model khác khi một model lỗi hoặc hết quota, bắt đầu từ vài model free (Nemotron, Gemma, Llama, Mistral...). Nếu không set `OPENROUTER_API_KEY` thì rơi về gọi OpenAI trực tiếp với `["gpt-4o-mini", "gpt-4o"]`. Đã kiểm chứng thật ngày 15/08/2026: gọi qua OpenRouter, model `nvidia/nemotron-3-ultra-550b-a55b:free`, nhận `200 OK` — không còn ở trạng thái "chưa có key thật" như lúc mới viết tài liệu này. Chi tiết ở `eval/results/gate2_eval_evidence.md`.
+
+### 5. Database
+
+PostgreSQL, không dùng Alembic mà quản lý bằng 7 file SQL chạy tuần tự (`database/001_schema.sql` → `007_customer_memory.sql`) — 24 bảng, gồm users, properties, tour_requests, tour_slot_options, property_holds, appointments, saved_properties, customer_memory... Dữ liệu không phải seed giả toàn bộ: `004_crawled_data.sql` và `005_batdongsan_data.sql` là dữ liệu crawl thật từ batdongsan.com.vn và chotot.com (`database/crawler_batdongsan.py`, `crawler_chotot.py`).
 
 ### 6. Redis
-- Cache truy vấn property, session memory (có fallback in-memory nếu Redis không chạy), quản lý property hold tạm thời (15 phút), rate limiting, pub/sub.
-- Scheduler (APScheduler) chạy job nền mỗi phút: hết hạn slot chờ, dọn hold hết hạn, tự động reassign yêu cầu booking chưa được sale phản hồi.
+
+Dùng cho cache truy vấn property, session memory (rơi về in-memory nếu Redis không chạy, không chặn dev), giữ property hold tạm 15 phút, và rate limiting/pub-sub. Có một scheduler (APScheduler) chạy nền mỗi phút để dọn slot/hold hết hạn và tự động reassign những yêu cầu booking mà sale chưa kịp phản hồi.
 
 ## Data Flow (luồng chính: khách tìm nhà → đặt lịch xem)
 
