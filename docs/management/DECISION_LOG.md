@@ -26,6 +26,7 @@ Ghi lại các quyết định sản phẩm đã có bằng chứng trong reposi
 | D-010 | Không ưu tiên Multi-Agent, Microservices, Event Bus, TSP, complex soft hold, Calendar sync, CRM, multichannel notification hoặc complex Sale Dashboard | Dự án cần một happy path AI rõ ràng trong phạm vi 6 tuần | `PROJECT_SOURCE_OF_TRUTH.md` mục 7 và 19 | CONFIRMED |
 | D-011 | AI không được bịa giá, địa chỉ, trạng thái hoặc dữ kiện căn hộ; dữ kiện phải có nguồn | Trust và explainability là điều kiện bắt buộc | `PROJECT_SOURCE_OF_TRUTH.md` mục 6, 15 và 20 | CONFIRMED |
 | D-012 | Các success criteria hiện là giả thuyết mục tiêu MVP, không phải kết quả hoặc cam kết kinh doanh đã đạt | Repository chưa có kết quả test xác nhận | `PROJECT_SOURCE_OF_TRUTH.md` mục 15; `eval/results/report.md` đang là template | CONFIRMED |
+| D-013 | Không merge `feature/backend-phamkien` vào `main`/`develop`; dùng `develop` (đã verify chạy được) làm nền cho Gate 2 | Branch `feature/backend-phamkien` (Sale/Booking/Admin routes, Redis orchestration) lỗi import và thiếu cấu hình, không khởi động được khi thử tại thời điểm chuẩn bị Gate 2; nội dung branch cũng đi theo hướng kiến trúc mà D-010 đã loại khỏi phạm vi | `docs/demo/GATE2_REPORT.md` mục 3 | CONFIRMED |
 
 ## Quyết định đang chờ
 
