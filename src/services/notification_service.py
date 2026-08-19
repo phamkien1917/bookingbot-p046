@@ -5,9 +5,10 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database.connection import get_session_context
 from src.database.models import Appointment, DeliveryStatus, Notification, NotificationChannel, User
+from src.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ class NotificationService:
 
     async def create_notification(
         self,
+        db: AsyncSession,
         user_id: UUID,
         template_key: str,
         payload: dict,
@@ -82,23 +84,36 @@ class NotificationService:
         """
         import uuid
 
-        async with get_session_context() as session:
-            notification = Notification(
+        notification = Notification(
                 id=uuid.uuid4(),
                 user_id=user_id,
                 appointment_id=appointment_id,
                 channel=channel,
                 template_key=template_key,
                 payload=payload,
-                scheduled_at=scheduled_at or datetime.utcnow(),
+                scheduled_at=scheduled_at or utcnow(),
                 status=DeliveryStatus.PENDING,
             )
-            session.add(notification)
-            await session.flush()
+            db.add(notification)
+            await db.flush()
+            
+            # Broadcast to WebSocket
+            from src.services.redis_service import get_event_pubsub
+            pubsub = get_event_pubsub()
+            payload_data = {
+                "id": str(notification.id),
+                "template_key": notification.template_key,
+                "payload": notification.payload or {},
+                "status": notification.status.value if hasattr(notification.status, "value") else notification.status,
+                "created_at": notification.created_at.isoformat() if notification.created_at else utcnow().isoformat(),
+            }
+            await pubsub.publish(f"notifications:{user_id}", payload_data)
+            
             return str(notification.id)
 
     async def send_booking_confirmation(
         self,
+        db: AsyncSession,
         appointment_id: UUID,
     ) -> dict:
         """Send booking confirmation notification.
@@ -109,19 +124,18 @@ class NotificationService:
         Returns:
             Result dict
         """
-        async with get_session_context() as session:
-            # Get appointment with related data
-            stmt = select(Appointment).where(Appointment.id == appointment_id)
-            result = await session.execute(stmt)
-            apt = result.scalar_one_or_none()
+        # Get appointment with related data
+        stmt = select(Appointment).where(Appointment.id == appointment_id)
+        result = await db.execute(stmt)
+        apt = result.scalar_one_or_none()
 
             if not apt:
                 return {"error": "Appointment not found"}
 
-            # Get customer
-            user_stmt = select(User).where(User.id == apt.customer_user_id)
-            user_result = await session.execute(user_stmt)
-            user = user_result.scalar_one_or_none()
+        # Get customer
+        user_stmt = select(User).where(User.id == apt.customer_user_id)
+        user_result = await db.execute(user_stmt)
+        user = user_result.scalar_one_or_none()
 
             if not user:
                 return {"error": "User not found"}
@@ -133,23 +147,25 @@ class NotificationService:
                 "property_address": apt.meeting_address or "Sẽ được thông báo",
             }
 
-            # Create in-app notification
-            notif_id = await self.create_notification(
-                user_id=user.id,
-                template_key="booking_confirmed",
-                payload=payload,
-                channel=NotificationChannel.IN_APP,
-                appointment_id=apt.id,
-            )
+        # Create in-app notification
+        notif_id = await self.create_notification(
+            db=db,
+            user_id=user.id,
+            template_key="booking_confirmed",
+            payload=payload,
+            channel=NotificationChannel.IN_APP,
+            appointment_id=apt.id,
+        )
 
-            return {
-                "success": True,
-                "notification_id": notif_id,
-                "customer_id": str(user.id),
-            }
+        return {
+            "success": True,
+            "notification_id": notif_id,
+            "customer_id": str(user.id),
+        }
 
     async def schedule_reminders(
         self,
+        db: AsyncSession,
         appointment_id: UUID,
     ) -> list[str]:
         """Schedule reminder notifications for an appointment.
@@ -160,11 +176,10 @@ class NotificationService:
         Returns:
             List of notification IDs
         """
-        async with get_session_context() as session:
-            # Get appointment
-            stmt = select(Appointment).where(Appointment.id == appointment_id)
-            result = await session.execute(stmt)
-            apt = result.scalar_one_or_none()
+        # Get appointment
+        stmt = select(Appointment).where(Appointment.id == appointment_id)
+        result = await db.execute(stmt)
+        apt = result.scalar_one_or_none()
 
             if not apt:
                 return []
@@ -173,8 +188,9 @@ class NotificationService:
 
             # T - 48h reminder
             reminder_48h = apt.starts_at - timedelta(hours=48)
-            if reminder_48h > datetime.utcnow():
+            if reminder_48h > utcnow():
                 notif_id = await self.create_notification(
+                    db=db,
                     user_id=apt.customer_user_id,
                     template_key="booking_reminder_48h",
                     payload={
@@ -190,8 +206,9 @@ class NotificationService:
 
             # T - 24h confirmation request
             reminder_24h = apt.starts_at - timedelta(hours=24)
-            if reminder_24h > datetime.utcnow():
+            if reminder_24h > utcnow():
                 notif_id = await self.create_notification(
+                    db=db,
                     user_id=apt.customer_user_id,
                     template_key="booking_reminder_24h",
                     payload={
@@ -208,8 +225,9 @@ class NotificationService:
 
             # T - 2h preparation
             reminder_2h = apt.starts_at - timedelta(hours=2)
-            if reminder_2h > datetime.utcnow():
+            if reminder_2h > utcnow():
                 notif_id = await self.create_notification(
+                    db=db,
                     user_id=apt.customer_user_id,
                     template_key="booking_reminder_2h",
                     payload={
@@ -227,6 +245,7 @@ class NotificationService:
 
     async def get_pending_notifications(
         self,
+        db: AsyncSession,
         limit: int = 100,
     ) -> list[dict]:
         """Get pending notifications for processing.
@@ -237,19 +256,18 @@ class NotificationService:
         Returns:
             List of pending notifications
         """
-        async with get_session_context() as session:
-            stmt = (
-                select(Notification, User)
-                .join(User, Notification.user_id == User.id)
-                .where(
-                    Notification.status == DeliveryStatus.PENDING,
-                    Notification.scheduled_at <= datetime.utcnow(),
-                )
-                .order_by(Notification.scheduled_at)
-                .limit(limit)
+        stmt = (
+            select(Notification, User)
+            .join(User, Notification.user_id == User.id)
+            .where(
+                Notification.status == DeliveryStatus.PENDING,
+                Notification.scheduled_at <= utcnow(),
             )
-            result = await session.execute(stmt)
-            notifications = result.all()
+            .order_by(Notification.scheduled_at)
+            .limit(limit)
+        )
+        result = await db.execute(stmt)
+        notifications = result.all()
 
             return [
                 {
@@ -266,6 +284,7 @@ class NotificationService:
 
     async def mark_sent(
         self,
+        db: AsyncSession,
         notification_id: UUID,
     ) -> None:
         """Mark notification as sent.
@@ -273,17 +292,17 @@ class NotificationService:
         Args:
             notification_id: Notification UUID
         """
-        async with get_session_context() as session:
-            stmt = update(Notification).where(
-                Notification.id == notification_id
-            ).values(
-                status=DeliveryStatus.SENT,
-                sent_at=datetime.utcnow(),
-            )
-            await session.execute(stmt)
+        stmt = update(Notification).where(
+            Notification.id == notification_id
+        ).values(
+            status=DeliveryStatus.SENT,
+            sent_at=utcnow(),
+        )
+        await db.execute(stmt)
 
     async def mark_delivered(
         self,
+        db: AsyncSession,
         notification_id: UUID,
     ) -> None:
         """Mark notification as delivered.
@@ -291,17 +310,17 @@ class NotificationService:
         Args:
             notification_id: Notification UUID
         """
-        async with get_session_context() as session:
-            stmt = update(Notification).where(
-                Notification.id == notification_id
-            ).values(
-                status=DeliveryStatus.DELIVERED,
-                delivered_at=datetime.utcnow(),
-            )
-            await session.execute(stmt)
+        stmt = update(Notification).where(
+            Notification.id == notification_id
+        ).values(
+            status=DeliveryStatus.DELIVERED,
+            delivered_at=utcnow(),
+        )
+        await db.execute(stmt)
 
     async def mark_failed(
         self,
+        db: AsyncSession,
         notification_id: UUID,
         error: str,
     ) -> None:
@@ -311,10 +330,9 @@ class NotificationService:
             notification_id: Notification UUID
             error: Error message
         """
-        async with get_session_context() as session:
-            stmt = select(Notification).where(Notification.id == notification_id)
-            result = await session.execute(stmt)
-            notif = result.scalar_one_or_none()
+        stmt = select(Notification).where(Notification.id == notification_id)
+        result = await db.execute(stmt)
+        notif = result.scalar_one_or_none()
 
             if notif:
                 notif.status = DeliveryStatus.FAILED

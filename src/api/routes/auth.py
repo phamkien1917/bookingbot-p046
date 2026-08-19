@@ -1,5 +1,6 @@
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
+from src.utils.time import utcnow
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -32,9 +33,9 @@ def _set_auth_cookie(response: Response, token: str) -> None:
 async def register(user_data: UserRegister, db: AsyncSession = Depends(get_session)):
     try:
         new_user = await register_user(db, user_data)
-        if not new_user:
-            raise HTTPException(status_code=400, detail="Email or Phone already registered")
         return new_user
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
@@ -63,7 +64,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user.last_login_at = datetime.now(UTC)
+    user.last_login_at = utcnow()
     access_token = create_access_token(
         data={"user_id": str(user.id), "role": user.role.value}
     )

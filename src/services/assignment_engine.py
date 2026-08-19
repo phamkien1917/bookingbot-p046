@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from src.utils.time import utcnow
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -59,7 +60,7 @@ class AssignmentEngine:
             Score from 0-100
         """
         # Get sale's existing appointments for the day
-        today = datetime.utcnow().date()
+        today = utcnow().date()
         today_start = datetime.combine(today, datetime.min.time())
         today_end = datetime.combine(today, datetime.max.time())
 
@@ -102,7 +103,7 @@ class AssignmentEngine:
         max_tours = profile.max_daily_tours or 8
 
         # Get today's appointment count
-        today = datetime.utcnow().date()
+        today = utcnow().date()
         today_start = datetime.combine(today, datetime.min.time())
 
         count_stmt = select(func.count(Appointment.id)).where(
@@ -133,7 +134,7 @@ class AssignmentEngine:
         """
         # Simplified: Use appointment completion rate as proxy
         # In production, this would use actual sales conversion data
-        start_of_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0)
+        start_of_month = utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         # Completed appointments this month
         completed_stmt = select(func.count(Appointment.id)).where(

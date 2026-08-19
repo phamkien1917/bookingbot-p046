@@ -114,7 +114,7 @@ def async_engine() -> AsyncEngine:
 
 
 # Session factory
-_async_session_factory: AsyncSession | None = None
+_async_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:

@@ -1,16 +1,23 @@
 """Booking and scheduling tools for the agent."""
 
 import logging
+from src.utils.time import utcnow
 from datetime import datetime, timedelta
+from typing import Optional
 from uuid import UUID
 
 from langchain_core.tools import tool
 
+from src.config import get_settings
 from src.database.connection import get_session_context
 from src.database.models import (
     Appointment,
     AppointmentStatus,
     Property,
+    TourRequest,
+    TourSlotOption,
+    SlotStatus,
+    RequestStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,7 +27,7 @@ logger = logging.getLogger(__name__)
 def calculate_viewing_time(
     property_id: str,
     start_time: str,
-    buffer_minutes: int | None = None,
+    buffer_minutes: Optional[int] = None,
 ) -> str:
     """Tính toán thời gian xem nhà dự kiến.
 
@@ -35,6 +42,8 @@ def calculate_viewing_time(
         Thông tin về thời gian xem nhà
     """
     import json
+
+    settings = get_settings()
 
     async def _calculate():
         async with get_session_context() as session:
@@ -83,13 +92,20 @@ def calculate_viewing_time(
 
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
     try:
-        result = loop.run_until_complete(_calculate())
+        # If we're in an async context, create a future and run in a new loop
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, _calculate())
+                result = future.result()
+        else:
+            result = loop.run_until_complete(_calculate())
         return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error calculating viewing time: {e}")
@@ -103,9 +119,9 @@ def create_booking(
     sale_user_id: str,
     starts_at: str,
     ends_at: str,
-    customer_note: str | None = None,
+    customer_note: Optional[str] = None,
     party_size: int = 1,
-    pickup_address: str | None = None,
+    pickup_address: Optional[str] = None,
 ) -> str:
     """Tạo booking/appointment mới.
 
@@ -124,7 +140,8 @@ def create_booking(
     """
     import json
     import uuid
-
+    from sqlalchemy import select
+    from src.database.models import Appointment, AppointmentStatus, Property, PropertyHold, HoldStatus
 
     async def _create():
         async with get_session_context() as session:
@@ -171,13 +188,19 @@ def create_booking(
 
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
     try:
-        result = loop.run_until_complete(_create())
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, _create())
+                result = future.result()
+        else:
+            result = loop.run_until_complete(_create())
         return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error creating booking: {e}")
@@ -204,10 +227,8 @@ def propose_time_slots(
     """
     import json
     import uuid
-
-    from sqlalchemy import select
-
-    from src.database.models import SaleProfile, User
+    from sqlalchemy import select, and_
+    from src.database.models import Appointment, SaleProfile, User
 
     async def _propose():
         async with get_session_context() as session:
@@ -221,7 +242,7 @@ def propose_time_slots(
             sales_stmt = select(SaleProfile, User).join(
                 User, SaleProfile.user_id == User.id
             ).where(
-                SaleProfile.is_accepting_tours.is_(True),
+                SaleProfile.is_accepting_tours == True,
                 User.status == "ACTIVE"
             ).limit(5)
             sales_result = await session.execute(sales_stmt)
@@ -270,13 +291,19 @@ def propose_time_slots(
 
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
     try:
-        result = loop.run_until_complete(_propose())
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, _propose())
+                result = future.result()
+        else:
+            result = loop.run_until_complete(_propose())
         return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error proposing slots: {e}")
@@ -294,10 +321,8 @@ def get_booking_status(booking_id: str) -> str:
         Thông tin trạng thái booking
     """
     import json
-
-    from sqlalchemy import joinedload, select
-
-    from src.database.models import User
+    from sqlalchemy import select, joinedload
+    from src.database.models import Appointment, Property, User
 
     async def _get_status():
         async with get_session_context() as session:
@@ -345,13 +370,19 @@ def get_booking_status(booking_id: str) -> str:
 
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
     try:
-        result = loop.run_until_complete(_get_status())
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, _get_status())
+                result = future.result()
+        else:
+            result = loop.run_until_complete(_get_status())
         return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error getting booking status: {e}")
@@ -370,10 +401,8 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
         Kết quả hủy booking
     """
     import json
-
-    from sqlalchemy import select
-
-    from src.database.models import HoldStatus, PropertyHold
+    from sqlalchemy import select, update
+    from src.database.models import Appointment, AppointmentStatus, PropertyHold, HoldStatus
 
     async def _cancel():
         async with get_session_context() as session:
@@ -393,7 +422,7 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
 
             # Update status
             apt.status = AppointmentStatus.CANCELLED
-            apt.cancelled_at = datetime.utcnow()
+            apt.cancelled_at = utcnow()
             apt.cancellation_reason = reason
 
             # Release any holds
@@ -406,7 +435,7 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
 
             if hold:
                 hold.status = HoldStatus.RELEASED
-                hold.released_at = datetime.utcnow()
+                hold.released_at = utcnow()
                 hold.release_reason = f"Booking cancelled: {reason}"
 
             await session.flush()
@@ -422,13 +451,19 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
 
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
     try:
-        result = loop.run_until_complete(_cancel())
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, _cancel())
+                result = future.result()
+        else:
+            result = loop.run_until_complete(_cancel())
         return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error cancelling booking: {e}")

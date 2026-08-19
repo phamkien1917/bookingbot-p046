@@ -162,7 +162,7 @@ class LongTermMemory:
 
         async with get_session_context() as session:
             import uuid
-            from datetime import datetime
+            from src.utils.time import utcnow
 
             # Check if preference exists
             from sqlalchemy import select
@@ -178,7 +178,7 @@ class LongTermMemory:
                 existing.preference_value = {"value": value}
                 existing.confidence = confidence
                 existing.source = source
-                existing.last_confirmed_at = datetime.utcnow()
+                existing.last_confirmed_at = utcnow()
                 pref = existing
             else:
                 # Create new
@@ -189,7 +189,7 @@ class LongTermMemory:
                     preference_value={"value": value},
                     confidence=confidence,
                     source=source,
-                    last_confirmed_at=datetime.utcnow(),
+                    last_confirmed_at=utcnow(),
                 )
                 session.add(pref)
 

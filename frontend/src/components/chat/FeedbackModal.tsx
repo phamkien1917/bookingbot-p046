@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+﻿/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -837,14 +837,11 @@ function ChatContent() {
   );
 }
 
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-
 export default function ChatPage() {
   return (
-    <ErrorBoundary>
-      <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[var(--paper)]">Đang mở Nera…</div>}>
-        <ChatContent />
-      </Suspense>
-    </ErrorBoundary>
+    <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[var(--paper)]">Đang mở Nera…</div>}>
+      <ChatContent />
+    </Suspense>
   );
 }
+

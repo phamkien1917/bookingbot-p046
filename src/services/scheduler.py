@@ -1,7 +1,7 @@
 """Scheduler Service - Background jobs for BookingBot."""
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -17,6 +17,7 @@ from src.database.models import (
     TourSlotOption,
 )
 from src.services.booking_service import reassign_expired_requests
+from src.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ async def cleanup_expired_holds() -> None:
     that have passed their expiration time.
     """
     async with get_session_context() as session:
-        now = datetime.now(UTC)
+        now = utcnow()
 
         # Find expired holds
         stmt = select(PropertyHold).where(
@@ -60,7 +61,7 @@ async def check_running_late() -> None:
     is past their estimated end time and mark them as late.
     """
     async with get_session_context() as session:
-        now = datetime.now(UTC)
+        now = utcnow()
 
         # Find appointments that are past their end time but not completed
         stmt = select(Appointment).where(
@@ -95,7 +96,7 @@ async def expire_stale_slots() -> None:
     that were proposed but not selected in time.
     """
     async with get_session_context() as session:
-        now = datetime.now(UTC)
+        now = utcnow()
 
         # Find expired proposed slots
         stmt = select(TourSlotOption).where(
@@ -130,7 +131,7 @@ async def check_no_shows() -> None:
     where the customer didn't show up.
     """
     async with get_session_context() as session:
-        now = datetime.now(UTC)
+        now = utcnow()
 
         # Find confirmed appointments that ended more than 30 minutes ago
         cutoff = now - timedelta(minutes=30)
@@ -248,7 +249,7 @@ def run_job_now(job_id: str) -> None:
     job = scheduler.get_job(job_id)
 
     if job:
-        job.modify(next_run_time=datetime.utcnow())
+        job.modify(next_run_time=utcnow())
         logger.info(f"Triggered job: {job_id}")
     else:
         logger.warning(f"Job not found: {job_id}")

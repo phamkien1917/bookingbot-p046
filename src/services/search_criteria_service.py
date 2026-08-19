@@ -59,6 +59,9 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     elif re.search(r"ho\s*chi\s*minh|tphcm|sai\s*gon", text):
         criteria["province"] = "Hồ Chí Minh"
         groups.add("location")
+    elif re.search(r"da\s*nang", text):
+        criteria["province"] = "Đà Nẵng"
+        groups.add("location")
 
     district = re.search(
         r"\bquan\s+(\d+|ba dinh|hoan kiem|tay ho|long bien|cau giay|dong da|hai ba trung|hoang mai|thanh xuan|nam tu liem|bac tu liem|ha dong|go vap|binh thanh|tan binh|phu nhuan|thu duc)\b",

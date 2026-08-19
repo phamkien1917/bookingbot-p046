@@ -1,6 +1,7 @@
 """Booking Agent - Tour request and appointment creation."""
 
 import json
+from src.utils.time import utcnow
 import logging
 from datetime import datetime, timedelta
 
@@ -26,6 +27,7 @@ async def booking_agent(state: AgentState) -> dict:
         Updated state with booking information
     """
     intent = state.get("intent")
+
     # Handle different booking intents
     if intent == "CANCEL_BOOKING":
         return await _handle_cancel(state)
@@ -63,7 +65,7 @@ async def _handle_cancel(state: AgentState) -> dict:
             # For now, assume booking_id is set
             pass
 
-        result_str = cancel_booking.invoke({
+        result_str = await cancel_booking.ainvoke({
             "booking_id": booking_id or booking_code,
             "reason": "Customer requested cancellation",
         })
@@ -118,6 +120,7 @@ async def _handle_booking_flow(state: AgentState) -> dict:
     property_id = state.get("current_property_id")
     selected_slots = state.get("selected_slots", [])
     selected_slot_id = state.get("selected_slot_id")
+
     # Step 1: Check if we have property
     if not property_id:
         # Get property from entities or selected properties
@@ -160,11 +163,11 @@ async def _propose_slots(state: AgentState, property_id: str) -> dict:
     # Default to tomorrow at 10 AM
     preferred_date = entities.get("preferred_date")
     if not preferred_date:
-        tomorrow = datetime.utcnow().date() + timedelta(days=1)
+        tomorrow = utcnow().date() + timedelta(days=1)
         preferred_date = tomorrow.strftime("%Y-%m-%d")
 
     try:
-        result_str = propose_time_slots.invoke({
+        result_str = await propose_time_slots.ainvoke({
             "property_id": property_id,
             "customer_id": customer_id or "default",
             "preferred_date": preferred_date,
@@ -263,7 +266,7 @@ async def _create_booking(state: AgentState, slot_id: str) -> dict:
     try:
         # Hold the property first
         if customer_id:
-            hold_result_str = hold_property.invoke({
+            hold_result_str = await hold_property.ainvoke({
                 "property_id": property_id,
                 "customer_id": customer_id,
                 "hold_minutes": 15,
@@ -274,7 +277,7 @@ async def _create_booking(state: AgentState, slot_id: str) -> dict:
                 # Continue anyway - booking can still be created
 
         # Create booking
-        result_str = create_booking.invoke({
+        result_str = await create_booking.ainvoke({
             "customer_id": customer_id or "default",
             "property_id": property_id,
             "sale_user_id": selected_slot.get("sale_id"),
@@ -331,7 +334,7 @@ async def check_booking_status(booking_id: str) -> dict:
         Booking status information
     """
     try:
-        result_str = get_booking_status.invoke({"booking_id": booking_id})
+        result_str = await get_booking_status.ainvoke({"booking_id": booking_id})
         result = json.loads(result_str)
 
         if "error" in result:

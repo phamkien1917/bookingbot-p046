@@ -28,6 +28,7 @@ async def assignment_agent(state: AgentState) -> dict:
     """
     booking_id = state.get("booking_id")
     property_id = state.get("current_property_id")
+
     # Skip if no booking to assign
     if not booking_id:
         logger.info("No booking to assign, skipping assignment agent")
@@ -37,7 +38,7 @@ async def assignment_agent(state: AgentState) -> dict:
 
     try:
         # Step 1: Calculate scores for available sales
-        score_result_str = calculate_assignment_score.invoke({
+        score_result_str = await calculate_assignment_score.ainvoke({
             "booking_id": booking_id,
         })
         score_result = json.loads(score_result_str)
@@ -69,7 +70,7 @@ async def assignment_agent(state: AgentState) -> dict:
         logger.info(f"Best sale for assignment: {sale_name} (score: {best_sale.get('total_score')})")
 
         # Step 3: Assign sale to booking
-        assign_result_str = assign_sale_to_booking.invoke({
+        assign_result_str = await assign_sale_to_booking.ainvoke({
             "booking_id": booking_id,
             "sale_id": sale_id,
         })
@@ -83,7 +84,7 @@ async def assignment_agent(state: AgentState) -> dict:
                 next_sale = sale_rankings[1]
                 logger.info(f"Trying failover with sale: {next_sale['sale_name']}")
 
-                assign_result_str = assign_sale_to_booking.invoke({
+                assign_result_str = await assign_sale_to_booking.ainvoke({
                     "booking_id": booking_id,
                     "sale_id": next_sale.get("sale_id"),
                 })
@@ -91,6 +92,7 @@ async def assignment_agent(state: AgentState) -> dict:
 
                 if "error" not in assign_result:
                     sale_name = next_sale.get("sale_name")
+
 
         if "error" in assign_result:
             # Assignment failed - trigger HITL
@@ -151,7 +153,7 @@ async def get_top_sales_for_booking(
         List of top sales with scores
     """
     try:
-        result_str = calculate_assignment_score.invoke({
+        result_str = await calculate_assignment_score.ainvoke({
             "booking_id": booking_id,
         })
         result = json.loads(result_str)
@@ -189,7 +191,7 @@ async def reassign_booking(
         if not new_sale_id:
             return {"error": "No available sale for reassignment"}
 
-        result_str = assign_sale_to_booking.invoke({
+        result_str = await assign_sale_to_booking.ainvoke({
             "booking_id": booking_id,
             "sale_id": new_sale_id,
             "force_assign": True,

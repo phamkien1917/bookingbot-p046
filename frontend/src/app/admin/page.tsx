@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FaBars, FaBell, FaCalendarAlt, FaChartLine, FaExclamationTriangle, FaRobot, FaSearch, FaShieldAlt, FaSignOutAlt, FaSyncAlt, FaTimes, FaUsers } from "react-icons/fa";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart as RechartsBarChart, Bar, CartesianGrid } from 'recharts';
 import ProtectedPage from "@/components/ProtectedPage";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
@@ -21,31 +22,26 @@ const statusStyle: Record<string, string> = { WAITING_APPROVAL: "bg-amber-50 tex
 
 function MiniLineChart({ data }: { data: DailyBooking[] }) {
   if (!data.length) return <div className="h-48 grid place-items-center text-sm text-[var(--muted)]">Chưa có dữ liệu</div>;
-  const maxVal = Math.max(...data.map(d => d.total), 1);
-  const w = 320, h = 140, px = 32, py = 20;
-  const points = data.map((d, i) => ({ x: px + (i / Math.max(data.length - 1, 1)) * (w - px * 2), y: py + (1 - d.total / maxVal) * (h - py * 2) }));
-  const confirmedPts = data.map((d, i) => ({ x: px + (i / Math.max(data.length - 1, 1)) * (w - px * 2), y: py + (1 - d.confirmed / maxVal) * (h - py * 2) }));
-  const line = (pts: typeof points) => pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const area = (pts: typeof points) => line(pts) + ` L${pts[pts.length - 1].x},${h - py} L${pts[0].x},${h - py} Z`;
-
+  const formattedData = data.map(d => ({ ...d, date: d.date.slice(5) }));
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto">
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--forest)" stopOpacity=".15" /><stop offset="100%" stopColor="var(--forest)" stopOpacity="0" /></linearGradient>
-      </defs>
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map(f => <line key={f} x1={px} x2={w - px} y1={py + f * (h - py * 2)} y2={py + f * (h - py * 2)} stroke="black" strokeOpacity=".06" />)}
-      {/* Area + lines */}
-      <path d={area(points)} fill="url(#areaGrad)" />
-      <path d={line(points)} fill="none" stroke="var(--forest)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={line(confirmedPts)} fill="none" stroke="var(--coral)" strokeWidth="2" strokeDasharray="5,4" strokeLinecap="round" />
-      {/* Dots */}
-      {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="var(--forest)" stroke="white" strokeWidth="2" />)}
-      {/* X labels */}
-      {data.map((d, i) => <text key={i} x={points[i].x} y={h - 2} textAnchor="middle" fontSize="9" fill="var(--muted)">{d.date.slice(5)}</text>)}
-      {/* Y labels */}
-      {[0, Math.round(maxVal / 2), maxVal].map((v, i) => <text key={i} x={px - 6} y={py + (1 - v / maxVal) * (h - py * 2) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">{v}</text>)}
-    </svg>
+    <div className="h-56 w-full mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={formattedData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--forest)" stopOpacity={0.2}/>
+              <stop offset="95%" stopColor="var(--forest)" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
+          <XAxis dataKey="date" tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
+          <YAxis tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+          <Area type="monotone" dataKey="total" stroke="var(--forest)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTotal)" name="Tổng booking" />
+          <Area type="monotone" dataKey="confirmed" stroke="var(--coral)" strokeWidth={2} strokeDasharray="5 5" fill="none" name="Đã xác nhận" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -57,35 +53,34 @@ function DonutChart({ dist }: { dist: Record<string, number> }) {
     { key: "rejected", label: "Từ chối", color: "var(--coral)" },
     { key: "no_show", label: "No-show", color: "#ef4444" },
     { key: "expired", label: "Hết hạn", color: "#94a3b8" },
-  ].filter(i => (dist[i.key] ?? 0) > 0);
-  const total = items.reduce((s, i) => s + (dist[i.key] ?? 0), 0) || 1;
-  const r = 55, cx = 70, cy = 70, stroke = 22;
-  let cumAngle = -90;
+  ].filter(i => (dist[i.key] ?? 0) > 0).map(i => ({ name: i.label, value: dist[i.key], color: i.color }));
+  
+  const total = items.reduce((sum, item) => sum + item.value, 0) || 1;
 
   return (
-    <div className="flex items-center gap-6">
-      <svg viewBox="0 0 140 140" className="w-36 h-36 shrink-0">
-        {items.map(item => {
-          const val = dist[item.key] ?? 0;
-          const angle = (val / total) * 360;
-          const start = cumAngle;
-          cumAngle += angle;
-          const startRad = (start * Math.PI) / 180;
-          const endRad = ((start + angle) * Math.PI) / 180;
-          const largeArc = angle > 180 ? 1 : 0;
-          const x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad);
-          const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
-          return <path key={item.key} d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`} fill="none" stroke={item.color} strokeWidth={stroke} />;
-        })}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="22" fontWeight="700" fill="var(--ink)">{total}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="10" fill="var(--muted)">tổng</text>
-      </svg>
-      <div className="space-y-2">
+    <div className="flex items-center gap-6 mt-4">
+      <div className="w-40 h-40 relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={items} innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" stroke="none">
+              {items.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip contentStyle={{ borderRadius: '0.75rem', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-2xl font-bold text-[var(--ink)]">{total}</span>
+            <span className="text-[10px] text-[var(--muted)]">tổng</span>
+        </div>
+      </div>
+      <div className="space-y-2 flex-1">
         {items.map(item => (
-          <div key={item.key} className="flex items-center gap-2 text-xs">
+          <div key={item.name} className="flex items-center gap-2 text-xs">
             <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: item.color }} />
-            <span className="text-[var(--muted)]">{item.label}</span>
-            <span className="font-semibold ml-auto">{dist[item.key] ?? 0}</span>
+            <span className="text-[var(--muted)] truncate">{item.name}</span>
+            <span className="font-semibold ml-auto">{item.value}</span>
           </div>
         ))}
       </div>
@@ -95,16 +90,25 @@ function DonutChart({ dist }: { dist: Record<string, number> }) {
 
 function BarChart({ data }: { data: WeeklyConversion[] }) {
   if (!data.length) return <div className="h-40 grid place-items-center text-sm text-[var(--muted)]">Chưa có dữ liệu</div>;
-  const maxRate = Math.max(...data.map(d => d.rate), 10);
+  const formattedData = data.map((d, i) => ({ ...d, color: i === data.length - 1 ? "var(--forest)" : "var(--sage)" }));
   return (
-    <div className="flex items-end gap-3 h-36">
-      {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-2">
-          <span className="text-xs font-semibold">{d.rate}%</span>
-          <div className="w-full rounded-t-lg transition-all duration-500" style={{ height: `${(d.rate / maxRate) * 100}%`, minHeight: 8, background: i === data.length - 1 ? "var(--forest)" : "var(--sage)" }} />
-          <span className="text-[10px] text-[var(--muted)] text-center leading-tight">{d.week_label}</span>
-        </div>
-      ))}
+    <div className="h-48 w-full mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <RechartsBarChart data={formattedData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
+          <XAxis dataKey="week_label" tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
+          <YAxis tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
+          <Tooltip 
+            cursor={{fill: 'rgba(0,0,0,0.02)'}}
+            contentStyle={{ borderRadius: '0.75rem', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: '12px' }} 
+          />
+          <Bar dataKey="rate" radius={[6, 6, 0, 0]} name="Tỷ lệ chốt (%)">
+            {formattedData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
+        </RechartsBarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

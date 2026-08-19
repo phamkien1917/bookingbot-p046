@@ -1,4 +1,5 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
+from src.utils.time import utcnow
 
 import bcrypt
 import jwt
@@ -33,7 +34,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -44,13 +45,13 @@ async def register_user(db: AsyncSession, user_data: UserRegister):
     stmt = select(User).where(User.email == user_data.email)
     result = await db.execute(stmt)
     if result.scalars().first():
-        return None
+        raise ValueError("Email đã được đăng ký")
 
     # Check phone exists
     stmt = select(User).where(User.phone == user_data.phone)
     result = await db.execute(stmt)
     if result.scalars().first():
-        return None
+        raise ValueError("Số điện thoại đã được đăng ký")
 
     # Create User
     new_user = User(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from src.utils.time import utcnow
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -62,7 +62,7 @@ async def _upsert(
         row.preference_value = payload
         row.confidence = confidence
         row.source = source
-        row.last_confirmed_at = datetime.now(UTC)
+        row.last_confirmed_at = utcnow()
     else:
         db.add(CustomerPreference(
             customer_user_id=customer_uuid,
@@ -70,7 +70,7 @@ async def _upsert(
             preference_value=payload,
             confidence=confidence,
             source=source,
-            last_confirmed_at=datetime.now(UTC),
+            last_confirmed_at=utcnow(),
         ))
 
 

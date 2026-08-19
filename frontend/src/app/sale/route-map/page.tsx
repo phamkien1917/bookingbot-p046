@@ -173,6 +173,7 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
 export default function RouteMapPage() {
   const [allAppointments, setAllAppointments] = useState<CalendarAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [optimizing, setOptimizing] = useState(false);
   const [error, setError] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   
@@ -189,6 +190,19 @@ export default function RouteMapPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  const handleOptimize = async () => {
+    setOptimizing(true);
+    setError("");
+    try {
+      await apiFetch(`/sale/optimize-route?date=${selectedDate}`, { method: "POST" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lỗi tối ưu lộ trình");
+    } finally {
+      setOptimizing(false);
+    }
+  };
 
   const filteredAppointments = allAppointments.filter(a => {
     if (a.status === 'NO_SHOW' || a.status === 'CANCELLED') return false;
@@ -211,14 +225,23 @@ export default function RouteMapPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold">Lộ trình</h1>
-                <p className="text-sm text-[var(--muted)] mt-1">{sortedPoints.length} điểm đến được tối ưu</p>
+                <p className="text-sm text-[var(--muted)] mt-1">{sortedPoints.length} điểm đến được phân công</p>
               </div>
-              <input 
-                type="date" 
-                className="text-sm border border-gray-300 rounded-xl px-4 py-2 bg-white font-semibold text-[var(--ink)] outline-none focus:border-[var(--forest)] focus:ring-2 focus:ring-[var(--forest)]/20 shadow-sm"
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-              />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleOptimize}
+                  disabled={optimizing || sortedPoints.length < 2}
+                  className="text-sm font-bold bg-[var(--forest)] text-white px-4 py-2 rounded-xl disabled:opacity-50"
+                >
+                  {optimizing ? "Đang tối ưu..." : "Tối ưu lộ trình"}
+                </button>
+                <input 
+                  type="date" 
+                  className="text-sm border border-gray-300 rounded-xl px-4 py-2 bg-white font-semibold text-[var(--ink)] outline-none focus:border-[var(--forest)] focus:ring-2 focus:ring-[var(--forest)]/20 shadow-sm"
+                  value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                />
+              </div>
             </div>
           </div>
           

@@ -1,10 +1,14 @@
 """HITL (Human-in-the-Loop) Agent - Handles cases requiring human intervention."""
 
+import json
+from src.utils.time import utcnow
 import logging
 import uuid
 from datetime import datetime, timedelta
+from typing import Optional
 
-from src.agents.state import AgentState
+from src.agents.state import AgentState, AgentType
+from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +52,8 @@ async def _create_hitl_case(state: AgentState) -> dict:
     Returns:
         Updated state with HITL case
     """
-    hitl_reason = state.get("hitl_reason")
+    settings = get_settings()
+    hitl_reason = state.get("hitl_reason") or "Khách hàng yêu cầu hỗ trợ từ nhân viên"
     hitl_context = state.get("hitl_context", {})
 
     # Generate case ID
@@ -57,8 +62,8 @@ async def _create_hitl_case(state: AgentState) -> dict:
     # Create case record
     case = {
         "id": case_id,
-        "created_at": datetime.utcnow().isoformat(),
-        "expires_at": (datetime.utcnow() + timedelta(minutes=30)).isoformat(),
+        "created_at": utcnow().isoformat(),
+        "expires_at": (utcnow() + timedelta(minutes=30)).isoformat(),
         "reason": hitl_reason,
         "context": hitl_context,
         "status": "PENDING",
@@ -241,7 +246,7 @@ def get_pending_hitl_cases() -> list[dict]:
     ]
 
 
-def get_hitl_case(case_id: str) -> dict | None:
+def get_hitl_case(case_id: str) -> Optional[dict]:
     """Get a specific HITL case.
 
     Args:
@@ -279,7 +284,7 @@ def resolve_hitl_case(
         return {"error": "Case already resolved"}
 
     case["status"] = "RESOLVED"
-    case["resolved_at"] = datetime.utcnow().isoformat()
+    case["resolved_at"] = utcnow().isoformat()
     case["decision"] = decision
 
     logger.info(f"HITL case resolved: {case_id} - Action: {decision.get('action')}")

@@ -40,6 +40,7 @@ interface SaleBooking {
   preferred_end: string;
   expires_at?: string;
   customer?: { full_name: string; phone: string; email: string };
+  customer_note?: string;
   property: { id: string; title: string; address: string };
 }
 interface CalendarAppointment {
@@ -55,12 +56,14 @@ interface CalendarAppointment {
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  WAITING_APPROVAL: "bg-amber-100 text-amber-700 border-amber-200",
   CONFIRMED: "bg-emerald-100 text-emerald-700 border-emerald-200",
   IN_PROGRESS: "bg-blue-100 text-blue-700 border-blue-200",
   COMPLETED: "bg-stone-100 text-stone-600 border-stone-200",
   NO_SHOW: "bg-red-100 text-red-600 border-red-200",
 };
 const STATUS_LABELS: Record<string, string> = {
+  WAITING_APPROVAL: "Đang chờ",
   CONFIRMED: "Đã xác nhận",
   IN_PROGRESS: "Đang diễn ra",
   COMPLETED: "Hoàn thành",
@@ -74,7 +77,7 @@ function WeekCalendar({
   onAction,
 }: {
   appointments: CalendarAppointment[];
-  onAction: (id: string, action: "check-in" | "no-show" | "complete") => void;
+  onAction: (id: string, action: "check-in" | "no-show" | "complete" | "accept" | "reject") => void;
 }) {
   const now = new Date();
   const monday = new Date(now);
@@ -142,7 +145,7 @@ function WeekCalendar({
                 ))}
                 {blocks.map((a) => {
                   const pos = getPosition(a);
-                  const color = a.status === "CONFIRMED" ? "bg-emerald-50 border-l-emerald-500" : a.status === "IN_PROGRESS" ? "bg-blue-50 border-l-blue-500" : a.status === "COMPLETED" ? "bg-stone-50 border-l-stone-400" : "bg-red-50 border-l-red-400";
+                  const color = a.status === "WAITING_APPROVAL" ? "bg-amber-50 border-l-amber-400" : a.status === "CONFIRMED" ? "bg-emerald-50 border-l-emerald-500" : a.status === "IN_PROGRESS" ? "bg-blue-50 border-l-blue-500" : a.status === "COMPLETED" ? "bg-stone-50 border-l-stone-400" : "bg-red-50 border-l-red-400";
                   return (
                     <button
                       key={a.id}
@@ -176,9 +179,15 @@ function WeekCalendar({
               <p><FaCalendarAlt className="inline mr-2 text-[var(--forest)]" /><strong>Thời gian:</strong> {new Date(popup.starts_at).toLocaleString("vi-VN")} – {new Date(popup.ends_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</p>
               <p><FaRobot className="inline mr-2 text-[var(--forest)]" /><strong>BĐS:</strong> {popup.property?.title ?? "N/A"}</p>
               <p className="text-xs text-[var(--muted)]">{popup.property?.address}</p>
-              {popup.customer_note && <p className="text-xs bg-[#f7f5ef] p-3 rounded-xl italic">"{popup.customer_note}"</p>}
+              {popup.customer_note && <p className="text-xs bg-[#f7f5ef] p-3 rounded-xl italic">&quot;{popup.customer_note}&quot;</p>}
               <p><span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_COLORS[popup.status] ?? "bg-stone-100"}`}>{STATUS_LABELS[popup.status] ?? popup.status}</span></p>
             </div>
+            {popup.status === "WAITING_APPROVAL" && (
+              <div className="mt-5 flex gap-2">
+                <button onClick={() => { onAction(popup.id, "accept"); setPopup(null); }} className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[var(--forest)] py-2.5 text-sm font-semibold text-white">✓ Nhận</button>
+                <button onClick={() => { onAction(popup.id, "reject"); setPopup(null); }} className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-[var(--coral)] py-2.5 text-sm font-semibold text-[var(--coral)]">✗ Từ chối</button>
+              </div>
+            )}
             {popup.status === "CONFIRMED" && (
               <div className="mt-5 flex gap-2">
                 <button onClick={() => { onAction(popup.id, "check-in"); setPopup(null); }} className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[var(--forest)] py-2.5 text-sm font-semibold text-white"><FaUserCheck /> Check-in</button>
@@ -229,6 +238,26 @@ function SaleDashboardContent() {
     return () => { window.clearTimeout(initial); window.clearInterval(interval); };
   }, [load]);
 
+  const combinedAppointments = useMemo(() => {
+    const arr: CalendarAppointment[] = [...appointments];
+    if (overview?.pending_requests) {
+      for (const p of overview.pending_requests) {
+        arr.push({
+          id: p.id,
+          booking_code: p.request_code,
+          status: p.status,
+          starts_at: p.preferred_start,
+          ends_at: p.preferred_end,
+          customer_user_id: p.customer?.full_name || "",
+          customer_note: p.customer_note,
+          checked_in_at: null,
+          property: p.property,
+        });
+      }
+    }
+    return arr.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  }, [appointments, overview]);
+
   const nextAppointment = useMemo(() => {
     const now = new Date();
     return (overview?.schedule ?? []).find((item) => new Date(item.preferred_start) > now);
@@ -236,12 +265,14 @@ function SaleDashboardContent() {
 
   async function handleAccept(id: string) { try { await apiFetch(`/sale/requests/${id}/accept`, { method: "POST" }); await load(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "Lỗi"); } }
   async function handleReject() { if (!reject) return; try { await apiFetch(`/sale/requests/${reject.id}/reject`, { method: "POST", body: JSON.stringify({ reason: reject.reason || null }) }); setReject(null); await load(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "Lỗi"); } }
-  async function handleAppointmentAction(id: string, action: "check-in" | "no-show" | "complete") {
+  async function handleAppointmentAction(id: string, action: "check-in" | "no-show" | "complete" | "accept" | "reject") {
+    if (action === "accept") return handleAccept(id);
+    if (action === "reject") { setReject({ id, reason: "" }); return; }
     try { await apiFetch(`/sale/appointments/${id}/${action}`, { method: "POST" }); await load(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "Lỗi"); }
   }
   async function handleLogout() { await logout(); router.replace("/login"); }
 
-  function remaining(expiresAt: string) { const ms = new Date(expiresAt).getTime() - Date.now(); if (ms <= 0) return "Hết hạn"; const m = Math.floor(ms / 60000); return `còn ${m} phút`; }
+  function remaining(expiresAt: string) { const ms = new Date(expiresAt).getTime() - new Date().getTime(); if (ms <= 0) return "Hết hạn"; const m = Math.floor(ms / 60000); return `còn ${m} phút`; }
 
   const sidebar = (
     <aside className={`bg-[var(--ink)] p-5 text-white lg:sticky lg:top-0 lg:min-h-screen lg:w-72 ${sidebarOpen ? "fixed inset-0 z-50" : "hidden lg:block"}`}>
@@ -356,11 +387,11 @@ function SaleDashboardContent() {
           </div>
 
           {view === "calendar" ? (
-            <WeekCalendar appointments={appointments} onAction={handleAppointmentAction} />
+            <WeekCalendar appointments={combinedAppointments} onAction={handleAppointmentAction} />
           ) : (
             <div className="space-y-3">
-              {appointments.length === 0 && <p className="rounded-[1.5rem] bg-white p-10 text-center text-[var(--muted)]">Chưa có lịch hẹn nào.</p>}
-              {appointments.map((a) => (
+              {combinedAppointments.length === 0 && <p className="rounded-[1.5rem] bg-white p-10 text-center text-[var(--muted)]">Chưa có lịch trình nào.</p>}
+              {combinedAppointments.map((a) => (
                 <div key={a.id} className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm">
                   <div className="flex-1 min-w-0">
                     <p className="font-bold">{a.property?.title ?? a.booking_code}</p>
@@ -377,6 +408,12 @@ function SaleDashboardContent() {
                     )}
                     {a.status === "IN_PROGRESS" && (
                       <button onClick={() => void handleAppointmentAction(a.id, "complete")} className="rounded-lg bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-white" title="Hoàn thành"><FaCheckCircle /></button>
+                    )}
+                    {a.status === "WAITING_APPROVAL" && (
+                      <>
+                        <button onClick={() => void handleAppointmentAction(a.id, "accept")} className="rounded-lg bg-[var(--forest)] px-3 py-1.5 text-xs font-semibold text-white">Nhận</button>
+                        <button onClick={() => void handleAppointmentAction(a.id, "reject")} className="rounded-lg border border-[var(--coral)] px-3 py-1.5 text-xs font-semibold text-[var(--coral)]">Từ chối</button>
+                      </>
                     )}
                   </div>
                 </div>

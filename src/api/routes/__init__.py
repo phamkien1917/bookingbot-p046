@@ -2,14 +2,15 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime
 from pathlib import Path
+from src.utils.time import utcnow
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.agents.graph import get_agent_graph
 from src.agents.state import create_initial_state
@@ -42,6 +43,7 @@ from .memory import router as memory_router
 from .notifications import router as notifications_router
 from .properties import router as properties_router
 from .sale import router as sale_router
+from .google_oauth import router as google_oauth_router
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -59,6 +61,7 @@ router.include_router(chat_router)
 router.include_router(sale_router)
 router.include_router(admin_router)
 router.include_router(notifications_router)
+router.include_router(google_oauth_router)
 
 def get_session_id(x_session_id: str | None = Header(None)) -> str:
     """Get or create session ID from header."""
@@ -88,6 +91,20 @@ async def chat(
         memory = get_short_term_memory()
         session_data = await memory.get_session(session_id)
         customer_id = str(user.id) if user and user.role == UserRole.CUSTOMER else None
+
+        # Rate Limiting
+        from src.config import get_settings
+        from src.services.redis_service import get_rate_limiter
+        
+        settings = get_settings()
+        rate_limiter = get_rate_limiter()
+        allowed = await rate_limiter.is_allowed(
+            f"chat:{customer_id or session_id}",
+            settings.rate_limit_requests,
+            settings.rate_limit_window
+        )
+        if not allowed:
+            raise HTTPException(status_code=429, detail="Too Many Requests")
         if not session_data and customer_id:
             session_data = await get_persistent_session(db, session_id, customer_id)
             if session_data:
@@ -100,6 +117,8 @@ async def chat(
             owner_id = session_data.get("metadata", {}).get("customer_id")
             if owner_id and str(owner_id) != str(customer_id):
                 raise HTTPException(status_code=403, detail="Session does not belong to this user")
+            if owner_id is None and customer_id is not None:
+                raise HTTPException(status_code=403, detail="Logged in user cannot access guest session")
 
         # Load durable preferences before invoking the agent. Redis is only a
         # speed layer; PostgreSQL remains the source of truth for memory.
@@ -156,7 +175,7 @@ async def chat(
         metadata = session_data.get("metadata", {}) if session_data else {}
         if customer_id:
             metadata["customer_id"] = customer_id
-        metadata["last_active"] = datetime.now(UTC).isoformat()
+        metadata["last_active"] = utcnow().isoformat()
         insights = metadata.get("insights", {})
 
         # Merge new insights from search_criteria
@@ -178,14 +197,26 @@ async def chat(
         titles = [item.get("title") for item in properties if isinstance(item, dict) and item.get("title")]
         if titles:
             property_rows = (await db.execute(
-                select(Property.id, Property.title).where(Property.title.in_(titles))
-            )).all()
-            ids_by_title = {title: str(property_id) for property_id, title in property_rows}
-            properties = [
-                {**item, "id": ids_by_title[item["title"]]}
-                if isinstance(item, dict) and item.get("title") in ids_by_title else item
-                for item in properties
-            ]
+                select(Property).where(Property.title.in_(titles)).options(selectinload(Property.media))
+            )).scalars().all()
+            
+            row_by_title = {p.title: p for p in property_rows}
+            properties = []
+            for item in result.get("selected_properties") or []:
+                if isinstance(item, dict) and item.get("title") in row_by_title:
+                    p = row_by_title[item["title"]]
+                    media_list = [{"url": m.url, "is_cover": m.is_cover} for m in p.media] if p.media else []
+                    cover_image = next((m["url"] for m in media_list if m["is_cover"]), media_list[0]["url"] if media_list else None)
+                    
+                    properties.append({
+                        **item, 
+                        "id": str(p.id),
+                        "media": media_list,
+                        "image": cover_image
+                    })
+                else:
+                    properties.append(item)
+                    
         messages.append({
             "role": "assistant",
             "content": response_msg,

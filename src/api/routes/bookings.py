@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from uuid import UUID
 
+from src.utils.time import utcnow
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +20,7 @@ from src.services.booking_service import (
     reschedule_customer_booking,
     serialize_booking,
 )
+from src.exceptions import BookingConflictError, BookingNotFoundError, BookingPermissionError
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -37,7 +40,7 @@ async def availability(
 ):
     try:
         return await list_available_slots(db, property_id, target_date)
-    except ValueError as exc:
+    except BookingConflictError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -50,7 +53,7 @@ async def create_booking(
     try:
         row = await create_tour_request(db, user.id, request_data)
         return serialize_booking(row)
-    except ValueError as exc:
+    except BookingConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
@@ -70,7 +73,7 @@ async def get_booking(
 ):
     try:
         return await get_customer_booking(db, booking_id, user.id)
-    except LookupError as exc:
+    except BookingNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
@@ -83,7 +86,7 @@ async def cancel_booking(
 ):
     try:
         return await cancel_customer_booking(db, booking_id, user.id, action.reason)
-    except LookupError as exc:
+    except BookingNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
@@ -95,6 +98,11 @@ async def reschedule_booking(
     db: AsyncSession = Depends(get_session),
 ):
     """Request rescheduling an existing booking to a new time slot."""
+    if payload.new_preferred_start <= utcnow().astimezone(payload.new_preferred_start.tzinfo):
+        raise HTTPException(status_code=422, detail="Thời gian bắt đầu mới phải ở tương lai")
+    if payload.new_preferred_end <= payload.new_preferred_start:
+        raise HTTPException(status_code=422, detail="Thời gian kết thúc phải lớn hơn thời gian bắt đầu")
+        
     try:
         result = await reschedule_customer_booking(
             db,
@@ -105,8 +113,8 @@ async def reschedule_booking(
             payload.new_preferred_end,
         )
         return result
-    except LookupError as exc:
+    except BookingNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
+    except BookingConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

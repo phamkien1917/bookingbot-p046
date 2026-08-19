@@ -313,6 +313,9 @@ class SaleProfile(Base, TimestampMixin):
     is_accepting_tours: Mapped[bool] = mapped_column(Boolean, default=True)
     calendar_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
     external_calendar_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    calendar_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    calendar_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    calendar_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="sale_profile")

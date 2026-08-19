@@ -93,6 +93,7 @@ class Intent:
     GENERAL_QA = "GENERAL_QA"  # Câu hỏi tổng quát về BĐS — KHÔNG search DB
     CHECK_STATUS = "CHECK_STATUS"
     GREETING = "GREETING"
+    CONNECT_AGENT = "CONNECT_AGENT"
     FALLBACK = "FALLBACK"
 
 

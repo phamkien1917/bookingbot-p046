@@ -1,7 +1,8 @@
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
+from datetime import date, datetime, time, timedelta
+from src.utils.time import utcnow
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +27,8 @@ from src.database.models import (
     UserRole,
     UserStatus,
 )
-from src.schemas.booking import TourRequestCreate
+from src.schemas.booking import TourRequestCreate, BookingResponse
+from src.exceptions import BookingNotFoundError, BookingConflictError, BookingPermissionError
 
 LOCAL_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 SLOT_HOURS = (9, 10, 14, 16)
@@ -37,7 +39,7 @@ def _enum_value(value):
     return value.value if hasattr(value, "value") else value
 
 
-def serialize_booking(row: TourRequest) -> dict:
+def serialize_booking(row: TourRequest) -> BookingResponse:
     prop = row.property
     appointment = row.appointment
     selected_slot = next(
@@ -53,8 +55,8 @@ def serialize_booking(row: TourRequest) -> dict:
             for item in prop.media
         ]
 
-    return {
-        "id": str(row.id),
+    data = {
+        "id": row.id,
         "request_code": row.request_code,
         "status": _enum_value(row.status),
         "tour_mode": _enum_value(row.tour_mode),
@@ -65,7 +67,7 @@ def serialize_booking(row: TourRequest) -> dict:
         "created_at": row.created_at,
         "expires_at": row.expires_at,
         "property": {
-            "id": str(prop.id),
+            "id": prop.id,
             "title": prop.title,
             "address": ", ".join(filter(None, [prop.address_line, prop.ward, prop.district, prop.province])),
             "district": prop.district,
@@ -73,20 +75,21 @@ def serialize_booking(row: TourRequest) -> dict:
             "media": media,
         } if prop else None,
         "sale": {
-            "id": str(sale_user.id),
+            "id": sale_user.id,
             "full_name": sale_user.full_name,
             "phone": sale_user.phone,
             "email": sale_user.email,
             "job_title": sale_profile.job_title,
         } if sale_user else None,
         "appointment": {
-            "id": str(appointment.id),
+            "id": appointment.id,
             "booking_code": appointment.booking_code,
             "status": _enum_value(appointment.status),
             "starts_at": appointment.starts_at,
             "ends_at": appointment.ends_at,
         } if appointment else None,
     }
+    return BookingResponse.model_validate(data)
 
 
 def _booking_load_options():
@@ -110,7 +113,7 @@ async def _get_booking(db: AsyncSession, booking_id: UUID) -> TourRequest | None
 async def list_available_slots(db: AsyncSession, property_id: UUID, target_date: date) -> dict:
     prop = await db.get(Property, property_id)
     if not prop or prop.status != PropertyStatus.AVAILABLE:
-        raise ValueError("Bất động sản không khả dụng")
+        raise BookingConflictError("Bất động sản không khả dụng")
 
     sales_result = await db.execute(
         select(SaleProfile)
@@ -126,6 +129,36 @@ async def list_available_slots(db: AsyncSession, property_id: UUID, target_date:
     )
     sales = sales_result.scalars().all()
     slots: list[dict] = []
+    if not sales:
+        return {"property_id": str(property_id), "date": target_date.isoformat(), "slots": slots}
+
+    sale_ids = [sale.user_id for sale in sales]
+    start_of_day = datetime.combine(target_date, time.min, tzinfo=LOCAL_TZ)
+    end_of_day = datetime.combine(target_date, time.max, tzinfo=LOCAL_TZ)
+
+    appointments = (await db.execute(
+        select(Appointment.sale_user_id, Appointment.starts_at, Appointment.ends_at)
+        .where(
+            Appointment.sale_user_id.in_(sale_ids),
+            Appointment.status.in_([AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]),
+            Appointment.starts_at < end_of_day,
+            Appointment.ends_at > start_of_day,
+        )
+    )).all()
+
+    pending_options = (await db.execute(
+        select(TourSlotOption.sale_user_id, TourSlotOption.starts_at, TourSlotOption.ends_at)
+        .join(TourRequest, TourRequest.id == TourSlotOption.tour_request_id)
+        .where(
+            TourSlotOption.sale_user_id.in_(sale_ids),
+            TourSlotOption.status == SlotStatus.SELECTED,
+            TourRequest.status == RequestStatus.WAITING_APPROVAL,
+            TourRequest.expires_at > func.now(),
+            TourSlotOption.starts_at < end_of_day,
+            TourSlotOption.ends_at > start_of_day,
+        )
+    )).all()
+
     now = datetime.now(LOCAL_TZ)
     for hour in SLOT_HOURS:
         start = datetime.combine(target_date, time(hour=hour), tzinfo=LOCAL_TZ)
@@ -133,27 +166,17 @@ async def list_available_slots(db: AsyncSession, property_id: UUID, target_date:
         if start <= now + timedelta(hours=1):
             continue
         for sale in sales:
-            conflict = await db.scalar(
-                select(func.count(Appointment.id)).where(
-                    Appointment.sale_user_id == sale.user_id,
-                    Appointment.status.in_([AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]),
-                    Appointment.starts_at < end,
-                    Appointment.ends_at > start,
-                )
+            conflict = any(
+                uid == sale.user_id and a_start < end and a_end > start
+                for uid, a_start, a_end in appointments
             )
-            pending_conflict = await db.scalar(
-                select(func.count(TourSlotOption.id))
-                .join(TourRequest, TourRequest.id == TourSlotOption.tour_request_id)
-                .where(
-                    TourSlotOption.sale_user_id == sale.user_id,
-                    TourSlotOption.status == SlotStatus.SELECTED,
-                    TourRequest.status == RequestStatus.WAITING_APPROVAL,
-                    TourRequest.expires_at > func.now(),
-                    TourSlotOption.starts_at < end,
-                    TourSlotOption.ends_at > start,
-                )
+            if conflict:
+                continue
+            pending_conflict = any(
+                uid == sale.user_id and p_start < end and p_end > start
+                for uid, p_start, p_end in pending_options
             )
-            if not conflict and not pending_conflict:
+            if not pending_conflict:
                 slots.append({
                     "sale_user_id": str(sale.user_id),
                     "sale_name": sale.user.full_name,
@@ -173,11 +196,11 @@ async def create_tour_request(
     prop = await db.get(Property, data.property_id)
     sale = await db.get(SaleProfile, data.sale_user_id)
     if not prop or prop.status != PropertyStatus.AVAILABLE:
-        raise ValueError("Bất động sản không khả dụng")
+        raise BookingConflictError("Bất động sản không khả dụng")
     if not sale or not sale.is_accepting_tours:
-        raise ValueError("Nhân viên tư vấn không còn khả dụng")
-    if data.preferred_start <= datetime.now(data.preferred_start.tzinfo or UTC):
-        raise ValueError("Thời gian xem nhà phải ở tương lai")
+        raise BookingConflictError("Nhân viên tư vấn không còn khả dụng")
+    if data.preferred_start <= utcnow().astimezone(data.preferred_start.tzinfo):
+        raise BookingConflictError("Thời gian xem nhà phải ở tương lai")
 
     # Serialize competing requests for the exact Sale/time window. The conflict
     # checks and insert now happen inside the same PostgreSQL transaction.
@@ -193,7 +216,7 @@ async def create_tour_request(
         )
     )
     if conflict:
-        raise ValueError("Khung giờ vừa được người khác đặt, vui lòng chọn giờ khác")
+        raise BookingConflictError("Khung giờ vừa được người khác đặt, vui lòng chọn giờ khác")
     pending_conflict = await db.scalar(
         select(func.count(TourSlotOption.id))
         .join(TourRequest, TourRequest.id == TourSlotOption.tour_request_id)
@@ -207,9 +230,9 @@ async def create_tour_request(
         )
     )
     if pending_conflict:
-        raise ValueError("Khung giờ đang được giữ cho một yêu cầu khác, vui lòng chọn giờ khác")
+        raise BookingConflictError("Khung giờ đang được giữ cho một yêu cầu khác, vui lòng chọn giờ khác")
 
-    expires_at = datetime.now(UTC) + timedelta(minutes=REQUEST_HOLD_MINUTES)
+    expires_at = utcnow() + timedelta(minutes=REQUEST_HOLD_MINUTES)
     request = TourRequest(
         request_code=f"TR-{uuid.uuid4().hex[:12].upper()}",
         customer_user_id=customer_user_id,
@@ -219,7 +242,7 @@ async def create_tour_request(
         party_size=data.pax_count,
         customer_note=data.customer_note,
         status=RequestStatus.WAITING_APPROVAL,
-        submitted_at=datetime.now(UTC),
+        submitted_at=utcnow(),
         expires_at=expires_at,
     )
     db.add(request)
@@ -231,7 +254,7 @@ async def create_tour_request(
         starts_at=data.preferred_start,
         ends_at=data.preferred_end,
         valid_until=expires_at,
-        selected_at=datetime.now(UTC),
+        selected_at=utcnow(),
         score=100,
         score_explanation={"source": "customer_selected"},
     ))
@@ -256,7 +279,6 @@ async def create_tour_request(
         payload=notification_payload,
         status=DeliveryStatus.PENDING,
     ))
-    await db.commit()
     return await _get_booking(db, request.id)
 
 
@@ -273,10 +295,10 @@ async def get_my_tour_requests(db: AsyncSession, customer_user_id: UUID) -> list
 async def get_customer_booking(db: AsyncSession, booking_id: UUID, customer_id: UUID) -> dict:
     row = await _get_booking(db, booking_id)
     if not row or row.customer_user_id != customer_id:
-        raise LookupError("Không tìm thấy lịch xem")
+        raise BookingNotFoundError("Không tìm thấy lịch xem")
     if row.status == RequestStatus.WAITING_APPROVAL and row.expires_at:
         expires = row.expires_at
-        now = datetime.now(expires.tzinfo or UTC)
+        now = utcnow().astimezone(expires.tzinfo)
         if expires <= now:
             row.status = RequestStatus.EXPIRED
             await db.commit()
@@ -286,7 +308,7 @@ async def get_customer_booking(db: AsyncSession, booking_id: UUID, customer_id: 
 async def cancel_customer_booking(db: AsyncSession, booking_id: UUID, customer_id: UUID, reason: str | None) -> dict:
     row = await _get_booking(db, booking_id)
     if not row or row.customer_user_id != customer_id:
-        raise LookupError("Không tìm thấy lịch xem")
+        raise BookingNotFoundError("Không tìm thấy lịch xem")
     if row.status in (RequestStatus.CANCELLED, RequestStatus.EXPIRED, RequestStatus.REJECTED):
         return serialize_booking(row)
     # Notify the assigned Sale if any
@@ -314,7 +336,7 @@ async def cancel_customer_booking(db: AsyncSession, booking_id: UUID, customer_i
     row.status = RequestStatus.CANCELLED
     if row.appointment:
         row.appointment.status = AppointmentStatus.CANCELLED
-        row.appointment.cancelled_at = datetime.now(UTC)
+        row.appointment.cancelled_at = utcnow()
         row.appointment.cancellation_reason = reason or "Khách hàng yêu cầu hủy"
     for slot in row.slot_options:
         slot.status = SlotStatus.WITHDRAWN
@@ -342,7 +364,7 @@ async def list_sale_requests(db: AsyncSession, sale_user_id: UUID) -> list[dict]
     for row in rows:
         if row.status == RequestStatus.WAITING_APPROVAL and row.expires_at:
             expires_at = row.expires_at
-            if expires_at <= datetime.now(expires_at.tzinfo or UTC):
+            if expires_at <= utcnow().astimezone(expires_at.tzinfo):
                 row.status = RequestStatus.EXPIRED
                 changed = True
     if changed:
@@ -365,14 +387,14 @@ async def list_sale_requests(db: AsyncSession, sale_user_id: UUID) -> list[dict]
 async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: UUID) -> dict:
     row = await _get_booking(db, booking_id)
     if not row or row.status != RequestStatus.WAITING_APPROVAL:
-        raise ValueError("Yêu cầu không còn chờ xử lý")
+        raise BookingConflictError("Yêu cầu không còn chờ xử lý")
     selected = next((s for s in row.slot_options if s.sale_user_id == sale_user_id and s.status == SlotStatus.SELECTED), None)
     if not selected:
-        raise PermissionError("Yêu cầu không được phân cho bạn")
-    if row.expires_at and row.expires_at <= datetime.now(row.expires_at.tzinfo or UTC):
+        raise BookingPermissionError("Yêu cầu không được phân cho bạn")
+    if row.expires_at and row.expires_at <= utcnow().astimezone(row.expires_at.tzinfo):
         row.status = RequestStatus.EXPIRED
         await db.commit()
-        raise ValueError("Yêu cầu đã hết hạn")
+        raise BookingConflictError("Yêu cầu đã hết hạn")
     conflict = await db.scalar(
         select(func.count(Appointment.id)).where(
             Appointment.sale_user_id == sale_user_id,
@@ -382,7 +404,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         )
     )
     if conflict:
-        raise ValueError("Bạn đã có lịch khác trong khung giờ này")
+        raise BookingConflictError("Bạn đã có lịch khác trong khung giờ này")
     appointment = Appointment(
         approval_request_id=(await db.execute(text("""
             INSERT INTO approval_requests (
@@ -398,7 +420,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
             "tour_request_id": row.id,
             "slot_option_id": selected.id,
             "sale_user_id": sale_user_id,
-            "expires_at": row.expires_at or datetime.now(UTC) + timedelta(minutes=15),
+            "expires_at": row.expires_at or utcnow() + timedelta(minutes=15),
             "starts_at": selected.starts_at,
             "ends_at": selected.ends_at,
         })).scalar_one(),
@@ -413,7 +435,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         party_size=row.party_size,
         customer_note=row.customer_note,
         meeting_address=row.property.address_line if row.property else None,
-        confirmation_sent_at=datetime.now(UTC),
+        confirmation_sent_at=utcnow(),
     )
     db.add(appointment)
     await db.flush()
@@ -438,7 +460,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
     ]
     for recipient_id, before, template_key in reminder_specs:
         scheduled_at = appointment.starts_at - before
-        if scheduled_at > datetime.now(scheduled_at.tzinfo or UTC):
+        if scheduled_at > utcnow().astimezone(scheduled_at.tzinfo):
             db.add(Notification(
                 user_id=recipient_id,
                 appointment_id=appointment.id,
@@ -460,10 +482,10 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
 async def reject_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: UUID, reason: str | None) -> dict:
     row = await _get_booking(db, booking_id)
     if not row or row.status != RequestStatus.WAITING_APPROVAL:
-        raise ValueError("Yêu cầu không còn chờ xử lý")
+        raise BookingConflictError("Yêu cầu không còn chờ xử lý")
     selected = next((s for s in row.slot_options if s.sale_user_id == sale_user_id and s.status == SlotStatus.SELECTED), None)
     if not selected:
-        raise PermissionError("Yêu cầu không được phân cho bạn")
+        raise BookingPermissionError("Yêu cầu không được phân cho bạn")
     selected.status = SlotStatus.WITHDRAWN
     row.extracted_requirements = {**(row.extracted_requirements or {}), "rejection_reason": reason or "Sale từ chối"}
     reassigned = await _reassign_waiting_request(db, row, trigger="sale_rejected")
@@ -528,37 +550,56 @@ async def _reassign_waiting_request(db: AsyncSession, row: TourRequest, trigger:
             SaleProfile.user_id.not_in(tried_sale_ids),
         )
     )).scalars().all()
-    available: list[tuple[int, SaleProfile]] = []
-    for sale in candidates:
-        confirmed = await db.scalar(select(func.count(Appointment.id)).where(
-            Appointment.sale_user_id == sale.user_id,
+    sale_ids = [sale.user_id for sale in candidates]
+    if not sale_ids:
+        return False
+
+    busy_sale_ids = set((await db.execute(
+        select(Appointment.sale_user_id).where(
+            Appointment.sale_user_id.in_(sale_ids),
             Appointment.status.in_([AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]),
             Appointment.starts_at < row.preferred_end,
             Appointment.ends_at > row.preferred_start,
-        ))
-        pending = await db.scalar(
-            select(func.count(TourSlotOption.id))
-            .join(TourRequest, TourRequest.id == TourSlotOption.tour_request_id)
-            .where(
-                TourSlotOption.sale_user_id == sale.user_id,
-                TourSlotOption.status == SlotStatus.SELECTED,
-                TourRequest.status == RequestStatus.WAITING_APPROVAL,
-                TourRequest.expires_at > func.now(),
-                TourSlotOption.starts_at < row.preferred_end,
-                TourSlotOption.ends_at > row.preferred_start,
-            )
         )
-        if not confirmed and not pending:
-            workload = await db.scalar(select(func.count(Appointment.id)).where(
-                Appointment.sale_user_id == sale.user_id,
-                Appointment.starts_at >= row.preferred_start.date(),
-                Appointment.starts_at < row.preferred_start.date() + timedelta(days=1),
-            ))
-            available.append((workload or 0, sale))
+    )).scalars().all())
+
+    busy_sale_ids.update((await db.execute(
+        select(TourSlotOption.sale_user_id)
+        .join(TourRequest, TourRequest.id == TourSlotOption.tour_request_id)
+        .where(
+            TourSlotOption.sale_user_id.in_(sale_ids),
+            TourSlotOption.status == SlotStatus.SELECTED,
+            TourRequest.status == RequestStatus.WAITING_APPROVAL,
+            TourRequest.expires_at > func.now(),
+            TourSlotOption.starts_at < row.preferred_end,
+            TourSlotOption.ends_at > row.preferred_start,
+        )
+    )).scalars().all())
+
+    eligible_sales = [sale for sale in candidates if sale.user_id not in busy_sale_ids]
+    if not eligible_sales:
+        return False
+
+    eligible_sale_ids = [sale.user_id for sale in eligible_sales]
+    start_of_day = datetime.combine(row.preferred_start.date(), time.min, tzinfo=row.preferred_start.tzinfo or LOCAL_TZ)
+    end_of_day = start_of_day + timedelta(days=1)
+    
+    workloads = (await db.execute(
+        select(Appointment.sale_user_id, func.count(Appointment.id))
+        .where(
+            Appointment.sale_user_id.in_(eligible_sale_ids),
+            Appointment.starts_at >= start_of_day,
+            Appointment.starts_at < end_of_day,
+        )
+        .group_by(Appointment.sale_user_id)
+    )).all()
+    workload_map = {uid: count for uid, count in workloads}
+
+    available = [(workload_map.get(sale.user_id, 0), sale) for sale in eligible_sales]
     if not available:
         return False
     _, sale = min(available, key=lambda item: item[0])
-    expires_at = datetime.now(UTC) + timedelta(minutes=REQUEST_HOLD_MINUTES)
+    expires_at = utcnow() + timedelta(minutes=REQUEST_HOLD_MINUTES)
     row.status = RequestStatus.WAITING_APPROVAL
     row.expires_at = expires_at
     db.add(TourSlotOption(
@@ -568,7 +609,7 @@ async def _reassign_waiting_request(db: AsyncSession, row: TourRequest, trigger:
         starts_at=row.preferred_start,
         ends_at=row.preferred_end,
         valid_until=expires_at,
-        selected_at=datetime.now(UTC),
+        selected_at=utcnow(),
         score=90,
         score_explanation={"source": "automatic_reassignment", "trigger": trigger},
     ))
@@ -597,7 +638,7 @@ async def _reassign_waiting_request(db: AsyncSession, row: TourRequest, trigger:
 
 async def reassign_expired_requests(db: AsyncSession) -> tuple[int, int]:
     """Reassign unanswered requests; escalate only after all Sales were tried."""
-    now = datetime.now(UTC)
+    now = utcnow()
     rows = (await db.execute(
         select(TourRequest)
         .options(*_booking_load_options())
@@ -663,29 +704,30 @@ async def reschedule_customer_booking(
 
     old = await _get_booking(db, booking_id)
     if not old or old.customer_user_id != customer_id:
-        raise LookupError("Không tìm thấy lịch xem")
+        raise BookingNotFoundError("Không tìm thấy lịch xem")
     if old.status not in (RequestStatus.BOOKED, RequestStatus.WAITING_APPROVAL):
-        raise ValueError("Chỉ có thể dời lịch đã xác nhận hoặc đang chờ")
+        raise BookingConflictError("Chỉ có thể dời lịch đã xác nhận hoặc đang chờ")
 
-    # Cancel the old booking
-    old.status = RequestStatus.CANCELLED
-    if old.appointment:
-        old.appointment.status = AppointmentStatus.RESCHEDULED
-        old.appointment.cancelled_at = datetime.now(UTC)
-        old.appointment.cancellation_reason = "Khách hàng yêu cầu dời lịch"
-    for slot in old.slot_options:
-        slot.status = SlotStatus.WITHDRAWN
+    async with db.begin_nested():
+        # Cancel the old booking
+        old.status = RequestStatus.CANCELLED
+        if old.appointment:
+            old.appointment.status = AppointmentStatus.RESCHEDULED
+            old.appointment.cancelled_at = utcnow()
+            old.appointment.cancellation_reason = "Khách hàng yêu cầu dời lịch"
+        for slot in old.slot_options:
+            slot.status = SlotStatus.WITHDRAWN
 
-    # Create a new tour request with the new times
-    new_request = TourRequestCreate(
-        property_id=old.property_id,
-        sale_user_id=sale_user_id,
-        preferred_start=new_preferred_start,
-        preferred_end=new_preferred_end,
-        pax_count=old.party_size,
-        customer_note=f"Dời lịch từ {old.request_code}",
-        is_reschedule=True,
-    )
-    new_row = await create_tour_request(db, customer_id, new_request)
-    return serialize_booking(new_row)
+        # Create a new tour request with the new times
+        new_request = TourRequestCreate(
+            property_id=old.property_id,
+            sale_user_id=sale_user_id,
+            preferred_start=new_preferred_start,
+            preferred_end=new_preferred_end,
+            pax_count=old.party_size,
+            customer_note=f"Dời lịch từ {old.request_code}",
+            is_reschedule=True,
+        )
+        new_row = await create_tour_request(db, customer_id, new_request)
+        return serialize_booking(new_row)
 
