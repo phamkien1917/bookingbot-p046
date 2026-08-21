@@ -47,9 +47,11 @@ async def get_persistent_session(db: AsyncSession, session_id: str, customer_id:
     )
     if not row:
         return None
+    meta = _metadata(row.summary)
+    meta["customer_id"] = str(row.customer_user_id)
     return {
         "messages": [_message_dict(message) for message in row.messages],
-        "metadata": _metadata(row.summary),
+        "metadata": meta,
     }
 
 

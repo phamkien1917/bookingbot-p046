@@ -47,7 +47,8 @@ export default function PropertiesMap({ properties }: { properties: Property[] }
 
       validProps.forEach(p => {
         const marker = L.marker([p.latitude, p.longitude]).addTo(map);
-        marker.bindPopup(`<b>${p.title}</b><br/>${p.district}, ${p.province}<br/>${(p.list_price / 1000000000).toFixed(2)} tỷ`);
+        const price = p.list_price == null ? "Liên hệ" : `${(p.list_price / 1000000000).toFixed(2)} tỷ`;
+        marker.bindPopup(`<b>${p.title}</b><br/>${p.district}, ${p.province}<br/>${price}`);
       });
       
       if (validProps.length > 1) {

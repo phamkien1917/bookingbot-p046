@@ -5,6 +5,10 @@ export interface ChatMessage {
   content: string;
   properties?: Property[];
   quickReplies?: string[];
+  authRequired?: boolean;
+  aiMode?: string;
+  aiModel?: string | null;
+  aiLatencyMs?: number;
 }
 
 export interface ChatResponse {
@@ -13,6 +17,10 @@ export interface ChatResponse {
   properties: Property[];
   insights: Record<string, unknown>;
   memory_summary?: string;
+  auth_required?: boolean;
+  ai_mode: string;
+  ai_model?: string | null;
+  ai_latency_ms: number;
 }
 
 export interface SessionSummary {
@@ -23,5 +31,5 @@ export interface SessionSummary {
 }
 
 export interface SessionDetail {
-  messages: Array<{ role: string; content: string; properties?: Property[] }>;
+  messages: Array<{ role: string; content: string; properties?: Property[]; ai_mode?: string; ai_model?: string | null }>;
 }

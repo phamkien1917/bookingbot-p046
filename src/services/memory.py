@@ -87,10 +87,11 @@ class ShortTermMemory:
             ttl: Reset TTL after append
         """
         session = await self.get_session(session_id)
-        messages = session["messages"] if session else []
+        messages = session["messages"] if session and "messages" in session else []
+        metadata = session.get("metadata", {}) if session else {}
         messages.append({"role": role, "content": content, "timestamp": "now"})
 
-        await self.save_session(session_id, messages, ttl=ttl)
+        await self.save_session(session_id, messages, metadata=metadata, ttl=ttl)
 
     async def extend_session(self, session_id: str, ttl: int = SESSION_TTL) -> bool:
         """Extend session TTL.

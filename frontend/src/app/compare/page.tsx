@@ -246,7 +246,7 @@ function CompareContent() {
               </div>
               {decisionMade && (
                 <div className="mt-5 rounded-xl bg-[#f0f5f1] p-4 text-center">
-                  <p className="text-sm font-semibold text-[var(--forest)]">✓ Nera đã ghi nhận: ưu tiên "{decisionMade}"</p>
+                  <p className="text-sm font-semibold text-[var(--forest)]">✓ Nera đã ghi nhận: ưu tiên “{decisionMade}”</p>
                   <p className="text-xs text-[var(--muted)] mt-1">Thông tin này sẽ được dùng cho gợi ý tiếp theo.</p>
                   <Link href={`/chat?prompt=${encodeURIComponent(`Với ưu tiên ${decisionMade}, căn nào trong danh sách cân nhắc của tôi phù hợp nhất?`)}`}
                     className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--forest)] px-5 py-2.5 text-sm font-semibold text-white">

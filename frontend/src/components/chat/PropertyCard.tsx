@@ -1,7 +1,11 @@
+/* eslint-disable @next/next/no-img-element */
+"use client";
+
 import { useMemo, useState } from "react";
 import { FaBed, FaBookmark, FaBrain, FaCheckCircle, FaChevronDown, FaChevronRight, FaExclamationCircle, FaMapMarkerAlt, FaRegBookmark, FaCalendarAlt, FaTimesCircle } from "react-icons/fa";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
+import { formatPropertyAddress } from "@/lib/propertyAddress";
 
 // Helper: match property features vs insights for "Vì sao?"
 function buildMatchReasons(property: Property, insights: Record<string, unknown>): { ok: string[]; caution: string[] } {
@@ -12,7 +16,7 @@ function buildMatchReasons(property: Property, insights: Record<string, unknown>
     if (property.list_price <= maxPrice) ok.push(`Giá phù hợp ngân sách`);
     else caution.push(`Có thể hơi cao so với ngân sách`);
   }
-  const beds = insights.bedrooms as number | undefined;
+  const beds = (insights.min_bedrooms ?? insights.bedrooms) as number | undefined;
   if (beds && property.bedrooms != null) {
     if (property.bedrooms >= beds) ok.push(`Đủ ${property.bedrooms} phòng ngủ`);
     else caution.push(`Ít hơn yêu cầu phòng ngủ`);
@@ -28,7 +32,7 @@ function buildMatchReasons(property: Property, insights: Record<string, unknown>
 // ────────────────────────────────────────────────────────────
 // Property Card with AI match reasons
 // ────────────────────────────────────────────────────────────
-function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, onReject, animDelay }: {
+export default function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, onReject, animDelay }: {
   property: Property;
   insights: Record<string, unknown>;
   savedIds: Set<string>;
@@ -60,7 +64,7 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaMapMarkerAlt className="mr-1 inline" />
-            {property.address_full || [property.address_line, property.district, property.province].filter(Boolean).join(", ")}
+            {formatPropertyAddress(property)}
           </p>
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaBed className="mr-1 inline text-[var(--forest)]" />{property.bedrooms ?? 0} phòng ngủ · {property.area_sqm} m²

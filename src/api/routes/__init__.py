@@ -3,21 +3,29 @@
 import logging
 import uuid
 from pathlib import Path
+from uuid import UUID
+
 from src.utils.time import utcnow
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from src.agents.graph import get_agent_graph
-from src.agents.state import create_initial_state
 from src.api.routes.auth import get_current_user, get_optional_current_user
 from src.database import get_session
-from src.database.models import Property, User, UserRole
+from src.database.models import User, UserRole
 from src.models.schemas import ChatRequest, ChatResponse
+from src.services.chat_ai_service import (
+    ChatAIUnavailable,
+    ChatUnderstanding,
+    SearchNarrative,
+    get_chat_ai_service,
+    order_properties,
+    render_grounded_search,
+)
+from src.services.chat_orchestrator import orchestrate_chat
+from src.services.chat_state_service import load_chat_state, save_chat_state
 from src.services.conversation_service import (
     delete_persistent_session,
     get_persistent_session,
@@ -32,7 +40,6 @@ from src.services.customer_memory_service import (
     remember_search_criteria,
 )
 from src.services.memory import get_short_term_memory
-from src.services.search_criteria_service import build_search_criteria
 
 from .admin import router as admin_router
 from .auth import router as auth_router
@@ -44,6 +51,7 @@ from .notifications import router as notifications_router
 from .properties import router as properties_router
 from .sale import router as sale_router
 from .google_oauth import router as google_oauth_router
+from src.agents import create_initial_agent_state, run_agent
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -77,25 +85,22 @@ async def chat(
     user: User | None = Depends(get_optional_current_user),
     db: AsyncSession = Depends(get_session),
 ) -> ChatResponse:
-    """Chat với AI agent.
-
-    Args:
-        request: Chat request with message
-        session_id: Optional session ID for conversation continuity
-
-    Returns:
-        Chat response with agent reply
-    """
+    """Chat through the LangGraph Multi-Agent System."""
     try:
-        # Get short-term memory for session context
+        session_id = request.session_id or session_id
+        try:
+            UUID(session_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Session ID không hợp lệ") from exc
+
         memory = get_short_term_memory()
         session_data = await memory.get_session(session_id)
-        customer_id = str(user.id) if user and user.role == UserRole.CUSTOMER else None
+        customer_uuid = user.id if user and user.role == UserRole.CUSTOMER else None
+        customer_id = str(customer_uuid) if customer_uuid else None
 
-        # Rate Limiting
         from src.config import get_settings
         from src.services.redis_service import get_rate_limiter
-        
+
         settings = get_settings()
         rate_limiter = get_rate_limiter()
         allowed = await rate_limiter.is_allowed(
@@ -104,7 +109,8 @@ async def chat(
             settings.rate_limit_window
         )
         if not allowed:
-            raise HTTPException(status_code=429, detail="Too Many Requests")
+            raise HTTPException(status_code=429, detail="Bạn gửi tin nhắn quá nhanh. Vui lòng thử lại sau ít phút.")
+
         if not session_data and customer_id:
             session_data = await get_persistent_session(db, session_id, customer_id)
             if session_data:
@@ -117,117 +123,89 @@ async def chat(
             owner_id = session_data.get("metadata", {}).get("customer_id")
             if owner_id and str(owner_id) != str(customer_id):
                 raise HTTPException(status_code=403, detail="Session does not belong to this user")
-            if owner_id is None and customer_id is not None:
-                raise HTTPException(status_code=403, detail="Logged in user cannot access guest session")
 
-        # Load durable preferences before invoking the agent. Redis is only a
-        # speed layer; PostgreSQL remains the source of truth for memory.
         customer_memory = await get_customer_memory(db, customer_id) if customer_id else {}
-
-        # Create initial state
-        messages = []
-        if session_data:
-            messages = session_data.get("messages", [])
-
-        # Add current message
-        messages.append({"role": "user", "content": request.message})
-
-        # Create state
-        state = create_initial_state(
-            session_id=session_id,
-            query=request.message,
-            customer_id=customer_id,
-        )
-        # The graph appends to its message list; keep the API-owned list separate
-        # so the assistant reply is persisted exactly once.
-        state["messages"] = [*messages]
-        state["preferences"] = [
-            {"key": key, "value": value}
-            for key, value in customer_memory.items()
-        ]
-        state["search_criteria"] = build_search_criteria(request.message, customer_memory)
-        if user:
-            state["customer_profile"] = {
-                "full_name": user.full_name,
-                "memory_summary": memory_summary(customer_memory),
-            }
-
-        # Run agent
-        graph = get_agent_graph()
-        result = await graph.ainvoke(state)
-
-        # Save session
-        response_msg = result.get("response", "").strip()
-        if not response_msg:
-            next_action = result.get("next_action")
-            if next_action == "greet":
-                response_msg = "Xin chào! Tôi là BookingBot. Tôi có thể giúp bạn tìm bất động sản, đặt lịch xem nhà hoặc kiểm tra booking."
-            elif next_action == "clarify":
-
-
-                response_msg = "Xin lỗi, tôi chưa hiểu rõ ý bạn. Bạn có thể mô tả lại yêu cầu hoặc hỏi về dịch vụ của chúng tôi."
-            elif next_action == "check_booking_status":
-                response_msg = "Để kiểm tra trạng thái booking, vui lòng cung cấp mã booking hoặc số điện thoại đã đăng ký."
-            else:
-                response_msg = "Xin chào! Tôi đang ở chế độ thử nghiệm. Nếu bạn đã thêm API key nhưng vẫn không nhận được phản hồi, hãy kiểm tra log backend để xác nhận model đang được gọi."
-
-        # Get previous metadata and insights
+        messages = list(session_data.get("messages", [])) if session_data else []
         metadata = session_data.get("metadata", {}) if session_data else {}
         if customer_id:
             metadata["customer_id"] = customer_id
         metadata["last_active"] = utcnow().isoformat()
-        insights = metadata.get("insights", {})
 
-        # Merge new insights from search_criteria
-        search_criteria_res = result.get("search_criteria")
-        if isinstance(search_criteria_res, dict):
-            # Only update non-None values
-            for k, v in search_criteria_res.items():
-                if v is not None:
-                    insights[k] = v
+        # Create AgentState for LangGraph
+        agent_state = create_initial_agent_state(
+            session_id=session_id,
+            query=request.message,
+            customer_id=customer_id,
+            customer_role=user.role if user else None,
+            history=messages,
+            metadata=metadata,
+        )
 
-        if customer_id:
-            await remember_search_criteria(db, customer_id, search_criteria_res if isinstance(search_criteria_res, dict) else None)
-            await remember_feedback(db, customer_id, request.message)
+        # Merge customer memory if new search criteria empty
+        if not agent_state.get("search_criteria") and customer_memory:
+            agent_state["search_criteria"] = {
+                key: value
+                for key, value in customer_memory.items()
+                if key in {
+                    "district", "province", "property_kind", "min_price", "max_price",
+                    "min_bedrooms", "min_bathrooms", "min_area",
+                }
+            }
 
-        # Attach properties if any
-        properties = result.get("selected_properties") or []
-        # Agent tools deliberately hide internal identifiers from the LLM. Enrich
-        # the final trusted API response so UI actions can open/book a property.
-        titles = [item.get("title") for item in properties if isinstance(item, dict) and item.get("title")]
-        if titles:
-            property_rows = (await db.execute(
-                select(Property).where(Property.title.in_(titles)).options(selectinload(Property.media))
-            )).scalars().all()
-            
-            row_by_title = {p.title: p for p in property_rows}
-            properties = []
-            for item in result.get("selected_properties") or []:
-                if isinstance(item, dict) and item.get("title") in row_by_title:
-                    p = row_by_title[item["title"]]
-                    media_list = [{"url": m.url, "is_cover": m.is_cover} for m in p.media] if p.media else []
-                    cover_image = next((m["url"] for m in media_list if m["is_cover"]), media_list[0]["url"] if media_list else None)
-                    
-                    properties.append({
-                        **item, 
-                        "id": str(p.id),
-                        "media": media_list,
-                        "image": cover_image
-                    })
-                else:
-                    properties.append(item)
-                    
+        if request.property_id:
+            agent_state["current_property_id"] = str(request.property_id)
+
+        # Execute LangGraph Multi-Agent
+        final_state = await run_agent(agent_state)
+
+        response_msg = str(final_state.get("response") or "").strip()
+        if not response_msg:
+            response_msg = "Chào bạn! Mình có thể giúp bạn tìm nhà, xem chi tiết và đặt lịch xem nhà. Bạn cần hỗ trợ gì?"
+
+        properties = final_state.get("selected_properties") or []
+        insights = final_state.get("insights") or {}
+        ai_mode = final_state.get("ai_mode") or "llm_grounded"
+        ai_model = final_state.get("ai_model") or settings.openai_model_name
+        ai_latency_ms = int(final_state.get("ai_latency_ms") or 0)
+        auth_required = bool(final_state.get("auth_required"))
+
+        # Save metadata and update state
+        stored_chat_state = {
+            "criteria": final_state.get("search_criteria", {}),
+            "soft_preferences": final_state.get("soft_preferences", []),
+            "household_context": final_state.get("household_context", []),
+            "commute_landmark": final_state.get("commute_landmark"),
+            "max_commute_minutes": final_state.get("max_commute_minutes"),
+            "property_refs": properties,
+            "selected_property_id": final_state.get("current_property_id"),
+            "selected_property_index": final_state.get("selected_property_index"),
+            "requested_date": final_state.get("requested_date"),
+            "requested_hour": final_state.get("requested_hour"),
+            "slots": final_state.get("selected_slots", []),
+            "selected_slot_index": final_state.get("selected_slot_index"),
+            "active_request_id": final_state.get("active_request_id"),
+            "active_request_code": final_state.get("active_request_code"),
+            "pending_action": final_state.get("pending_action"),
+            "phase": final_state.get("phase", "IDLE"),
+        }
+        metadata["chat_state"] = stored_chat_state
+        metadata["insights"] = insights
+
+        # Append messages
+        messages.append({"role": "user", "content": request.message})
         messages.append({
             "role": "assistant",
             "content": response_msg,
-            "properties": properties
+            "properties": properties,
+            "ai_mode": ai_mode,
+            "ai_model": ai_model,
         })
 
-        # Save merged insights into metadata
-        metadata["insights"] = insights
-
         if customer_id:
+            await remember_search_criteria(db, customer_id, final_state.get("search_criteria"))
+            await remember_feedback(db, customer_id, request.message)
             await save_persistent_session(db, session_id, customer_id, messages, metadata)
+
         try:
             await memory.save_session(
                 session_id=session_id,
@@ -243,29 +221,36 @@ async def chat(
             session_id=session_id,
             properties=properties,
             insights=insights,
+            suggested_actions=final_state.get("suggested_actions") or [],
+            metadata=stored_chat_state,
             memory_summary=memory_summary(await get_customer_memory(db, customer_id)) if customer_id else "",
+            auth_required=auth_required,
+            ai_mode=ai_mode,
+            ai_model=ai_model,
+            ai_latency_ms=ai_latency_ms,
+            ai_fallback_reason="provider_unavailable" if ai_mode == "fallback" else None,
         )
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/ui", response_class=HTMLResponse)
-async def serve_ui() -> HTMLResponse:
-    """Serve the mock test UI for manual interaction."""
-    ui_path = Path(__file__).resolve().parents[1] / "MOCKUI" / "test_ui" / "index.html"
+    except Exception as exc:
+        logger.exception("Chat request failed for session %s", session_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Trợ lý đang gặp sự cố tạm thời. Vui lòng thử lại sau ít phút.",
+        ) from exc
     return HTMLResponse(content=ui_path.read_text(encoding="utf-8"), status_code=200)
 
 
 @router.get("/status")
 async def agent_status():
-    """Kiểm tra trạng thái agent."""
+    """Report the production chat path currently serving requests."""
+    ai_service = get_chat_ai_service()
     return {
         "status": "ready",
-        "agent": "BookingBot Multi-Agent v1.0",
-        "model": "OpenRouter (free tier + fallback)",
+        "chat_engine": "grounded-llm-v1",
+        "llm_configured": ai_service.configured,
+        "booking_source": "domain-services",
     }
 
 
@@ -283,34 +268,35 @@ async def get_chat_session(
     Returns:
         Session data including messages
     """
-    memory = get_short_term_memory()
-    session_data = await memory.get_session(session_id)
+    session_data = await get_persistent_session(db, session_id, str(user.id))
     if not session_data:
-        session_data = await get_persistent_session(db, session_id, str(user.id))
+        memory = get_short_term_memory()
+        session_data = await memory.get_session(session_id)
+        if session_data:
+            meta_customer_id = session_data.get("metadata", {}).get("customer_id")
+            if meta_customer_id and str(meta_customer_id) != str(user.id):
+                raise HTTPException(status_code=404, detail="Session not found")
 
     if not session_data:
         raise HTTPException(status_code=404, detail="Session not found")
-    if str(session_data.get("metadata", {}).get("customer_id")) != str(user.id):
-        raise HTTPException(status_code=404, detail="Session not found")
+
+    metadata = session_data.get("metadata", {})
+    metadata["customer_id"] = str(user.id)
 
     return {
         "session_id": session_id,
         "messages": session_data.get("messages", []),
-        "metadata": session_data.get("metadata", {}),
+        "metadata": metadata,
     }
+
 
 @router.get("/sessions")
 async def get_all_sessions(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
-    """Get all chat sessions.
-
-    Args:
-        customer_id: Optional customer UUID
-    """
+    """Get all chat sessions."""
     return {"sessions": await list_persistent_sessions(db, str(user.id))}
-
 
 
 @router.delete("/session/{session_id}")

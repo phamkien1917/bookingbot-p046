@@ -79,16 +79,15 @@ async def remember_search_criteria(
     customer_id: str,
     criteria: dict | None,
 ) -> None:
-    """Persist only stable, non-empty search criteria."""
+    """Synchronize durable preferences with the active search criteria."""
     if not criteria:
         return
     for key in SEARCH_MEMORY_KEYS:
-        if key in criteria and criteria.get(key) is None:
+        value = criteria.get(key)
+        if value is None or value == "":
             await forget_customer_memory(db, customer_id, key)
             continue
-        value = criteria.get(key)
-        if value is not None and value != "":
-            await _upsert(db, customer_id, key, value, confidence=0.92)
+        await _upsert(db, customer_id, key, value, confidence=0.92)
 
 
 async def remember_feedback(db: AsyncSession, customer_id: str, message: str) -> bool:

@@ -13,11 +13,12 @@ import { useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
+import { formatPropertyAddress } from "@/lib/propertyAddress";
 
-interface ChatMessage { role: "user" | "assistant"; content: string; properties?: Property[]; quickReplies?: string[] }
-interface ChatResponse { response: string; session_id: string; properties: Property[]; insights: Record<string, unknown>; memory_summary?: string }
+interface ChatMessage { role: "user" | "assistant"; content: string; properties?: Property[]; quickReplies?: string[]; authRequired?: boolean; aiMode?: string; aiModel?: string | null; aiLatencyMs?: number }
+interface ChatResponse { response: string; session_id: string; properties: Property[]; insights: Record<string, unknown>; memory_summary?: string; auth_required?: boolean; ai_mode: string; ai_model?: string | null; ai_latency_ms: number }
 interface SessionSummary { session_id: string; preview: string; message_count: number; last_active: string }
-interface SessionDetail { messages: Array<{ role: string; content: string; properties?: Property[] }> }
+interface SessionDetail { messages: Array<{ role: string; content: string; properties?: Property[]; ai_mode?: string; ai_model?: string | null }> }
 
 const greeting: ChatMessage = {
   role: "assistant",
@@ -28,15 +29,25 @@ const greeting: ChatMessage = {
 // ────────────────────────────────────────────────────────────
 // Helper: derive quick-reply chips from AI message content
 // ────────────────────────────────────────────────────────────
-function deriveQuickReplies(content: string): string[] {
+function deriveQuickReplies(content: string, propertyCount = 0): string[] {
   const lower = content.toLowerCase();
-  if (lower.includes("phòng ngủ") || lower.includes("phòng ng")) {
+  if (lower.includes("bạn chọn căn số mấy")) {
+    return Array.from({ length: Math.min(propertyCount, 5) }, (_, index) => `Chọn căn số ${index + 1}`);
+  }
+  if (lower.includes("khung giờ số mấy")) {
+    const slotCount = (content.match(/\*\*\d+\./g) || []).length;
+    return Array.from({ length: Math.min(slotCount, 4) }, (_, index) => `${index + 1}`);
+  }
+  if (lower.includes("vào ngày nào") || lower.includes("chọn ngày nào")) {
+    return ["Ngày mai", "Thứ Bảy tuần sau"];
+  }
+  if (lower.includes("bao nhiêu phòng ngủ") || lower.includes("mấy phòng ngủ")) {
     return ["1 phòng ngủ", "2 phòng ngủ", "3 phòng ngủ", "Chưa chắc"];
   }
-  if (lower.includes("ngân sách") || lower.includes("giá") || lower.includes("triệu") || lower.includes("tỷ")) {
+  if (lower.includes("ngân sách bao nhiêu") || lower.includes("khoảng giá nào")) {
     return ["Dưới 15 triệu/tháng", "15–20 triệu/tháng", "Trên 20 triệu/tháng", "Muốn mua, không thuê"];
   }
-  if (lower.includes("khu vực") || lower.includes("quận") || lower.includes("nơi làm việc")) {
+  if (lower.includes("ở khu vực nào") || lower.includes("quận nào") || lower.includes("nơi làm việc ở đâu")) {
     return ["Cầu Giấy", "Thanh Xuân", "Nam Từ Liêm", "Hà Đông"];
   }
   if (lower.includes("thời gian") || lower.includes("chuyển vào") || lower.includes("khi nào")) {
@@ -64,7 +75,7 @@ function buildMatchReasons(property: Property, insights: Record<string, unknown>
     else caution.push(`Có thể hơi cao so với ngân sách`);
   }
 
-  const beds = insights.bedrooms as number | undefined;
+  const beds = (insights.min_bedrooms ?? insights.bedrooms) as number | undefined;
   if (beds && property.bedrooms != null) {
     if (property.bedrooms >= beds) ok.push(`Đủ ${property.bedrooms} phòng ngủ`);
     else caution.push(`Ít hơn yêu cầu phòng ngủ`);
@@ -94,6 +105,10 @@ const INSIGHT_LABELS: Record<string, string> = {
   keyword: "Từ khoá",
   features: "Tiện ích",
   move_in: "Chuyển vào",
+  soft_preferences: "Ưu tiên mềm",
+  household_context: "Hoàn cảnh",
+  commute_landmark: "Điểm đi làm",
+  max_commute_minutes: "Di chuyển tối đa",
 };
 
 function formatInsightValue(key: string, value: unknown): string {
@@ -215,7 +230,7 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaMapMarkerAlt className="mr-1 inline" />
-            {property.address_full || [property.address_line, property.district, property.province].filter(Boolean).join(", ")}
+            {formatPropertyAddress(property)}
           </p>
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaBed className="mr-1 inline text-[var(--forest)]" />{property.bedrooms ?? 0} phòng ngủ · {property.area_sqm} m²
@@ -487,6 +502,15 @@ function ChatContent() {
     return () => window.clearTimeout(t);
   }, [loadMemory, loadSavedProperties, loadSessions]);
 
+  useEffect(() => {
+    const stored = window.sessionStorage.getItem("nera_chat_session_id");
+    if (stored) setSessionId(stored);
+  }, []);
+
+  useEffect(() => {
+    window.sessionStorage.setItem("nera_chat_session_id", sessionId);
+  }, [sessionId]);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   useEffect(() => {
@@ -507,11 +531,11 @@ function ChatContent() {
       const res = await apiFetch<ChatResponse>("/chat", {
         method: "POST",
         headers: { "X-Session-ID": sessionId },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message: text, property_id: propertyId || undefined })
       });
       setSessionId(res.session_id || sessionId);
-      const chips = deriveQuickReplies(res.response);
-      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips }]);
+      const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
+      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }]);
       setInsights(res.insights ?? {});
       if (res.memory_summary) setMemorySummary(res.memory_summary);
       void loadSessions();
@@ -530,12 +554,16 @@ function ChatContent() {
     try {
       const data = await apiFetch<SessionDetail>(`/session/${id}`);
       setSessionId(id);
-      setMessages(data.messages.map(m => ({ role: m.role.toLowerCase() === "user" ? "user" : "assistant", content: m.content, properties: m.properties })));
+      setMessages(data.messages.map(m => ({ role: m.role.toLowerCase() === "user" ? "user" : "assistant", content: m.content, properties: m.properties, aiMode: m.ai_mode, aiModel: m.ai_model })));
       setError("");
     } catch { setError("Không tải được cuộc trò chuyện."); }
   }
 
-  function newChat() { setSessionId(crypto.randomUUID()); setMessages([greeting]); setInput(""); setError(""); setInsights({}); router.replace("/chat"); }
+  function newChat() {
+    const nextSession = crypto.randomUUID();
+    window.sessionStorage.setItem("nera_chat_session_id", nextSession);
+    setSessionId(nextSession); setMessages([greeting]); setInput(""); setError(""); setInsights({}); router.replace("/chat");
+  }
 
   function beginRename(s: SessionSummary) { setSessionMenu(null); setRenamingSession(s); setSessionTitle(s.preview); }
 
@@ -588,8 +616,8 @@ function ChatContent() {
         headers: { "X-Session-ID": sessionId },
         body: JSON.stringify({ message: text })
       });
-      const chips = deriveQuickReplies(res.response);
-      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips }]);
+      const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
+      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }]);
       setInsights(res.insights ?? {});
       if (res.memory_summary) setMemorySummary(res.memory_summary);
       void loadSessions();
@@ -694,6 +722,12 @@ function ChatContent() {
                     </div>
                   )}
 
+                  {message.role === "assistant" && message.authRequired && index === messages.length - 1 && (
+                    <Link href="/login?next=/chat" className="mt-3 inline-flex rounded-full bg-[var(--forest)] px-5 py-2.5 text-xs font-semibold text-white">
+                      Đăng nhập để tiếp tục
+                    </Link>
+                  )}
+
                   {/* Property cards */}
                   {message.properties?.map((property, pi) => (
                     <PropertyCard
@@ -786,7 +820,7 @@ function ChatContent() {
           <div className="w-full max-w-md animate-message-in rounded-[1.7rem] bg-white p-6 shadow-2xl">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-red-50 text-red-600"><FaTrash /></span>
             <h2 id="delete-chat-title" className="mt-5 text-xl font-semibold">Xóa cuộc trò chuyện?</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">"{deletingSession.preview}" sẽ bị xóa vĩnh viễn.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">“{deletingSession.preview}” sẽ bị xóa vĩnh viễn.</p>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setDeletingSession(null)} className="flex-1 rounded-full border border-black/10 py-2.5 font-semibold">Giữ lại</button>
               <button onClick={() => void deleteSession()} disabled={sessionActionLoading}

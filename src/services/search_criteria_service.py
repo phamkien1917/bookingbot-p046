@@ -8,6 +8,27 @@ import re
 import unicodedata
 
 
+DISTRICT_NAMES = {
+    "ba dinh": "Quận Ba Đình",
+    "hoan kiem": "Quận Hoàn Kiếm",
+    "tay ho": "Quận Tây Hồ",
+    "long bien": "Quận Long Biên",
+    "cau giay": "Quận Cầu Giấy",
+    "dong da": "Quận Đống Đa",
+    "hai ba trung": "Quận Hai Bà Trưng",
+    "hoang mai": "Quận Hoàng Mai",
+    "thanh xuan": "Quận Thanh Xuân",
+    "nam tu liem": "Quận Nam Từ Liêm",
+    "bac tu liem": "Quận Bắc Từ Liêm",
+    "ha dong": "Quận Hà Đông",
+    "go vap": "Quận Gò Vấp",
+    "binh thanh": "Quận Bình Thạnh",
+    "tan binh": "Quận Tân Bình",
+    "phu nhuan": "Quận Phú Nhuận",
+    "thu duc": "Thành phố Thủ Đức",
+}
+
+
 def _normalize(value: str) -> str:
     normalized = unicodedata.normalize("NFD", value.lower())
     normalized = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
@@ -37,12 +58,16 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         groups.add("budget")
     else:
         minimum = re.search(r"(?:tren|tu|toi thieu|it nhat|>=)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)", text)
-        maximum = re.search(r"(?:duoi|toi da|nhieu nhat|<=)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)", text)
+        maximum = re.search(
+            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|tam|len)\s*"
+            r"(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
+            text,
+        )
         if minimum:
-            criteria.update(min_price=_vnd_amount(*minimum.groups()), max_price=None)
+            criteria["min_price"] = _vnd_amount(*minimum.groups())
             groups.add("budget")
         elif maximum:
-            criteria.update(min_price=None, max_price=_vnd_amount(*maximum.groups()))
+            criteria["max_price"] = _vnd_amount(*maximum.groups())
             groups.add("budget")
 
     bedrooms = re.search(r"(\d+)\s*(?:phong ngu|pn|ngu)", text)
@@ -63,20 +88,35 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         criteria["province"] = "Đà Nẵng"
         groups.add("location")
 
-    district = re.search(
-        r"\bquan\s+(\d+|ba dinh|hoan kiem|tay ho|long bien|cau giay|dong da|hai ba trung|hoang mai|thanh xuan|nam tu liem|bac tu liem|ha dong|go vap|binh thanh|tan binh|phu nhuan|thu duc)\b",
-        text,
+    named_districts = "|".join(
+        re.escape(name) for name in sorted(DISTRICT_NAMES, key=len, reverse=True)
     )
+    district = re.search(rf"\b(?:quan\s+)?({named_districts})\b", text)
+    numbered_district = re.search(r"\bquan\s+(\d+)\b", text)
     if district:
-        criteria["district"] = f"Quận {district.group(1).title()}"
+        criteria["district"] = DISTRICT_NAMES[district.group(1)]
+        groups.add("location")
+    elif numbered_district:
+        criteria["district"] = f"Quận {numbered_district.group(1)}"
         groups.add("location")
 
     if re.search(r"\b(can ho|chung cu|ccmn)\b", text):
         criteria["property_kind"] = "APARTMENT"
     elif re.search(r"\b(biet thu|villa)\b", text):
         criteria["property_kind"] = "VILLA"
-    elif re.search(r"\b(dat|dat nen)\b", text):
+    # Sau khi bỏ dấu, cả "đất" và "đặt" đều thành "dat". Không được dùng
+    # một token "dat" đơn lẻ vì câu "đặt lịch" từng làm loại nhà bị đổi thành LAND.
+    elif (
+        re.search(r"\bđất(?:\s+nền)?\b", message.lower())
+        or re.search(r"\b(dat nen|lo dat|mua dat|tim dat|can dat)\b", text)
+    ):
         criteria["property_kind"] = "LAND"
+    elif re.search(r"\b(nha pho|lien ke|townhouse)\b", text):
+        criteria["property_kind"] = "TOWNHOUSE"
+    elif re.search(r"\b(shophouse|mat bang|thuong mai)\b", text):
+        criteria["property_kind"] = "COMMERCIAL"
+    elif re.search(r"\b(nha rieng|nha nguyen can)\b", text):
+        criteria["property_kind"] = "HOUSE"
 
     return criteria, groups
 
@@ -87,12 +127,18 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
         "district", "province", "property_kind", "min_price", "max_price",
         "min_bedrooms", "min_bathrooms", "min_area",
     }
-    merged = {
+    current, groups = extract_search_criteria(message)
+    text = _normalize(message)
+    starts_new_search = (
+        bool(re.search(r"\b(tim|tim kiem|mua)\b", text))
+        and not bool(re.search(r"\btim them\b", text))
+        and bool(current)
+    )
+    merged = {} if starts_new_search else {
         key: value
         for key, value in (memory or {}).items()
         if key in allowed and value not in (None, "")
     }
-    current, groups = extract_search_criteria(message)
 
     if "budget" in groups:
         merged.pop("min_price", None)

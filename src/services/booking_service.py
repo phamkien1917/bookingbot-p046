@@ -11,7 +11,11 @@ from sqlalchemy.orm import selectinload
 from src.database.models import (
     Appointment,
     AppointmentStatus,
+    Conversation,
     CustomerProfile,
+    DeliveryStatus,
+    Message,
+    MessageRole,
     DeliveryStatus,
     Notification,
     NotificationChannel,
@@ -192,6 +196,7 @@ async def create_tour_request(
     db: AsyncSession,
     customer_user_id: UUID,
     data: TourRequestCreate,
+    conversation_id: UUID | None = None,
 ) -> TourRequest:
     prop = await db.get(Property, data.property_id)
     sale = await db.get(SaleProfile, data.sale_user_id)
@@ -236,6 +241,7 @@ async def create_tour_request(
     request = TourRequest(
         request_code=f"TR-{uuid.uuid4().hex[:12].upper()}",
         customer_user_id=customer_user_id,
+        conversation_id=conversation_id,
         property_id=data.property_id,
         preferred_start=data.preferred_start,
         preferred_end=data.preferred_end,
@@ -372,14 +378,14 @@ async def list_sale_requests(db: AsyncSession, sale_user_id: UUID) -> list[dict]
     rows = [row for row in rows if row.status in (RequestStatus.WAITING_APPROVAL, RequestStatus.BOOKED)]
     data = []
     for row in rows:
-        item = serialize_booking(row)
-        customer = row.customer.user
+        item = serialize_booking(row).model_dump()
+        customer = row.customer.user if row.customer and row.customer.user else None
         item["customer"] = {
             "id": str(customer.id),
             "full_name": customer.full_name,
             "phone": customer.phone,
             "email": customer.email,
-        }
+        } if customer else None
         data.append(item)
     return data
 
@@ -453,6 +459,69 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         },
         status=DeliveryStatus.PENDING,
     ))
+    
+    # Proactively inject confirmed booking message into Customer Chat
+    target_conv_id = row.conversation_id
+    if not target_conv_id:
+        target_conv = await db.scalar(
+            select(Conversation)
+            .where(Conversation.customer_user_id == row.customer_user_id)
+            .order_by(Conversation.updated_at.desc())
+            .limit(1)
+        )
+        if target_conv:
+            target_conv_id = target_conv.id
+
+    if target_conv_id:
+        local_start = appointment.starts_at.astimezone(LOCAL_TZ)
+        local_end = appointment.ends_at.astimezone(LOCAL_TZ) if appointment.ends_at else local_start + timedelta(hours=1)
+        duration_mins = int((local_end - local_start).total_seconds() / 60)
+        prop_title = row.property.title if row.property else "Bất động sản"
+        prop_addr = row.property.address_line if row.property else "Địa chỉ BĐS"
+        prop_id_str = str(row.property_id)
+        sale_user = await db.get(User, sale_user_id)
+        sale_name = sale_user.full_name if sale_user else "Chuyên viên tư vấn"
+
+        chat_msg = (
+            f"🎉 **Lịch xem nhà của bạn ĐÃ ĐƯỢC XÁC NHẬN!**\n\n"
+            f"📋 **Mã booking chính thức:** `{appointment.booking_code}` (Yêu cầu: `{row.request_code}`)\n\n"
+            f"🏠 **Căn hộ đã chọn:**\n"
+            f"   - **Tên căn:** {prop_title}\n"
+            f"   - **Địa chỉ:** {prop_addr}\n"
+            f"   - **ID:** `{prop_id_str}`\n\n"
+            f"📅 **Lịch xem nhà:**\n"
+            f"   - **Ngày:** {local_start.strftime('%d/%m/%Y')}\n"
+            f"   - **Giờ:** {local_start.strftime('%H:%M')} – {local_end.strftime('%H:%M')}\n"
+            f"   - **Thời lượng:** {duration_mins} phút\n\n"
+            f"👤 **Sale phụ trách:** {sale_name}\n"
+            f"📍 **Địa điểm gặp:** {appointment.meeting_address or prop_addr}\n"
+            f"🔄 **Trạng thái:** `CONFIRMED` (Đã duyệt)\n\n"
+            f"💡 **Lưu ý:**\n"
+            f"   - Quý khách vui lòng mang theo CMND/CCCD\n"
+            f"   - Đến đúng giờ hẹn để trải nghiệm xem nhà tốt nhất\n"
+            f"   - Liên hệ Sale hoặc nhắn trực tiếp cho Nera nếu cần đổi ngày/hủy lịch\n\n"
+            f"Bạn nhớ đến đúng giờ nhé! 😊"
+        )
+        db.add(Message(
+            conversation_id=target_conv_id,
+            role=MessageRole.ASSISTANT,
+            content_redacted=chat_msg,
+            structured_payload={
+                "notification_type": "APPOINTMENT_CONFIRMED",
+                "booking_code": appointment.booking_code,
+                "request_code": row.request_code,
+            },
+        ))
+        try:
+            from src.services.memory import get_short_term_memory
+            memory = get_short_term_memory()
+            await memory.append_message(
+                str(target_conv_id),
+                role="assistant",
+                content=chat_msg,
+            )
+        except Exception:
+            pass
     reminder_specs = [
         (row.customer_user_id, timedelta(hours=24), "tour_reminder_24h"),
         (sale_user_id, timedelta(hours=2), "sale_departure_reminder"),
@@ -679,14 +748,14 @@ async def list_all_bookings(db: AsyncSession, limit: int = 50) -> list[dict]:
     )
     data = []
     for row in result.scalars().unique().all():
-        item = serialize_booking(row)
-        customer = row.customer.user
+        item = serialize_booking(row).model_dump()
+        customer = row.customer.user if row.customer and row.customer.user else None
         item["customer"] = {
             "id": str(customer.id),
             "full_name": customer.full_name,
             "phone": customer.phone,
             "email": customer.email,
-        }
+        } if customer else None
         data.append(item)
     return data
 
