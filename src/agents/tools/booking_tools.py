@@ -1,29 +1,37 @@
 """Booking and scheduling tools for the agent."""
 
+import json
 import logging
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
 from langchain_core.tools import tool
+from sqlalchemy import and_, select, update
+from sqlalchemy.orm import joinedload
 
 from src.config import get_settings
 from src.database.connection import get_session_context
 from src.database.models import (
     Appointment,
     AppointmentStatus,
+    HoldStatus,
     Property,
+    PropertyHold,
+    RequestStatus,
+    SaleProfile,
+    SlotStatus,
     TourRequest,
     TourSlotOption,
-    SlotStatus,
-    RequestStatus,
+    User,
 )
 
 logger = logging.getLogger(__name__)
 
 
 @tool
-def calculate_viewing_time(
+async def calculate_viewing_time(
     property_id: str,
     start_time: str,
     buffer_minutes: Optional[int] = None,
@@ -40,20 +48,17 @@ def calculate_viewing_time(
     Returns:
         Thông tin về thời gian xem nhà
     """
-    import json
-
     settings = get_settings()
 
-    async def _calculate():
+    try:
         async with get_session_context() as session:
             # Get property for base time
-            from sqlalchemy import select
             stmt = select(Property).where(Property.id == UUID(property_id))
             result = await session.execute(stmt)
             prop = result.scalar_one_or_none()
 
             if not prop:
-                return {"error": "Property not found"}
+                return json.dumps({"error": "Property not found"})
 
             # Base viewing time by property type
             base_minutes = {
@@ -78,7 +83,7 @@ def calculate_viewing_time(
             # Calculate end time
             estimated_end = start_dt + timedelta(minutes=base_time + buffer)
 
-            return {
+            result_dict = {
                 "property_id": property_id,
                 "property_title": prop.title,
                 "property_kind": prop.property_kind.value if prop.property_kind else None,
@@ -88,31 +93,14 @@ def calculate_viewing_time(
                 "estimated_end": estimated_end.isoformat(),
                 "total_minutes": base_time + buffer,
             }
-
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        # If we're in an async context, create a future and run in a new loop
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, _calculate())
-                result = future.result()
-        else:
-            result = loop.run_until_complete(_calculate())
-        return json.dumps(result, ensure_ascii=False, indent=2)
+            return json.dumps(result_dict, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error calculating viewing time: {e}")
         return json.dumps({"error": str(e)})
 
 
 @tool
-def create_booking(
+async def create_booking(
     customer_id: str,
     property_id: str,
     sale_user_id: str,
@@ -137,12 +125,7 @@ def create_booking(
     Returns:
         Thông tin booking đã tạo
     """
-    import json
-    import uuid
-    from sqlalchemy import select
-    from src.database.models import Appointment, AppointmentStatus, Property, PropertyHold, HoldStatus
-
-    async def _create():
+    try:
         async with get_session_context() as session:
             # Generate booking code
             booking_code = f"BK{uuid.uuid4().hex[:8].upper()}"
@@ -152,16 +135,16 @@ def create_booking(
                 start_dt = datetime.fromisoformat(starts_at.replace("Z", "+00:00"))
                 end_dt = datetime.fromisoformat(ends_at.replace("Z", "+00:00"))
             except ValueError:
-                return {"error": "Invalid datetime format"}
+                return json.dumps({"error": "Invalid datetime format"})
 
             # Create appointment
             appointment = Appointment(
                 id=uuid.uuid4(),
                 booking_code=booking_code,
                 tour_request_id=uuid.uuid4(),  # Will be linked properly
-                customer_user_id=UUID(customer_id),
+                customer_user_id=UUID(customer_id) if customer_id and customer_id != "default" else uuid.uuid4(),
                 property_id=UUID(property_id),
-                sale_user_id=UUID(sale_user_id),
+                sale_user_id=UUID(sale_user_id) if sale_user_id else uuid.uuid4(),
                 status=AppointmentStatus.CONFIRMED,
                 starts_at=start_dt,
                 ends_at=end_dt,
@@ -173,7 +156,7 @@ def create_booking(
 
             await session.flush()
 
-            return {
+            result = {
                 "success": True,
                 "booking_id": str(appointment.id),
                 "booking_code": appointment.booking_code,
@@ -184,30 +167,14 @@ def create_booking(
                 "status": appointment.status.value,
                 "party_size": party_size,
             }
-
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, _create())
-                result = future.result()
-        else:
-            result = loop.run_until_complete(_create())
-        return json.dumps(result, ensure_ascii=False, indent=2)
+            return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error creating booking: {e}")
         return json.dumps({"error": str(e)})
 
 
 @tool
-def propose_time_slots(
+async def propose_time_slots(
     property_id: str,
     customer_id: str,
     preferred_date: str,
@@ -224,18 +191,13 @@ def propose_time_slots(
     Returns:
         Danh sách các khung giờ đề xuất
     """
-    import json
-    import uuid
-    from sqlalchemy import select, and_
-    from src.database.models import Appointment, SaleProfile, User
-
-    async def _propose():
+    try:
         async with get_session_context() as session:
             # Parse preferred date
             try:
                 pref_date = datetime.strptime(preferred_date, "%Y-%m-%d").date()
             except ValueError:
-                return {"error": "Invalid date format, use YYYY-MM-DD"}
+                return json.dumps({"error": "Invalid date format, use YYYY-MM-DD"})
 
             # Get available sales (simplified - get first available)
             sales_stmt = select(SaleProfile, User).join(
@@ -248,7 +210,7 @@ def propose_time_slots(
             sales = sales_result.all()
 
             if not sales:
-                return {"error": "No sale agents available"}
+                return json.dumps({"error": "No sale agents available"})
 
             # Generate time slots (9:00, 11:00, 14:00, 16:00)
             available_hours = [9, 11, 14, 16]
@@ -260,8 +222,7 @@ def propose_time_slots(
                 slot_end = slot_start + timedelta(hours=1)
 
                 # Calculate viewing time
-                from sqlalchemy import select as sel
-                prop_stmt = sel(Property).where(Property.id == UUID(property_id))
+                prop_stmt = select(Property).where(Property.id == UUID(property_id))
                 prop_result = await session.execute(prop_stmt)
                 prop = prop_result.scalar_one_or_none()
                 base_minutes = 30
@@ -282,35 +243,19 @@ def propose_time_slots(
                     "score": 100 - (i * 10),  # Higher score for earlier slots
                 })
 
-            return {
+            result = {
                 "property_id": property_id,
                 "preferred_date": preferred_date,
                 "available_slots": slots,
             }
-
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, _propose())
-                result = future.result()
-        else:
-            result = loop.run_until_complete(_propose())
-        return json.dumps(result, ensure_ascii=False, indent=2)
+            return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error proposing slots: {e}")
         return json.dumps({"error": str(e)})
 
 
 @tool
-def get_booking_status(booking_id: str) -> str:
+async def get_booking_status(booking_id: str) -> str:
     """Lấy trạng thái của một booking.
 
     Args:
@@ -319,11 +264,7 @@ def get_booking_status(booking_id: str) -> str:
     Returns:
         Thông tin trạng thái booking
     """
-    import json
-    from sqlalchemy import select, joinedload
-    from src.database.models import Appointment, Property, User
-
-    async def _get_status():
+    try:
         async with get_session_context() as session:
             stmt = (
                 select(Appointment)
@@ -337,15 +278,14 @@ def get_booking_status(booking_id: str) -> str:
             apt = result.scalar_one_or_none()
 
             if not apt:
-                return {"error": "Booking not found"}
+                return json.dumps({"error": "Booking not found"})
 
             # Get sale name
-            from sqlalchemy import select as sel
-            user_stmt = sel(User).where(User.id == apt.sale_user_id)
+            user_stmt = select(User).where(User.id == apt.sale_user_id)
             user_result = await session.execute(user_stmt)
             sale_user = user_result.scalar_one_or_none()
 
-            return {
+            result_dict = {
                 "booking_id": booking_id,
                 "booking_code": apt.booking_code,
                 "status": apt.status.value,
@@ -366,30 +306,14 @@ def get_booking_status(booking_id: str) -> str:
                 "checked_out_at": apt.checked_out_at.isoformat() if apt.checked_out_at else None,
                 "cancelled_at": apt.cancelled_at.isoformat() if apt.cancelled_at else None,
             }
-
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, _get_status())
-                result = future.result()
-        else:
-            result = loop.run_until_complete(_get_status())
-        return json.dumps(result, ensure_ascii=False, indent=2)
+            return json.dumps(result_dict, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error getting booking status: {e}")
         return json.dumps({"error": str(e)})
 
 
 @tool
-def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
+async def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
     """Hủy một booking.
 
     Args:
@@ -399,11 +323,7 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
     Returns:
         Kết quả hủy booking
     """
-    import json
-    from sqlalchemy import select, update
-    from src.database.models import Appointment, AppointmentStatus, PropertyHold, HoldStatus
-
-    async def _cancel():
+    try:
         async with get_session_context() as session:
             # Get appointment
             stmt = select(Appointment).where(Appointment.id == UUID(booking_id))
@@ -411,13 +331,13 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
             apt = result.scalar_one_or_none()
 
             if not apt:
-                return {"error": "Booking not found"}
+                return json.dumps({"error": "Booking not found"})
 
             if apt.status == AppointmentStatus.COMPLETED:
-                return {"error": "Cannot cancel a completed booking"}
+                return json.dumps({"error": "Cannot cancel a completed booking"})
 
             if apt.status == AppointmentStatus.CANCELLED:
-                return {"error": "Booking is already cancelled"}
+                return json.dumps({"error": "Booking is already cancelled"})
 
             # Update status
             apt.status = AppointmentStatus.CANCELLED
@@ -439,7 +359,7 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
 
             await session.flush()
 
-            return {
+            result = {
                 "success": True,
                 "booking_id": booking_id,
                 "booking_code": apt.booking_code,
@@ -447,23 +367,7 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
                 "cancelled_at": apt.cancelled_at.isoformat(),
                 "reason": reason,
             }
-
-    import asyncio
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, _cancel())
-                result = future.result()
-        else:
-            result = loop.run_until_complete(_cancel())
-        return json.dumps(result, ensure_ascii=False, indent=2)
+            return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error cancelling booking: {e}")
         return json.dumps({"error": str(e)})

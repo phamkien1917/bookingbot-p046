@@ -31,7 +31,7 @@ async def inventory_agent(state: AgentState) -> dict:
     if not search_criteria:
         search_criteria = {
             "district": entities.get("district"),
-            "province": entities.get("province", "Hồ Chí Minh"),
+            "province": entities.get("province"),
             "property_kind": entities.get("property_kind"),
             "min_price": entities.get("budget", {}).get("min") if isinstance(entities.get("budget"), dict) else None,
             "max_price": entities.get("budget", {}).get("max") if isinstance(entities.get("budget"), dict) else entities.get("budget"),
@@ -56,7 +56,7 @@ async def inventory_agent(state: AgentState) -> dict:
     # Search properties
     search_results = None
     try:
-        result_str = search_properties.invoke({
+        result_str = await search_properties.ainvoke({
             "district": search_criteria.get("district"),
             "province": search_criteria.get("province"),
             "property_kind": search_criteria.get("property_kind"),
@@ -165,7 +165,7 @@ async def get_property_details(property_id: str) -> dict:
     """
     try:
         # Check availability
-        availability_str = check_property_availability.invoke({
+        availability_str = await check_property_availability.ainvoke({
             "property_id": property_id,
         })
         availability = json.loads(availability_str)

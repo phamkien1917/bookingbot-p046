@@ -284,14 +284,9 @@ def route_from_supervisor(state: AgentState) -> str:
     if state.get("awaiting_human"):
         return AgentType.HITL
 
-    # Route based on current agent
-    agent_routes = {
-        AgentType.SUPERVISOR: AgentType.RESPOND,
-        AgentType.INVENTORY: AgentType.RESPOND,
-        AgentType.BOOKING: AgentType.ASSIGNMENT,
-        AgentType.ASSIGNMENT: AgentType.RESPOND,
-        AgentType.HITL: AgentType.RESPOND,
-        AgentType.RESPOND: "__end__",
-    }
+    # If it's still supervisor, we need to generate a fallback response
+    if current_agent == AgentType.SUPERVISOR:
+        return AgentType.RESPOND
 
-    return agent_routes.get(current_agent, AgentType.RESPOND)
+    # Route to the designated agent
+    return current_agent
