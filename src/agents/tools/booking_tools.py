@@ -1,7 +1,6 @@
 """Booking and scheduling tools for the agent."""
 
 import logging
-from src.utils.time import utcnow
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
@@ -422,7 +421,7 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
 
             # Update status
             apt.status = AppointmentStatus.CANCELLED
-            apt.cancelled_at = utcnow()
+            apt.cancelled_at = datetime.utcnow()
             apt.cancellation_reason = reason
 
             # Release any holds
@@ -435,7 +434,7 @@ def cancel_booking(booking_id: str, reason: str = "Customer requested") -> str:
 
             if hold:
                 hold.status = HoldStatus.RELEASED
-                hold.released_at = utcnow()
+                hold.released_at = datetime.utcnow()
                 hold.release_reason = f"Booking cancelled: {reason}"
 
             await session.flush()

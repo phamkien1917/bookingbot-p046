@@ -111,8 +111,7 @@ INTENT_CLASSIFICATION_PROMPT = """Bạn là một classifier phân loại ý đ�
 5. CHECK_STATUS - Khách muốn kiểm tra trạng thái booking
 6. GET_INFO - Khách hỏi thông tin về bất động sản, quy trình...
 7. GREETING - Chào hỏi, hỏi thăm
-8. CONNECT_AGENT - Khách muốn gặp nhân viên thật, không chat với bot
-9. FALLBACK - Không xác định được intent
+8. FALLBACK - Không xác định được intent
 
 ## Yêu cầu:
 - Chỉ trả về JSON với format bên dưới
@@ -124,9 +123,7 @@ INTENT_CLASSIFICATION_PROMPT = """Bạn là một classifier phân loại ý đ�
     "intent": "INTENT_NAME",
     "confidence": 0.95,
     "entities": {
-        "keyword": "Tên dự án, tên tòa nhà, tên đường (nếu có)",
-        "province": "Hà Nội",  # Tỉnh/Thành phố (nếu có)
-        "district": "Quận 7",  # Quận/Huyện (nếu có)
+        "district": "Quận 7",  # nếu có
         "district": "Thành phố Thủ Đức",  # normalize Thủ Đức/Quận 9/Quận 2
         "property_kind": "APARTMENT",  # nếu có
         "budget": 3000000000,  # nếu có
@@ -221,27 +218,23 @@ async def supervisor_node(state: AgentState) -> dict:
         logger.info(f"Classified intent: {intent} (confidence: {confidence})")
 
         # Update state with classification
-        # Merge with existing entities from state to keep context
-        existing_entities = state.get("metadata", {}).get("entities", {})
-        merged_entities = {**existing_entities}
-        
-        for k, v in entities.items():
-            if v is not None and v != "":
-                merged_entities[k] = v
-
         updates = {
             "intent": intent,
             "confidence": confidence,
             "metadata": {
                 **state.get("metadata", {}),
-                "entities": merged_entities,
+                "entities": entities,
                 "classification": classification,
             },
         }
 
         # Normalize entities
-        merged_entities = _normalize_entities(merged_entities)
-        updates["metadata"]["entities"] = merged_entities
+        entities = _normalize_entities(entities)
+        updates["metadata"] = {
+            **state.get("metadata", {}),
+            "entities": entities,
+            "classification": classification,
+        }
 
         # Route based on intent
         if intent == Intent.SEARCH_PROPERTY:
@@ -257,12 +250,9 @@ async def supervisor_node(state: AgentState) -> dict:
             updates["next_action"] = "check_booking_status"
         elif intent == Intent.GET_INFO:
             updates["current_agent"] = AgentType.INVENTORY
-        elif intent == "GREETING":
+        elif intent == Intent.GREETING:
             updates["current_agent"] = AgentType.RESPOND
             updates["next_action"] = "greet"
-        elif intent == Intent.CONNECT_AGENT:
-            updates["current_agent"] = AgentType.HITL
-            updates["hitl_reason"] = "Khách hàng yêu cầu gặp nhân viên hỗ trợ"
         else:
             # FALLBACK - respond with clarification
             updates["current_agent"] = AgentType.RESPOND
@@ -294,9 +284,14 @@ def route_from_supervisor(state: AgentState) -> str:
     if state.get("awaiting_human"):
         return AgentType.HITL
 
-    # If it's still supervisor, we need to generate a fallback response
-    if current_agent == AgentType.SUPERVISOR:
-        return AgentType.RESPOND
+    # Route based on current agent
+    agent_routes = {
+        AgentType.SUPERVISOR: AgentType.RESPOND,
+        AgentType.INVENTORY: AgentType.RESPOND,
+        AgentType.BOOKING: AgentType.ASSIGNMENT,
+        AgentType.ASSIGNMENT: AgentType.RESPOND,
+        AgentType.HITL: AgentType.RESPOND,
+        AgentType.RESPOND: "__end__",
+    }
 
-    # Route to the designated agent
-    return current_agent
+    return agent_routes.get(current_agent, AgentType.RESPOND)

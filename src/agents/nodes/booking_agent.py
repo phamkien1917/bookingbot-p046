@@ -1,7 +1,6 @@
 """Booking Agent - Tour request and appointment creation."""
 
 import json
-from src.utils.time import utcnow
 import logging
 from datetime import datetime, timedelta
 
@@ -163,7 +162,7 @@ async def _propose_slots(state: AgentState, property_id: str) -> dict:
     # Default to tomorrow at 10 AM
     preferred_date = entities.get("preferred_date")
     if not preferred_date:
-        tomorrow = utcnow().date() + timedelta(days=1)
+        tomorrow = datetime.utcnow().date() + timedelta(days=1)
         preferred_date = tomorrow.strftime("%Y-%m-%d")
 
     try:

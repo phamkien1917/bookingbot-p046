@@ -1,7 +1,6 @@
 """HITL (Human-in-the-Loop) Agent - Handles cases requiring human intervention."""
 
 import json
-from src.utils.time import utcnow
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -53,7 +52,7 @@ async def _create_hitl_case(state: AgentState) -> dict:
         Updated state with HITL case
     """
     settings = get_settings()
-    hitl_reason = state.get("hitl_reason") or "Khách hàng yêu cầu hỗ trợ từ nhân viên"
+    hitl_reason = state.get("hitl_reason")
     hitl_context = state.get("hitl_context", {})
 
     # Generate case ID
@@ -62,8 +61,8 @@ async def _create_hitl_case(state: AgentState) -> dict:
     # Create case record
     case = {
         "id": case_id,
-        "created_at": utcnow().isoformat(),
-        "expires_at": (utcnow() + timedelta(minutes=30)).isoformat(),
+        "created_at": datetime.utcnow().isoformat(),
+        "expires_at": (datetime.utcnow() + timedelta(minutes=30)).isoformat(),
         "reason": hitl_reason,
         "context": hitl_context,
         "status": "PENDING",
@@ -284,7 +283,7 @@ def resolve_hitl_case(
         return {"error": "Case already resolved"}
 
     case["status"] = "RESOLVED"
-    case["resolved_at"] = utcnow().isoformat()
+    case["resolved_at"] = datetime.utcnow().isoformat()
     case["decision"] = decision
 
     logger.info(f"HITL case resolved: {case_id} - Action: {decision.get('action')}")

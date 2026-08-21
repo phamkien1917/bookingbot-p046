@@ -27,53 +27,15 @@ async def inventory_agent(state: AgentState) -> dict:
     entities = state.get("metadata", {}).get("entities", {})
     search_criteria = state.get("search_criteria")
 
-    # Merge deterministic search criteria with LLM entities
-    search_criteria = state.get("search_criteria") or {}
-    
-    # Fallbacks from LLM entities if deterministic parsing missed them
-    district = search_criteria.get("district") or entities.get("district")
-    province = search_criteria.get("province") or entities.get("province")
-    property_kind = search_criteria.get("property_kind") or entities.get("property_kind")
-    
-    # Prices from deterministic parsing take precedence. If none, try LLM entities.
-    min_price = search_criteria.get("min_price")
-    max_price = search_criteria.get("max_price")
-    keyword = search_criteria.get("keyword") or entities.get("keyword")
-    
-    if min_price is None and max_price is None:
-        budget = entities.get("budget", {})
-        if isinstance(budget, dict):
-            min_price = budget.get("min")
-            max_price = budget.get("max")
-        else:
-            max_price = budget
-
-    min_bedrooms = search_criteria.get("min_bedrooms") or entities.get("bedrooms")
-
-    search_criteria = {
-        "keyword": keyword,
-        "district": district if district and province and district.lower() not in province.lower() else (district if district and not province else None),
-        "province": province,
-        "property_kind": property_kind,
-        "min_price": min_price,
-        "max_price": max_price,
-        "min_bedrooms": min_bedrooms,
-    }
-
-    # If user wants to search but provides no criteria, ask them
-    has_criteria = any([
-        keyword, district, province, property_kind, min_price, max_price, min_bedrooms
-    ])
-    
-    if intent == "SEARCH_PROPERTY" and not has_criteria:
-        return {
-            "response": "Bạn đang tìm nhà ở khu vực nào, mức giá khoảng bao nhiêu, và loại bất động sản nào (căn hộ, nhà phố...)?",
-            "selected_properties": [],
-            "suggested_actions": [
-                "Tìm căn hộ dưới 3 tỷ",
-                "Tìm nhà phố quận 7",
-                "Tìm biệt thự ven sông"
-            ]
+    # Extract search criteria from entities
+    if not search_criteria:
+        search_criteria = {
+            "district": entities.get("district"),
+            "province": entities.get("province", "Hồ Chí Minh"),
+            "property_kind": entities.get("property_kind"),
+            "min_price": entities.get("budget", {}).get("min") if isinstance(entities.get("budget"), dict) else None,
+            "max_price": entities.get("budget", {}).get("max") if isinstance(entities.get("budget"), dict) else entities.get("budget"),
+            "min_bedrooms": entities.get("bedrooms"),
         }
 
     # Get customer preferences from long-term memory
@@ -94,8 +56,7 @@ async def inventory_agent(state: AgentState) -> dict:
     # Search properties
     search_results = None
     try:
-        result_str = await search_properties.ainvoke({
-            "keyword": search_criteria.get("keyword"),
+        result_str = search_properties.invoke({
             "district": search_criteria.get("district"),
             "province": search_criteria.get("province"),
             "property_kind": search_criteria.get("property_kind"),
@@ -135,7 +96,26 @@ async def inventory_agent(state: AgentState) -> dict:
 
     # Generate response message
     if intent == "SEARCH_PROPERTY":
-        response = "Dưới đây là một số bất động sản phù hợp với yêu cầu của bạn:"
+        response = "Tôi đã tìm được các bất động sản phù hợp cho bạn:\n\n"
+
+        for i, prop in enumerate(search_results[:5], 1):  # Show top 5
+            price = prop.get("list_price")
+            if price:
+                price_str = f"{price/1e9:.1f} tỷ" if price >= 1e9 else f"{price/1e6:.0f} triệu"
+            else:
+                price_str = "Liên hệ"
+
+            response += f"**{i}. {prop.get('title', 'N/A')}**\n"
+            response += f"   - Mã: {prop.get('code', 'N/A')}\n"
+            response += f"   - Loại: {prop.get('property_kind', 'N/A')}\n"
+            response += f"   - Khu vực: {prop.get('district', 'N/A')}\n"
+            response += f"   - Diện tích: {prop.get('area_sqm', 'N/A')} m²\n"
+            if prop.get("bedrooms"):
+                response += f"   - Phòng ngủ: {prop['bedrooms']}\n"
+            response += f"   - Giá: {price_str}\n"
+            response += f"   - ID: {prop.get('id')}\n\n"
+
+        response += "Bạn quan tâm căn nào? Tôi có thể giữ căn và đề xuất lịch xem cho bạn."
 
         updates["response"] = response
         updates["suggested_actions"] = [

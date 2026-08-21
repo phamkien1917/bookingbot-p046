@@ -1,7 +1,6 @@
 """Property-related tools for the agent."""
 
 import logging
-from src.utils.time import utcnow
 from typing import Optional
 from uuid import UUID
 
@@ -39,8 +38,7 @@ def _expand_districts(district: Optional[str]) -> list[str]:
 
 
 @tool
-async def search_properties(
-    keyword: Optional[str] = None,
+def search_properties(
     district: Optional[str] = None,
     province: Optional[str] = None,
     property_kind: Optional[str] = None,
@@ -53,7 +51,6 @@ async def search_properties(
     """Tìm kiếm bất động sản theo các tiêu chí.
 
     Args:
-        keyword: Từ khóa tìm kiếm (tên dự án, địa chỉ)
         district: Quận/Huyện (ví dụ: "Quận 7", "Thủ Đức")
         province: Tỉnh/Thành phố (ví dụ: "Hồ Chí Minh")
         property_kind: Loại bất động sản (APARTMENT, HOUSE, VILLA, TOWNHOUSE, LAND, COMMERCIAL)
@@ -69,20 +66,10 @@ async def search_properties(
     import json
     from sqlalchemy import select, or_, and_
 
-    try:
+    async def _search():
         async with get_session_context() as session:
             # Build query
             conditions = [Property.status == PropertyStatus.AVAILABLE]
-
-            if keyword:
-                pattern = f"%{keyword.strip()}%"
-                conditions.append(
-                    or_(
-                        Property.title.ilike(pattern),
-                        Property.address_line.ilike(pattern),
-                        Property.ward.ilike(pattern),
-                    )
-                )
 
             if district:
                 conditions.append(Property.district.ilike(f"%{district}%"))
@@ -109,7 +96,7 @@ async def search_properties(
             result = await session.execute(stmt)
             properties = result.scalars().all()
 
-            results = [
+            return [
                 {
                     "id": str(p.id),
                     "code": p.code,
@@ -126,6 +113,26 @@ async def search_properties(
                 }
                 for p in properties
             ]
+
+    # Run sync wrapper (for LangChain tool)
+    import asyncio
+    import concurrent.futures
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        # Check if loop is already running
+        if loop.is_running():
+            # Use ThreadPoolExecutor to run async code
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, _search())
+                results = future.result()
+        else:
+            results = loop.run_until_complete(_search())
         return json.dumps(results, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error searching properties: {e}")
@@ -133,7 +140,7 @@ async def search_properties(
 
 
 @tool
-async def check_property_availability(property_id: str) -> str:
+def check_property_availability(property_id: str) -> str:
     """Kiểm tra tình trạng sẵn sàng của một bất động sản.
 
     Args:
@@ -145,30 +152,29 @@ async def check_property_availability(property_id: str) -> str:
     import json
     from sqlalchemy import select, and_
     from datetime import datetime
-    from src.database.models import PropertyHold, HoldStatus, Property, PropertyStatus
-    from uuid import UUID
 
-    try:
+    async def _check():
         async with get_session_context() as session:
+            # Get property
             stmt = select(Property).where(Property.id == UUID(property_id))
             result = await session.execute(stmt)
             prop = result.scalar_one_or_none()
 
             if not prop:
-                return json.dumps({"error": "Property not found", "property_id": property_id})
+                return {"error": "Property not found", "property_id": property_id}
 
             # Check for active hold
             hold_stmt = select(PropertyHold).where(
                 and_(
                     PropertyHold.property_id == UUID(property_id),
                     PropertyHold.status == HoldStatus.ACTIVE,
-                    PropertyHold.expires_at > utcnow(),
+                    PropertyHold.expires_at > datetime.utcnow(),
                 )
             )
             hold_result = await session.execute(hold_stmt)
             active_hold = hold_result.scalar_one_or_none()
 
-            result_dict = {
+            return {
                 "property_id": property_id,
                 "code": prop.code,
                 "title": prop.title,
@@ -178,14 +184,30 @@ async def check_property_availability(property_id: str) -> str:
                 "hold_expires_at": active_hold.expires_at.isoformat() if active_hold else None,
                 "can_book": prop.status == PropertyStatus.AVAILABLE and active_hold is None,
             }
-            return json.dumps(result_dict, ensure_ascii=False, indent=2)
+
+    import asyncio
+    import concurrent.futures
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        if loop.is_running():
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                result = executor.submit(asyncio.run, _check()).result()
+        else:
+            result = loop.run_until_complete(_check())
+        return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error checking property: {e}")
         return json.dumps({"error": str(e)})
 
 
 @tool
-async def hold_property(property_id: str, customer_id: str, hold_minutes: int = 15) -> str:
+def hold_property(property_id: str, customer_id: str, hold_minutes: int = 15) -> str:
     """Giữ bất động sản tạm thời trong thời gian đặt lịch.
 
     Args:
@@ -201,9 +223,8 @@ async def hold_property(property_id: str, customer_id: str, hold_minutes: int = 
     from sqlalchemy import select, and_
     from datetime import datetime, timedelta
     from src.database.models import PropertyHold, HoldStatus, Appointment, Property
-    from uuid import UUID
 
-    try:
+    async def _hold():
         async with get_session_context() as session:
             # Check if property exists and is available
             prop_stmt = select(Property).where(Property.id == UUID(property_id))
@@ -211,19 +232,19 @@ async def hold_property(property_id: str, customer_id: str, hold_minutes: int = 
             prop = prop_result.scalar_one_or_none()
 
             if not prop:
-                return json.dumps({"error": "Property not found"})
+                return {"error": "Property not found"}
 
             # Check for existing active hold
             hold_check = select(PropertyHold).where(
                 and_(
                     PropertyHold.property_id == UUID(property_id),
                     PropertyHold.status == HoldStatus.ACTIVE,
-                    PropertyHold.expires_at > utcnow(),
+                    PropertyHold.expires_at > datetime.utcnow(),
                 )
             )
             existing = await session.execute(hold_check)
             if existing.scalar_one_or_none():
-                return json.dumps({"error": "Property already has an active hold"})
+                return {"error": "Property already has an active hold"}
 
             # Check if there's already an appointment (confirmed booking)
             apt_stmt = select(Appointment).where(
@@ -234,7 +255,7 @@ async def hold_property(property_id: str, customer_id: str, hold_minutes: int = 
             )
             apt_result = await session.execute(apt_stmt)
             if apt_result.scalar_one_or_none():
-                return json.dumps({"error": "Property is already booked"})
+                return {"error": "Property is already booked"}
 
             # Create placeholder appointment for hold
             appointment_id = uuid.uuid4()
@@ -247,37 +268,63 @@ async def hold_property(property_id: str, customer_id: str, hold_minutes: int = 
                 customer_user_id=UUID(customer_id),
                 property_id=UUID(property_id),
                 sale_user_id=uuid.uuid4(),  # Placeholder
-                scheduled_start=utcnow() + timedelta(days=1),  # Placeholder
-                scheduled_end=utcnow() + timedelta(days=1, hours=1),
-                status="HOLD",
+                status="CONFIRMED",  # Placeholder
+                starts_at=datetime.utcnow(),
+                ends_at=datetime.utcnow() + timedelta(minutes=hold_minutes),
             )
             session.add(appointment)
 
+            # Create hold
+            now = datetime.utcnow()
             hold = PropertyHold(
                 id=uuid.uuid4(),
+                hold_code=f"HD{uuid.uuid4().hex[:8].upper()}",
+                appointment_id=appointment_id,
                 property_id=UUID(property_id),
                 customer_user_id=UUID(customer_id),
-                appointment_id=appointment_id,
+                approved_by_user_id=uuid.uuid4(),  # System
                 status=HoldStatus.ACTIVE,
-                expires_at=utcnow() + timedelta(minutes=hold_minutes),
+                starts_at=now,
+                expires_at=now + timedelta(minutes=hold_minutes),
+                max_expires_at=now + timedelta(minutes=hold_minutes * 2),
             )
             session.add(hold)
-            await session.commit()
 
-            result = {
+            await session.flush()
+
+            return {
+                "success": True,
                 "hold_id": str(hold.id),
+                "hold_code": hold.hold_code,
                 "property_id": property_id,
-                "status": hold.status.value if hold.status else None,
-                "expires_at": hold.expires_at.isoformat() if hold.expires_at else None,
+                "property_title": prop.title,
+                "expires_at": hold.expires_at.isoformat(),
+                "hold_minutes": hold_minutes,
             }
-            return json.dumps(result, ensure_ascii=False, indent=2)
+
+    import asyncio
+    import concurrent.futures
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        if loop.is_running():
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                result = executor.submit(asyncio.run, _hold()).result()
+        else:
+            result = loop.run_until_complete(_hold())
+        return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error holding property: {e}")
         return json.dumps({"error": str(e)})
 
 
 @tool
-async def release_hold(hold_id: str, reason: str = "Manual release") -> str:
+def release_hold(hold_id: str, reason: str = "Manual release") -> str:
     """Giải phóng hold trên bất động sản.
 
     Args:
@@ -291,34 +338,50 @@ async def release_hold(hold_id: str, reason: str = "Manual release") -> str:
     from datetime import datetime
     from sqlalchemy import select, update
     from src.database.models import PropertyHold, HoldStatus
-    from uuid import UUID
 
-    try:
+    async def _release():
         async with get_session_context() as session:
+            # Get hold
             stmt = select(PropertyHold).where(PropertyHold.id == UUID(hold_id))
             result = await session.execute(stmt)
             hold = result.scalar_one_or_none()
 
             if not hold:
-                return json.dumps({"error": "Hold not found"})
+                return {"error": "Hold not found"}
 
             if hold.status != HoldStatus.ACTIVE:
-                return json.dumps({"error": "Hold is not active", "current_status": hold.status.value})
+                return {"error": "Hold is not active", "current_status": hold.status.value}
 
             # Update hold status
             hold.status = HoldStatus.RELEASED
-            hold.released_at = utcnow()
+            hold.released_at = datetime.utcnow()
             hold.release_reason = reason
 
-            session.add(hold)
-            await session.commit()
+            await session.flush()
 
-            return json.dumps({
+            return {
                 "success": True,
                 "hold_id": hold_id,
                 "released_at": hold.released_at.isoformat(),
                 "reason": reason,
-            })
+            }
+
+    import asyncio
+    import concurrent.futures
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        if loop.is_running():
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                result = executor.submit(asyncio.run, _release()).result()
+        else:
+            result = loop.run_until_complete(_release())
+        return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error releasing hold: {e}")
         return json.dumps({"error": str(e)})

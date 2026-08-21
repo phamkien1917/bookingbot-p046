@@ -1,7 +1,6 @@
 """Assignment and sale agent tools for the agent."""
 
 import logging
-from src.utils.time import utcnow
 from typing import Optional
 from uuid import UUID
 
@@ -92,7 +91,7 @@ def calculate_assignment_score(
                 route_score = 100.0  # Default full score
 
                 # 2. Workload (20%) - fewer bookings today = higher score
-                today_start = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
                 booking_count_stmt = select(func.count(Appointment.id)).where(
                     Appointment.sale_user_id == sale_profile.user_id,
                     Appointment.starts_at >= today_start,
@@ -231,7 +230,7 @@ def assign_sale_to_booking(
                 "booking_id": booking_id,
                 "sale_id": sale_id,
                 "sale_name": sale_name,
-                "assigned_at": utcnow().isoformat(),
+                "assigned_at": datetime.utcnow().isoformat(),
             }
 
     import asyncio

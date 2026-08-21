@@ -1,7 +1,6 @@
 """Response Agent - Generates final response to user."""
 
 import json
-from src.utils.time import utcnow
 import logging
 import re
 from datetime import datetime
@@ -117,7 +116,7 @@ async def respond_node(state: AgentState) -> dict:
     messages.append({
         "role": "assistant",
         "content": existing_response,
-        "timestamp": utcnow().isoformat(),
+        "timestamp": datetime.utcnow().isoformat(),
     })
 
     return {
