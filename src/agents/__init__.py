@@ -1,29 +1,14 @@
-"""Agents package for BookingBot AI Agent.
+"""Agents package for BookingBot AI Multi-Agent System."""
 
-This package contains the multi-agent system using LangGraph.
-"""
-
-from src.agents.graph import agent, get_agent_graph, get_simple_graph, build_agent_graph
-from src.agents.state import AgentState, AgentType, Intent, create_initial_state
-
-
-async def run_agent(state: AgentState) -> AgentState:
-    """Run the multi-agent graph."""
-    compiled = get_agent_graph()
-    return await compiled.ainvoke(state)
-
-
-create_initial_agent_state = create_initial_state
+from src.agents.graph import build_agent_graph, get_agent_graph, run_agent
+from src.agents.state import AgentState, AgentType, Intent, create_initial_agent_state
 
 __all__ = [
-    "agent",
-    "get_agent_graph",
-    "get_simple_graph",
     "build_agent_graph",
+    "get_agent_graph",
     "run_agent",
     "AgentState",
     "AgentType",
     "Intent",
-    "create_initial_state",
     "create_initial_agent_state",
 ]

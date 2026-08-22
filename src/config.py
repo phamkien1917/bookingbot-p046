@@ -75,6 +75,28 @@ class Settings(BaseSettings):
     assignment_timeout_minutes: int = Field(default=5, ge=1)
     hitl_confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
 
+    # Mem0 OSS Configuration
+    mem0_provider: Literal["chroma", "qdrant", "postgres"] = Field(
+        default="chroma",
+        description="Vector store provider for Mem0"
+    )
+    mem0_collection_name: str = Field(
+        default="bookingbot_memory",
+        description="Collection name for semantic memory"
+    )
+    memory_extraction_enabled: bool = Field(
+        default=True,
+        description="Whether to automatically extract memories from conversations"
+    )
+    memory_max_history: int = Field(
+        default=50,
+        description="Maximum number of history messages to store in memory"
+    )
+    memory_max_context_messages: int = Field(
+        default=10,
+        description="Maximum number of context messages to include in prompt"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
