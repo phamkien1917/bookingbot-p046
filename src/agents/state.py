@@ -1,159 +1,224 @@
-"""Agent State schema for LangGraph Multi-Agent System.
+"""Agent State schema for LangGraph.
 
-This defines the state that flows through all nodes in the agent graph.
+This defines the state that flows through the multi-agent graph.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
-from src.database.models import UserRole
-
-
-# ============== Intent Constants ==============
-class Intent:
-    SEARCH_PROPERTY = "SEARCH_PROPERTY"
-    SELECT_PROPERTY = "SELECT_PROPERTY"
-    PROPERTY_DETAILS = "PROPERTY_DETAILS"
-    COMPARE_PROPERTIES = "COMPARE_PROPERTIES"
-    BOOK_APPOINTMENT = "BOOK_APPOINTMENT"
-    SELECT_SLOT = "SELECT_SLOT"
-    CHECK_STATUS = "CHECK_STATUS"
-    CANCEL_BOOKING = "CANCEL_BOOKING"
-    RESCHEDULE = "RESCHEDULE"
-    CONFIRM = "CONFIRM"
-    DENY = "DENY"
-    CONSULTATION_QA = "CONSULTATION_QA"
-    GREETING = "GREETING"
-    THANKS = "THANKS"
-    GOODBYE = "GOODBYE"
-    OUT_OF_SCOPE = "OUT_OF_SCOPE"
-    FALLBACK = "FALLBACK"
-
-
-# ============== Agent Type Constants ==============
-class AgentType:
-    SUPERVISOR = "supervisor"
-    INVENTORY = "inventory"
-    BOOKING = "booking"
-    ASSIGNMENT = "assignment"
-    HITL = "hitl"
-    RESPOND = "respond"
+from typing import TypedDict
 
 
 class AgentState(TypedDict, total=False):
-    """Full AgentState flowing through LangGraph nodes."""
+    """State schema cho LangGraph multi-agent.
 
-    # ============== Conversation & Context ==============
+    Mỗi node đọc và ghi vào state này.
+    total=False cho phép tất cả fields là optional.
+    """
+
+    # ============== Conversation ==============
     query: str  # Current user message
-    messages: list[dict[str, Any]]  # Chat history: [{"role": "user"|"assistant", "content": "..."}]
-    session_id: str  # Conversation session UUID
-    customer_id: str | None  # Customer UUID if logged in
-    customer_role: UserRole | None  # Role of customer
-    customer_authenticated: bool  # True if user is logged in as CUSTOMER
+    messages: list[dict]  # Chat history: [{"role": "user", "content": "..."}]
+    session_id: str  # Unique session identifier
 
-    # ============== Search & Recommendations ==============
-    search_criteria: dict[str, Any]  # {district, province, property_kind, min_price, max_price, min_bedrooms, min_bathrooms, min_area}
-    soft_preferences: list[str]  # e.g. ["yên tĩnh", "gần trường học", "view thoáng", "ban công"]
-    household_context: list[str]  # e.g. ["gia đình 4 người", "có con nhỏ", "nuôi thú cưng"]
-    commute_landmark: str | None  # e.g. "Quận 1", "Sân bay Tân Sơn Nhất"
-    max_commute_minutes: int | None
-    selected_properties: list[dict[str, Any]]  # Full property items matching search / current view
-    search_results: list[dict[str, Any]]  # Preserved list of search result properties across turns
-    current_property_id: str | None  # ID of property being discussed / selected
-    selected_property_index: int | None  # 0-indexed number of selected property
-    comparison_properties: list[dict[str, Any]]  # Properties for side-by-side comparison
+    # ============== Customer Context ==============
+    customer_id: str | None  # Customer UUID
+    customer_profile: dict | None  # Cached customer data
+    customer_authenticated: bool  # Whether the customer is authenticated
+    preferences: list[dict]  # From long-term memory
+    preferred_time_slots: list[str]  # e.g., ["weekends", "after_18h"]
 
-    # ============== Booking & Scheduling ==============
-    requested_date: str | None  # Target date (YYYY-MM-DD)
-    requested_hour: int | None  # Target hour (0-23)
-    selected_slots: list[dict[str, Any]]  # Available slots proposed to customer
-    selected_slot_index: int | None  # 0-indexed slot chosen by customer
-    active_request_id: str | None  # TourRequest / Appointment UUID
-    active_request_code: str | None  # Code like TR-XXXXX or BK-XXXXX
-    pending_action: str | None  # Workflow flag (e.g. "CREATE_BOOKING", "CANCEL_CONFIRMATION", "RESCHEDULE:uuid")
-    phase: str  # Phase: IDLE, SEARCH_RESULTS, PROPERTY_SELECTED, AWAITING_DATE, AWAITING_SLOT, AWAITING_AUTH, AWAITING_CANCEL_CONFIRMATION, WAITING_APPROVAL
-    auth_required: bool  # Whether customer must sign in to proceed
+    # ============== Booking Context ==============
+    current_property_id: str | None  # Property being discussed
+    selected_properties: list[dict]  # Properties matching search
+    selected_slots: list[dict]  # Proposed time slots
+    selected_slot_id: str | None  # User's chosen slot
+    booking_in_progress: bool  # Is user in booking flow?
+    booking_id: str | None  # Created booking ID
 
-    # ============== Routing & Understanding ==============
-    current_agent: str  # supervisor | inventory | booking | assignment | hitl | respond
-    intent: str | None  # Classification from Intent constants
-    confidence: float  # Classification confidence
-    direct_response: str | None  # Pre-generated direct response from LLM
-    analysis: str  # Internal reasoning notes
+    # ============== Search Criteria ==============
+    search_criteria: dict | None  # {
+    #     "property_kind": "APARTMENT",
+    #     "district": "Quận 7",
+    #     "min_price": 2000000000,
+    #     "max_price": 4000000000,
+    #     "bedrooms": 2,
+    #     "features": ["balcony", "parking"]
+    # }
 
-    # ============== HITL (Human-in-the-Loop) ==============
-    awaiting_human: bool
-    hitl_case_id: str | None
-    hitl_reason: str | None
-    hitl_context: dict[str, Any] | None
-    human_decision: dict[str, Any] | None
+    # ============== Agent Routing ==============
+    current_agent: str  # conversation | inventory | booking | assignment | hitl
+    intent: str | None  # SEARCH | BOOK | CANCEL | RESCHEDULE | INFO
+    required_fields: list[str]  # Fields needed for booking
+    missing_fields: list[str]  # Fields not yet collected
 
-    # ============== Final Response & Metadata ==============
-    response: str  # Final text output in Markdown
-    response_kind: str  # SEARCH_RESULTS, PROPERTY_ADVICE, DIRECT, OUT_OF_SCOPE, etc.
-    suggested_actions: list[str]  # Quick reply chips
-    insights: dict[str, Any]  # Accumulated criteria & preferences
-    memory_summary: str  # Long term customer memory summary
-    ai_mode: str  # llm_grounded, llm_direct, llm_intent, fallback
-    ai_model: str | None
-    ai_latency_ms: int
-    error: str | None
+    # ============== Decision Making ==============
+    analysis: str  # LLM's analysis
+    confidence: float  # Decision confidence (0.0-1.0)
+    next_action: str | None  # Suggested next action
+
+    # ============== Human-in-the-Loop (HITL) ==============
+    awaiting_human: bool  # Is workflow paused waiting for human?
+    hitl_case_id: str | None  # HITL case identifier
+    hitl_reason: str | None  # Why HITL was triggered
+    hitl_context: dict | None  # Additional context for human
+    human_decision: dict | None  # Human's decision
+
+    # ============== Tool Execution ==============
+    tool_calls: list[dict]  # Tools that were called
+    tool_results: list[dict]  # Results from tools
+    last_tool_error: str | None  # Error from last tool call
+
+    # ============== Response ==============
+    response: str  # Final response to user
+    suggested_actions: list[str]  # Suggested next user actions
+
+    # ============== Error Handling ==============
+    error: str | None  # Any error that occurred
+    error_recovery_suggestion: str | None  # How to recover from error
+
+    # ============== Metadata ==============
+    metadata: dict  # Additional metadata
+    conversation_summary: str | None  # Summary for context window
 
 
-def create_initial_agent_state(
+# ============== Intent Types ==============
+class Intent:
+    """Defined intent types for routing."""
+
+    SEARCH_PROPERTY = "SEARCH_PROPERTY"
+    BOOK_APPOINTMENT = "BOOK_APPOINTMENT"
+    CANCEL_BOOKING = "CANCEL_BOOKING"
+    RESCHEDULE = "RESCHEDULE"
+    GET_INFO = "GET_INFO"
+    GENERAL_QA = "GENERAL_QA"  # Câu hỏi tổng quát về BĐS — KHÔNG search DB
+    CHECK_STATUS = "CHECK_STATUS"
+    GREETING = "GREETING"
+    FALLBACK = "FALLBACK"
+
+
+# ============== Agent Types ==============
+class AgentType:
+    """Defined agent types."""
+
+    SUPERVISOR = "supervisor"  # Main orchestrator / conversation agent
+    INVENTORY = "inventory"  # Property search and suggestions
+    BOOKING = "booking"  # Tour request and appointment creation
+    ASSIGNMENT = "assignment"  # Sale agent assignment
+    HITL = "hitl"  # Human-in-the-loop handling
+    RESPOND = "respond"  # Generate final response
+
+
+# ============== Helper Functions ==============
+
+def create_initial_state(
     session_id: str,
     query: str,
     customer_id: str | None = None,
-    customer_role: UserRole | None = None,
-    history: list[dict[str, Any]] | None = None,
-    metadata: dict[str, Any] | None = None,
+    customer_role: Any = None,
+    history: list[dict] | None = None,
+    metadata: dict | None = None,
 ) -> AgentState:
-    """Create a fully initialized AgentState from session and metadata."""
-    stored_state = (metadata or {}).get("chat_state", {})
+    """Create initial state for a new conversation.
 
-    state: AgentState = {
-        "query": query,
-        "messages": list(history or []),
-        "session_id": session_id,
-        "customer_id": customer_id,
-        "customer_role": customer_role,
-        "customer_authenticated": customer_id is not None and customer_role == UserRole.CUSTOMER,
-        "search_criteria": stored_state.get("criteria", {}),
-        "soft_preferences": stored_state.get("soft_preferences", []),
-        "household_context": stored_state.get("household_context", []),
-        "commute_landmark": stored_state.get("commute_landmark"),
-        "max_commute_minutes": stored_state.get("max_commute_minutes"),
-        "selected_properties": stored_state.get("property_refs", []),
-        "current_property_id": stored_state.get("selected_property_id"),
-        "selected_property_index": stored_state.get("selected_property_index"),
-        "comparison_properties": [],
-        "requested_date": stored_state.get("requested_date"),
-        "requested_hour": stored_state.get("requested_hour"),
-        "selected_slots": stored_state.get("slots", []),
-        "selected_slot_index": stored_state.get("selected_slot_index"),
-        "active_request_id": stored_state.get("active_request_id"),
-        "active_request_code": stored_state.get("active_request_code"),
-        "pending_action": stored_state.get("pending_action"),
-        "phase": stored_state.get("phase", "IDLE"),
-        "auth_required": False,
-        "current_agent": AgentType.SUPERVISOR,
-        "intent": None,
-        "confidence": 1.0,
-        "direct_response": None,
-        "analysis": "",
-        "awaiting_human": False,
-        "hitl_case_id": None,
-        "hitl_reason": None,
-        "hitl_context": None,
-        "human_decision": None,
-        "response": "",
-        "response_kind": "DIRECT",
-        "suggested_actions": [],
-        "insights": (metadata or {}).get("insights", {}),
-        "memory_summary": "",
-        "ai_mode": "llm_grounded",
-        "ai_model": None,
-        "ai_latency_ms": 0,
-        "error": None,
-    }
+    Args:
+        session_id: Unique session identifier
+        query: Initial user message
+        customer_id: Customer UUID if authenticated
+
+    Returns:
+        Initial AgentState
+    """
+    msgs = list(history or [])
+    if not msgs or msgs[-1].get("content") != query:
+        msgs.append({"role": "user", "content": query})
+
+    return AgentState(
+        # Conversation
+        query=query,
+        messages=msgs,
+        session_id=session_id,
+        # Customer
+        customer_id=customer_id,
+        customer_profile=None,
+        customer_authenticated=customer_id is not None,
+        preferences=[],
+        preferred_time_slots=[],
+        # Booking
+        current_property_id=None,
+        selected_properties=[],
+        selected_slots=[],
+        selected_slot_id=None,
+        booking_in_progress=False,
+        booking_id=None,
+        search_criteria=None,
+        # Routing
+        current_agent=AgentType.SUPERVISOR,
+        intent=None,
+        required_fields=["property_id", "preferred_time", "customer_info"],
+        missing_fields=["property_id", "preferred_time", "customer_info"],
+        # Decision
+        analysis="",
+        confidence=1.0,
+        next_action=None,
+        # HITL
+        awaiting_human=False,
+        hitl_case_id=None,
+        hitl_reason=None,
+        hitl_context=None,
+        human_decision=None,
+        # Tools
+        tool_calls=[],
+        tool_results=[],
+        last_tool_error=None,
+        # Response
+        response="",
+        suggested_actions=[],
+        # Error
+        error=None,
+        error_recovery_suggestion=None,
+        # Metadata
+        metadata={},
+        conversation_summary=None,
+    )
+
+
+def add_message(state: AgentState, role: str, content: str) -> AgentState:
+    """Add a message to the conversation history.
+
+    Args:
+        state: Current agent state
+        role: Message role (user/assistant/system)
+        content: Message content
+
+    Returns:
+        Updated state
+    """
+    messages = state.get("messages", [])
+    messages.append({"role": role, "content": content})
+    state["messages"] = messages
     return state
+
+
+def get_conversation_context(
+    state: AgentState,
+    max_messages: int = 10,
+) -> str:
+    """Get formatted conversation context for LLM.
+
+    Args:
+        state: Current agent state
+        max_messages: Maximum messages to include
+
+    Returns:
+        Formatted conversation string
+    """
+    messages = state.get("messages", [])
+    recent = messages[-max_messages:] if len(messages) > max_messages else messages
+
+    formatted = []
+    for msg in recent:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        formatted.append(f"{role.upper()}: {content}")
+
+    return "\n".join(formatted)

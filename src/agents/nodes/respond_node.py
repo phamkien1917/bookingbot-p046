@@ -1,147 +1,263 @@
-"""Respond Node for LangGraph Multi-Agent System.
-
-Generates final grounded, natural, and personality-driven responses as Nera.
-"""
-
-from __future__ import annotations
+"""Response Agent - Generates final response to user."""
 
 import json
 import logging
-from typing import Any
+import re
+from datetime import datetime
 
-from langchain_core.messages import HumanMessage, SystemMessage
-
-from src.agents.state import AgentState, Intent
+from src.agents.state import AgentState
 from src.services.llm import get_llm
 
 logger = logging.getLogger(__name__)
 
-NERA_PERSONA_PROMPT = """Bạn là Nera – Trợ lý AI kiêm chuyên viên tư vấn bất động sản cao cấp hàng đầu tại Việt Nam.
 
-Phẩm chất & phong cách của bạn:
-- Tự nhiên, ấm áp, tận tâm, chuyên nghiệp, thông thái và am hiểu sâu sắc thị trường bất động sản Việt Nam (TP.HCM, Hà Nội, Đà Nẵng...).
-- Nắm vững các quy định pháp luật (Luật Đất đai, Luật Nhà ở, thủ tục công chứng, sang tên sổ đỏ, đặt cọc an toàn).
-- Nắm vững tài chính & ngân hàng (tính toán phương án vay 70%, lãi suất thả nổi, thời gian ân hạn, khả năng chi trả hàng tháng).
-- Hiểu phong thủy ứng dụng thực tế (hướng nhà, ánh sáng, thông gió, cảnh quan).
-- Thấu hiểu hoàn cảnh khách hàng (gia đình có con nhỏ cần gần trường, người đi làm cần tiện đường, người đầu tư cần tiềm năng sinh lời).
+# ============== Smalltalk Fast-path ==============
+# Các câu ngắn như "Cảm ơn", "OK", "Tạm biệt" - KHÔNG qua LLM, < 50ms
 
-Nguyên tắc phản hồi:
-1. Tuyệt đối không bịa đặt các thông số kỹ thuật (giá, diện tích, phòng) nếu không có trong dữ liệu.
-2. Trả lời mạch lạc, dễ hiểu, dùng Markdown đẹp mắt (bullet points, in đậm các ý chính, dùng emoji tinh tế).
-3. Luôn kết thúc bằng một câu gợi mở tự nhiên hoặc hướng dẫn bước tiếp theo phù hợp.
-4. Nếu người dùng hỏi các câu hỏi hoàn toàn ngoài lề (thời tiết, làm thơ, viết code...), hãy trả lời ngắn gọn, lịch sự và khéo léo kết nối lại về chủ đề nhà đất.
-"""
+_SMALLTALK_PATTERNS = [
+    r"^(cảm\s+ơn|cám\s+ơn|thank\s*you|thanks|thank)\b",
+    r"^(tạm\s+biệt|chào\s+tạm\s+biệt|bye|goodbye|see\s*you)\b",
+    r"^(ok|okay|okie|được|tốt|hiểu\s+rồi|được\s+rồi)\s*[.!]*$",
+    r"^(vâng|dạ|uhm|ừ|ừm)\s*[.!]*$",
+]
+
+_SMALLTALK_RESPONSES = {
+    "thank": "Rất vui được hỗ trợ bạn! 😊 Bạn cần tôi giúp gì thêm không?",
+    "bye": "Tạm biệt bạn! Chúc bạn một ngày tốt lành. 👋",
+    "ok": "Không có gì. Tôi sẵn sàng hỗ trợ bạn tiếp! 🏡",
+    "default": "Rất vui được hỗ trợ bạn! 😊",
+}
 
 
-async def respond_node(state: AgentState) -> dict[str, Any]:
-    """Respond node: ensures a natural, high-quality, persona-aligned response is generated."""
-    existing_response = state.get("response", "").strip()
-    intent = state.get("intent")
-    query = state.get("query", "")
-    history = state.get("messages", [])
-    direct_response = state.get("direct_response")
+def _classify_smalltalk(text: str) -> tuple[bool, str]:
+    """Classify smalltalk and return type."""
+    if not text:
+        return False, ""
+    cleaned = text.strip().lower()
+    cleaned = re.sub(r"[\W_]+$", "", cleaned, flags=re.UNICODE).strip()
 
-    final_response = existing_response
-    ai_mode = state.get("ai_mode", "llm_grounded")
+    for pattern in _SMALLTALK_PATTERNS:
+        if re.match(pattern, cleaned, flags=re.IGNORECASE | re.UNICODE):
+            if "tạm biệt" in cleaned or "bye" in cleaned:
+                return True, "bye"
+            if "cảm ơn" in cleaned or "cám ơn" in cleaned or "thank" in cleaned:
+                return True, "thank"
+            if "ok" in cleaned or "okay" in cleaned:
+                return True, "ok"
+            return True, "default"
+    return False, ""
 
-    # If no response generated yet, or intent is consultative/conversational
-    if not final_response or intent in (
-        Intent.CONSULTATION_QA,
-        Intent.GREETING,
-        Intent.THANKS,
-        Intent.GOODBYE,
-        Intent.OUT_OF_SCOPE,
-        Intent.FALLBACK,
-    ):
-        if direct_response and direct_response.strip():
-            final_response = direct_response.strip()
-            ai_mode = "llm_direct"
-        else:
-            # Generate dynamic response with LLM
-            recent_turns = []
-            for msg in history[-6:]:
-                role = msg.get("role", "user")
-                content = str(msg.get("content", ""))
-                if content:
-                    recent_turns.append(f"{role.upper()}: {content}")
 
-            context_info = {
-                "intent": intent,
-                "user_message": query,
-                "active_criteria": state.get("search_criteria", {}),
-                "soft_preferences": state.get("soft_preferences", []),
-                "household_context": state.get("household_context", []),
-                "selected_property_count": len(state.get("selected_properties", [])),
-                "current_property_id": state.get("current_property_id"),
-                "recent_history": recent_turns,
-            }
+def _is_smalltalk(text: str) -> bool:
+    """Check if text is smalltalk (backward compatibility)."""
+    is_smalltalk, _ = _classify_smalltalk(text)
+    return is_smalltalk
 
-            try:
-                llm = get_llm()
-                prompt_messages = [
-                    SystemMessage(content=NERA_PERSONA_PROMPT),
-                    HumanMessage(
-                        content=f"Ngữ cảnh hiện tại:\n{json.dumps(context_info, ensure_ascii=False)}\n\n"
-                        f"Tin nhắn mới của khách: \"{query}\"\n\n"
-                        "Hãy trả lời khách hàng một cách xuất sắc, tận tâm và tự nhiên nhất:"
-                    ),
-                ]
-                res = await llm.ainvoke(prompt_messages)
-                final_response = res.content if hasattr(res, "content") else str(res)
-                ai_mode = "llm_direct"
-            except Exception as e:
-                logger.error(f"Error in LLM response generation: {e}")
-                if not final_response:
-                    final_response = (
-                        "Chào bạn, mình là Nera! Mình có thể hỗ trợ bạn tìm kiếm bất động sản phù hợp, "
-                        "xem thông tin chi tiết và đặt lịch xem nhà trực tiếp với chuyên viên Sale. "
-                        "Bạn đang quan tâm đến khu vực hoặc phân khúc nào?"
-                    )
-                ai_mode = "fallback"
 
-    # Derive smart default suggested actions (Quick Replies) if empty
-    suggested_actions = list(state.get("suggested_actions", []))
-    if not suggested_actions:
-        if intent == Intent.GREETING:
-            suggested_actions = [
-                "Tìm căn hộ Quận 7",
-                "Tìm nhà riêng Hà Nội",
-                "Tư vấn mua nhà lần đầu",
-            ]
-        elif intent == Intent.CONSULTATION_QA:
-            suggested_actions = [
-                "Tìm bất động sản phù hợp",
-                "Tính thử phương án vay",
-                "Quy trình đặt cọc an toàn",
-            ]
-        elif intent == Intent.OUT_OF_SCOPE:
-            suggested_actions = [
-                "Tìm căn hộ chung cư",
-                "Tìm nhà phố liền kề",
-                "Kiểm tra lịch xem nhà",
-            ]
-        elif state.get("phase") == "SEARCH_RESULTS":
-            suggested_actions = ["Chọn căn số 1", "Chọn căn số 2", "So sánh các căn"]
-        else:
-            suggested_actions = ["Tìm căn hộ", "Tìm nhà phố", "Đặt lịch xem nhà"]
+def _get_smalltalk_response(s_type: str) -> str:
+    """Get response for smalltalk type."""
+    return _SMALLTALK_RESPONSES.get(s_type, _SMALLTALK_RESPONSES["default"])
 
-    # Build insights dictionary for frontend sidebar
-    criteria = state.get("search_criteria", {})
-    insights: dict[str, Any] = {
-        key: val for key, val in criteria.items() if val not in (None, "", [])
-    }
-    if state.get("soft_preferences"):
-        insights["soft_preferences"] = state["soft_preferences"]
-    if state.get("household_context"):
-        insights["household_context"] = state["household_context"]
-    if state.get("commute_landmark"):
-        insights["commute_landmark"] = state["commute_landmark"]
-    if state.get("max_commute_minutes"):
-        insights["max_commute_minutes"] = state["max_commute_minutes"]
+
+def _pick_smalltalk_response(text: str) -> str:
+    """Pick smalltalk response based on text (backward compatibility)."""
+    _, s_type = _classify_smalltalk(text)
+    return _get_smalltalk_response(s_type)
+
+
+async def respond_node(state: AgentState) -> dict:
+    """Respond node - generates the final response to user.
+
+    Priority:
+    1. Existing response (from other agents)
+    2. Smalltalk fast-path (cảm ơn/tạm biệt/OK) - < 50ms
+    3. Error response
+    4. Next action handler
+    5. LLM generation
+
+    Args:
+        state: Current agent state
+
+    Returns:
+        Updated state with response
+    """
+    # Get existing response or generate new one
+    existing_response = state.get("response", "")
+    error = state.get("error")
+    next_action = state.get("next_action")
+
+    # Smalltalk fast-path - before anything else
+    if not existing_response:
+        last_msg = _get_last_user_message(state)
+        if last_msg:
+            is_smalltalk, s_type = _classify_smalltalk(last_msg)
+            if is_smalltalk:
+                print(f"\n[SMALLTALK FAST] '{last_msg[:30]}...' -> {s_type}")
+                existing_response = _get_smalltalk_response(s_type)
+
+    # If there's an error, generate error response
+    if error and not existing_response:
+        existing_response = f"Xin lỗi, tôi gặp lỗi: {error}. Bạn có thể diễn đạt lại được không?"
+
+    # If there's a specific next action, handle it
+    if next_action and not existing_response:
+        existing_response = await _handle_next_action(state, next_action)
+
+    # If no response yet, generate one
+    if not existing_response:
+        existing_response = await _generate_response(state)
+
+    # If still no response, use fallback
+    if not existing_response:
+        existing_response = "Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này. Bạn có thể thử lại sau?"
+
+    # Add assistant message to history
+    messages = state.get("messages", [])
+    messages.append({
+        "role": "assistant",
+        "content": existing_response,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
 
     return {
-        "response": final_response,
-        "suggested_actions": suggested_actions,
-        "insights": insights,
-        "ai_mode": ai_mode,
+        "response": existing_response,
+        "messages": messages,
     }
+
+
+def _get_last_user_message(state: AgentState) -> str:
+    """Get the last user message."""
+    messages = state.get("messages", [])
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            return msg.get("content", "") or ""
+    return state.get("query", "") or ""
+
+
+async def _handle_next_action(state: AgentState, action: str) -> str:
+    """Handle specific next actions.
+
+    Args:
+        state: Current agent state
+        action: Action to handle
+
+    Returns:
+        Response string
+    """
+    if action == "greet":
+        return (
+            "Xin chào! 👋\n\n"
+            "Tôi là BookingBot, trợ lý AI của công ty bất động sản.\n\n"
+            "Tôi có thể giúp bạn:\n"
+            "🔍 Tìm kiếm bất động sản phù hợp\n"
+            "📅 Đặt lịch xem nhà\n"
+            "📋 Kiểm tra trạng thái booking\n"
+            "❓ Trả lời các câu hỏi về bất động sản\n\n"
+            "Bạn cần tôi hỗ trợ gì hôm nay?"
+        )
+
+    elif action == "clarify":
+        return (
+            "Xin lỗi, tôi chưa hiểu rõ ý bạn. 😕\n\n"
+            "Bạn có thể:\n"
+            "1. Mô tả lại yêu cầu của bạn\n"
+            "2. Hỏi về dịch vụ của chúng tôi\n"
+            "3. Yêu cầu tìm kiếm bất động sản\n"
+            "4. Đặt lịch xem nhà\n\n"
+            "Tôi sẵn sàng giúp bạn!"
+        )
+
+    elif action == "check_booking_status":
+        return (
+            "Để kiểm tra trạng thái booking, vui lòng cung cấp:\n"
+            "- Mã booking (VD: BK12345678)\n"
+            "hoặc\n"
+            "- Số điện thoại đã đăng ký\n\n"
+            "Bạn có thể cung cấp thông tin này không?"
+        )
+
+    else:
+        return ""
+
+
+async def _generate_response(state: AgentState) -> str:
+    """Generate response using LLM.
+
+    Args:
+        state: Current agent state
+
+    Returns:
+        Generated response
+    """
+    messages = state.get("messages", [])
+    recent = messages[-6:] if len(messages) > 6 else messages
+
+    # Build context for LLM
+    context = {
+        "intent": state.get("intent"),
+        "confidence": state.get("confidence"),
+        "selected_properties": state.get("selected_properties", [])[:3],
+        "selected_slots": state.get("selected_slots", []),
+        "booking_id": state.get("booking_id"),
+        "error": state.get("error"),
+        "analysis": state.get("analysis"),
+    }
+
+    prompt = f"""Bạn là trợ lý AI của công ty bất động sản. Dựa vào ngữ cảnh sau, hãy trả lời khách hàng một cách tự nhiên bằng tiếng Việt.
+
+Ngữ cảnh:
+{json.dumps(context, ensure_ascii=False, indent=2)}
+
+Lịch sử hội thoại:
+{chr(10).join([f"{m.get('role', 'unknown')}: {m.get('content', '')}" for m in recent])}
+
+Yêu cầu:
+- Trả lời ngắn gọn, thân thiện
+- Sử dụng emoji phù hợp
+- Nếu có thông tin bất động sản, trình bày rõ ràng
+- Nếu cần thêm thông tin từ khách, đặt câu hỏi cụ thể
+
+Trả lời:"""
+
+    try:
+        llm = get_llm()
+        from langchain_core.messages import HumanMessage
+        result = await llm.ainvoke([HumanMessage(content=prompt)])
+        return result.content if hasattr(result, 'content') else str(result)
+    except Exception as e:
+        logger.error(f"Error generating response: {e}")
+        return "Xin lỗi, tôi gặp sự cố khi tạo phản hồi. Bạn có thể diễn đạt lại được không?"
+
+
+def format_property_list(properties: list[dict]) -> str:
+    """Format a list of properties for display.
+
+    Args:
+        properties: List of property dicts
+
+    Returns:
+        Formatted string
+    """
+    if not properties:
+        return "Không có bất động sản nào phù hợp."
+
+    lines = []
+    for i, prop in enumerate(properties[:5], 1):
+        price = prop.get("list_price")
+        if price:
+            if price >= 1e9:
+                price_str = f"{price/1e9:.1f} tỷ"
+            else:
+                price_str = f"{price/1e6:.0f} triệu"
+        else:
+            price_str = "Liên hệ"
+
+        line = f"{i}. {prop.get('title', 'N/A')} - {price_str}"
+        if prop.get("district"):
+            line += f" ({prop['district']})"
+        if prop.get("bedrooms"):
+            line += f" - {prop['bedrooms']}PN"
+
+        lines.append(line)
+
+    return "\n".join(lines)
