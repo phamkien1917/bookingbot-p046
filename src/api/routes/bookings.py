@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.routes.auth import require_roles
+from src.api.routes.auth import get_optional_current_user, require_roles
 from src.database import get_session
 from src.database.models import User, UserRole
 from src.schemas.booking import BookingAction, TourRequestCreate
@@ -35,7 +35,7 @@ class RescheduleRequest(BaseModel):
 async def availability(
     property_id: UUID,
     target_date: date = Query(alias="date"),
-    _: User = Depends(require_roles(UserRole.CUSTOMER)),
+    user: User | None = Depends(get_optional_current_user),
     db: AsyncSession = Depends(get_session),
 ):
     try:
