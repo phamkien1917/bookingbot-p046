@@ -165,7 +165,9 @@ def format_criteria_summary(criteria: dict[str, Any]) -> str:
     if criteria.get("min_bedrooms") is not None:
         parts.append(f"{criteria['min_bedrooms']}+ phòng ngủ")
     if criteria.get("min_area") is not None:
-        parts.append(f"từ {criteria['min_area']:g} m²")
+        area_val = _num(criteria["min_area"])
+        if area_val is not None:
+            parts.append(f"từ {area_val:g} m²")
 
     return ", ".join(parts)
 
@@ -181,7 +183,8 @@ def format_search_results_markdown(items: list[dict[str, Any]], criteria: dict[s
     for index, item in enumerate(items, 1):
         location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
         price = _price_text(item.get("list_price"))
-        area = f"{item.get('area_sqm'):g} m²" if item.get("area_sqm") else ""
+        area_num = _num(item.get("area_sqm"))
+        area = f"{area_num:g} m²" if area_num is not None else ""
         beds = f"{item.get('bedrooms')} PN" if item.get("bedrooms") is not None else ""
         specs = " · ".join(filter(None, [price, area, beds, location]))
         blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{specs}")

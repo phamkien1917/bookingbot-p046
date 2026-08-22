@@ -90,6 +90,8 @@ async def remember_search_criteria(
         await _upsert(db, customer_id, key, value, confidence=0.92)
 
 
+
+
 async def remember_feedback(db: AsyncSession, customer_id: str, message: str) -> bool:
     """Keep explicit preference/feedback sentences as a short rolling memory."""
     normalized = message.strip()
@@ -136,8 +138,13 @@ def memory_summary(memory: dict) -> str:
     if bedrooms:
         parts.append(f"{bedrooms} phòng ngủ+")
     if memory.get("min_area"):
-        parts.append(f"từ {memory['min_area']:g} m²")
+        try:
+            parts.append(f"từ {float(memory['min_area']):g} m²")
+        except (ValueError, TypeError):
+            parts.append(f"từ {memory['min_area']} m²")
     notes = memory.get("feedback_notes")
     if isinstance(notes, list) and notes:
-        parts.append(notes[-1])
+        last_note = str(notes[-1]).strip()
+        if not any(kw in last_note.lower() for kw in ["thay đổi nhu cầu", "tiếp tục", "tìm kiếm"]):
+            parts.append(last_note)
     return " · ".join(parts)
