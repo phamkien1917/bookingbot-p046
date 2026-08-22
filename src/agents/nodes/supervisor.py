@@ -284,6 +284,12 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     elif state.get("current_property_id") and intent != Intent.BOOK_APPOINTMENT:
         if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
             intent = Intent.PROPERTY_DETAILS
+    elif re.search(r"\b(tiep tuc hanh trinh|nhu cau cu|so thich da luu|tiep tuc tim kiem)\b", norm_query):
+        intent = Intent.SEARCH_PROPERTY
+    elif re.search(r"\b(thay doi nhu cau|doi nhu cau|nhu cau moi|xoa tieu chi|muon thay doi)\b", norm_query):
+        intent = Intent.SEARCH_PROPERTY
+        merged_criteria = {}
+        updates["search_criteria"] = {}
 
     current_agent = AgentType.RESPOND
 
