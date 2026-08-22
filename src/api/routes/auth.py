@@ -19,12 +19,13 @@ settings = get_settings()
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
+    is_prod = settings.app_env == "production"
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
         httponly=True,
-        secure=settings.app_env == "production",
-        samesite="lax",
+        secure=is_prod,
+        samesite="none" if is_prod else "lax",
         max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
