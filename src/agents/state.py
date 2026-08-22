@@ -57,7 +57,8 @@ class AgentState(TypedDict, total=False):
     household_context: list[str]  # e.g. ["gia đình 4 người", "có con nhỏ", "nuôi thú cưng"]
     commute_landmark: str | None  # e.g. "Quận 1", "Sân bay Tân Sơn Nhất"
     max_commute_minutes: int | None
-    selected_properties: list[dict[str, Any]]  # Full property items matching search
+    selected_properties: list[dict[str, Any]]  # Full property items matching search / current view
+    search_results: list[dict[str, Any]]  # Preserved list of search result properties across turns
     current_property_id: str | None  # ID of property being discussed / selected
     selected_property_index: int | None  # 0-indexed number of selected property
     comparison_properties: list[dict[str, Any]]  # Properties for side-by-side comparison

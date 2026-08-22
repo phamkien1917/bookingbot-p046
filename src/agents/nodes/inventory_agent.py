@@ -3,19 +3,21 @@
 Queries real estate database with exact SQL constraints and formats grounded responses.
 """
 
-from __future__ import annotations
-
+import json
 import logging
+import re
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from src.agents.state import AgentState, AgentType, Intent
 from src.database.connection import get_session_context
 from src.database.models import Property, PropertyKind, PropertyStatus
+from src.services.llm import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +217,57 @@ def format_property_details_markdown(item: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+async def format_intelligent_comparison(items: list[dict[str, Any]], query: str) -> str:
+    """Generate rich comparison table and direct LLM comparative analysis for user question."""
+    # 1. Base Markdown Table
+    table_lines = ["📊 **Bảng so sánh nhanh các bất động sản bạn đang quan tâm:**\n"]
+    for index, item in enumerate(items, 1):
+        location = ", ".join(filter(None, [item.get("district"), item.get("province")]))
+        table_lines.append(
+            f"**{index}. {item.get('title', 'Bất động sản')}**\n"
+            f"- 💰 Giá: **{_price_text(item.get('list_price'))}**\n"
+            f"- 📐 Diện tích: {item.get('area_sqm') or '—'} m² | {item.get('bedrooms') or '—'} PN | {item.get('bathrooms') or '—'} WC\n"
+            f"- 📍 Vị trí: {location}\n"
+        )
+
+    # 2. Call LLM for personalized comparative insights (e.g. "căn nào thoáng hơn", "gần trường hơn")
+    try:
+        llm = get_llm()._create_chat_model()
+        sys_prompt = (
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI. Hãy so sánh các bất động sản sau và trả lời trực tiếp câu hỏi so sánh của khách hàng "
+            "(đặc biệt phân tích các khía cạnh khách quan tâm như độ thoáng, vị trí, tiện ích, giá bán, phù hợp gia đình).\n"
+            "Trình bày chuyên nghiệp, dùng bảng Markdown rõ ràng kèm phần đánh giá/kết luận súc tích. "
+            "Kết thúc bằng câu hỏi gợi ý khách chọn đặt lịch đi xem căn phù hợp nhất."
+        )
+        context = {
+            "customer_query": query,
+            "properties": [
+                {
+                    "ordinal": idx,
+                    "title": it.get("title"),
+                    "price": _price_text(it.get("list_price")),
+                    "area_sqm": it.get("area_sqm"),
+                    "bedrooms": it.get("bedrooms"),
+                    "bathrooms": it.get("bathrooms"),
+                    "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
+                    "description": str(it.get("description", ""))[:350],
+                }
+                for idx, it in enumerate(items, 1)
+            ]
+        }
+        res = await llm.ainvoke([
+            SystemMessage(content=sys_prompt),
+            HumanMessage(content=json.dumps(context, ensure_ascii=False))
+        ])
+        if res and res.content and len(res.content.strip()) > 30:
+            return res.content.strip()
+    except Exception as e:
+        logger.warning(f"Intelligent comparison LLM failed: {e}. Using structured table.")
+
+    table_lines.append("Bạn muốn xem chi tiết hoặc đặt lịch đi xem căn số mấy?")
+    return "\n".join(table_lines)
+
+
 def format_comparison_markdown(items: list[dict[str, Any]]) -> str:
     lines = ["📊 **Bảng so sánh nhanh các bất động sản bạn đang quan tâm:**\n"]
     for index, item in enumerate(items, 1):
@@ -231,16 +284,31 @@ def format_comparison_markdown(items: list[dict[str, Any]]) -> str:
 
 async def inventory_agent(state: AgentState) -> dict[str, Any]:
     """Inventory Agent node: handles searching, selecting, detailing, and comparing properties."""
+    query = state.get("query", "")
     intent = state.get("intent")
     criteria = state.get("search_criteria", {})
     existing_properties = state.get("selected_properties", [])
+    search_pool = state.get("search_results") or existing_properties
     soft_prefs = state.get("soft_preferences", [])
     current_prop_id = state.get("current_property_id")
     selected_idx = state.get("selected_property_index")
 
     # Step 1: Handle COMPARE_PROPERTIES
     if intent == Intent.COMPARE_PROPERTIES:
-        props = existing_properties
+        # Check if user mentioned specific ordinals (e.g. "căn 1 và căn 2" -> [0, 1])
+        found_ordinals = []
+        for m in re.finditer(r"(?:căn\s*(?:số)?|số)\s*(\d+)", query, re.IGNORECASE):
+            idx = int(m.group(1)) - 1
+            if idx not in found_ordinals and 0 <= idx < len(search_pool):
+                found_ordinals.append(idx)
+
+        if len(found_ordinals) >= 2:
+            props = [search_pool[i] for i in found_ordinals]
+        elif len(search_pool) >= 2:
+            props = search_pool[:3]
+        else:
+            props = existing_properties
+
         if len(props) < 2:
             # Query top available properties in the same area to compare
             alt_criteria = {}
@@ -253,10 +321,12 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             props = await query_properties_from_db(alt_criteria, limit=3)
 
         if props:
+            comparison_text = await format_intelligent_comparison(props[:3], query)
             return {
-                "selected_properties": props,
+                "selected_properties": props[:3],
+                "search_results": search_pool,
                 "comparison_properties": props[:3],
-                "response": format_comparison_markdown(props[:3]),
+                "response": comparison_text,
                 "response_kind": "PROPERTY_ADVICE",
                 "phase": "PROPERTY_SELECTED",
                 "current_agent": AgentType.RESPOND,
@@ -270,13 +340,13 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
     # Step 2: Handle PROPERTY_DETAILS (Evaluated before selection to answer questions on selected property!)
     if intent == Intent.PROPERTY_DETAILS:
         chosen = None
-        if current_prop_id and existing_properties:
-            chosen = next((p for p in existing_properties if p.get("id") == current_prop_id), None)
-        if not chosen and existing_properties:
-            if selected_idx is not None and 0 <= selected_idx < len(existing_properties):
-                chosen = existing_properties[selected_idx]
+        if current_prop_id and search_pool:
+            chosen = next((p for p in search_pool if p.get("id") == current_prop_id), None)
+        if not chosen and search_pool:
+            if selected_idx is not None and 0 <= selected_idx < len(search_pool):
+                chosen = search_pool[selected_idx]
             else:
-                chosen = existing_properties[0]
+                chosen = search_pool[0]
         if not chosen and current_prop_id:
             loaded = await load_properties_by_ids([current_prop_id])
             if loaded:
@@ -286,31 +356,33 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             return {
                 "current_property_id": chosen["id"],
                 "selected_properties": [chosen],
+                "search_results": search_pool,
                 "response": format_property_details_markdown(chosen),
                 "response_kind": "PROPERTY_ADVICE",
                 "phase": "PROPERTY_SELECTED",
                 "current_agent": AgentType.RESPOND,
                 "suggested_actions": [
                     "Đặt lịch xem căn này",
-                    "Hỏi thêm thông tin",
+                    "So sánh với các căn khác",
                     "Tìm căn khác",
                 ],
             }
 
     # Step 3: Handle SELECT_PROPERTY
     if intent == Intent.SELECT_PROPERTY:
-        if existing_properties:
-            if selected_idx is not None and 0 <= selected_idx < len(existing_properties):
-                chosen = existing_properties[selected_idx]
+        if search_pool:
+            if selected_idx is not None and 0 <= selected_idx < len(search_pool):
+                chosen = search_pool[selected_idx]
             elif current_prop_id:
-                chosen = next((p for p in existing_properties if p.get("id") == current_prop_id), existing_properties[0])
+                chosen = next((p for p in search_pool if p.get("id") == current_prop_id), search_pool[0])
             else:
-                chosen = existing_properties[0]
+                chosen = search_pool[0]
 
             return {
                 "current_property_id": chosen["id"],
                 "selected_property_index": selected_idx if selected_idx is not None else 0,
                 "selected_properties": [chosen],
+                "search_results": search_pool,
                 "response": f"Bạn đã chọn **{chosen['title']}** ({_price_text(chosen.get('list_price'))}, {chosen.get('area_sqm')} m² tại {chosen.get('district')}).\n\nBạn muốn xem chi tiết hay đặt lịch xem căn này vào ngày nào?",
                 "response_kind": "PROPERTY_SELECTED",
                 "phase": "PROPERTY_SELECTED",
@@ -343,6 +415,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         summary = format_criteria_summary(criteria)
         return {
             "selected_properties": [],
+            "search_results": [],
             "response": f"Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **{summary or 'hiện tại'}**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
             "response_kind": "SEARCH_NO_RESULTS",
             "phase": "SEARCH_NO_RESULTS",
@@ -360,6 +433,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     return {
         "selected_properties": properties,
+        "search_results": properties,
         "current_property_id": None,
         "selected_property_index": None,
         "response": format_search_results_markdown(properties, criteria, soft_prefs),
