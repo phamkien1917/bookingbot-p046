@@ -74,6 +74,16 @@ def _enum_value(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
 
 
+_JUNK_TITLE_PREFIX = re.compile(r"^\s*gi[oỏ]\s*h[aà]ng\s*m[oớ]i\s*\|\|\s*", re.IGNORECASE)
+
+
+def _clean_title(raw_title: str | None) -> str | None:
+    """Drop crawler marketing noise (e.g. "Giỏ hàng mới ||") from the front of a title."""
+    if not raw_title:
+        return raw_title
+    return _JUNK_TITLE_PREFIX.sub("", raw_title).strip()
+
+
 def serialize_property(prop: Property) -> dict[str, Any]:
     media = sorted(prop.media or [], key=lambda item: (not item.is_cover, item.sort_order))
     media_payload = [
@@ -91,7 +101,7 @@ def serialize_property(prop: Property) -> dict[str, Any]:
         "id": str(prop.id),
         "code": prop.code,
         "property_kind": _enum_value(prop.property_kind),
-        "title": prop.title,
+        "title": _clean_title(prop.title),
         "description": str(prop.description)[:1500] if prop.description else None,
         "status": _enum_value(prop.status),
         "address_line": prop.address_line,
