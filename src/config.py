@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     app_host: str = "0.0.0.0"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    # Support either local hostname without creating two separate cookie sessions.
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
 
     # Authentication
@@ -45,7 +44,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://visitops:change-this-local-password@localhost:5432/visitops"
 
     # Model settings
-    model_name: str = "nvidia/nemotron-3-ultra-550b-a55b:free"  # Default to Nemotron (free)
+    model_name: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=4096, ge=1, le=128000)
 
@@ -58,14 +57,15 @@ class Settings(BaseSettings):
     cache_session_ttl: int = Field(default=3600, ge=60, description="Session memory TTL (seconds)")
 
     # Rate Limiting
-    rate_limit_requests: int = Field(default=30, ge=1, description="Max requests per window")
+    rate_limit_requests: int = Field(default=120, ge=1, description="Max requests per window")
     rate_limit_window: int = Field(default=60, ge=1, description="Rate limit window (seconds)")
 
-    # Google Calendar
+    # Google Calendar & OAuth Sign-In
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
-    frontend_url: str = "http://localhost:3001"
+    google_redirect_uri: str = "https://bookingbot-api-q0t9.onrender.com/api/v1/auth/google/callback"
+    frontend_url: str = "https://www.nerahome.space"
+
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"
 
@@ -102,4 +102,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
