@@ -1,6 +1,5 @@
-// Same-origin by default. Next.js proxies this path to FastAPI, which keeps the
-// HttpOnly session cookie stable across local, preview and production hosts.
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+// Same-origin or remote backend API endpoint.
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
