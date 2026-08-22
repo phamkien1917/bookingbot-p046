@@ -4,7 +4,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  FaBed, FaBookmark, FaBrain, FaCalendarAlt, FaCheck, FaCheckCircle, FaChevronDown, FaChevronRight,
+  FaBars, FaBed, FaBookmark, FaBrain, FaCalendarAlt, FaCheck, FaCheckCircle, FaChevronDown, FaChevronRight,
   FaCompass, FaEllipsisV, FaExclamationCircle, FaHistory, FaMagic, FaMapMarkerAlt,
   FaPaperPlane, FaPen, FaPlus, FaRegBookmark, FaShieldAlt, FaTimes, FaTimesCircle, FaTrash
 } from "react-icons/fa";
@@ -460,6 +460,7 @@ function ChatContent() {
   const searchParams = useSearchParams();
   const propertyId = searchParams.get("property_id");
   const initialPrompt = searchParams.get("prompt");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
@@ -631,51 +632,76 @@ function ChatContent() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--paper)] text-[var(--ink)]">
+      {/* ── Mobile backdrop for sidebar ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Đóng lịch sử"
+        />
+      )}
+
       {/* ── Left sidebar: session history ── */}
-      <aside className="hidden w-72 shrink-0 flex-col bg-[var(--ink)] text-white lg:flex">
-        <div className="border-b border-white/10 p-5">
-          <Link href="/" className="flex items-center gap-3 font-semibold">
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10"><FaMagic className="text-[#a9c9b0]" /></span>
-            <span>Nera<small className="block text-[10px] font-medium uppercase tracking-[.16em] text-white/45">AI home companion</small></span>
-          </Link>
-        </div>
-        <div className="p-4">
-          <button onClick={newChat} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-[var(--ink)] transition hover:bg-[#e7eee7]">
-            <FaPlus /> Cuộc trò chuyện mới
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
-          <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-white/35"><FaHistory /> Lịch sử</p>
-          {!user
-            ? <Link href="/login?next=/chat" className="text-sm text-[#a9c9b0] hover:underline">Đăng nhập để lưu lịch sử</Link>
-            : sessions.length === 0
-              ? <p className="text-sm text-white/40">Chưa có cuộc trò chuyện.</p>
-              : <div className="space-y-2">
-                {sessions.map(session => (
-                  <div key={session.session_id} className={`group relative rounded-xl transition ${session.session_id === sessionId ? "bg-white/12" : "hover:bg-white/7"}`}>
-                    <button onClick={() => { setSessionMenu(null); void loadSession(session.session_id); }} className="w-full p-3 pr-10 text-left text-sm">
-                      <span className="block truncate">{session.preview}</span>
-                      <span className="text-xs text-white/35">{session.message_count} tin nhắn</span>
-                    </button>
-                    <button onClick={e => { e.stopPropagation(); setSessionMenu(cur => cur === session.session_id ? null : session.session_id); }}
-                      aria-label={`Tùy chọn cho ${session.preview}`}
-                      className={`absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white ${sessionMenu === session.session_id ? "opacity-100 bg-white/10" : "opacity-0 group-hover:opacity-100"}`}>
-                      <FaEllipsisV />
-                    </button>
-                    {sessionMenu === session.session_id && (
-                      <div className="absolute right-2 top-[calc(50%+20px)] z-20 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#243b34] py-1 shadow-2xl">
-                        <button onClick={() => beginRename(session)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs hover:bg-white/10"><FaPen /> Đổi tên</button>
-                        <button onClick={() => { setSessionMenu(null); setDeletingSession(session); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs text-[#ffb4a0] hover:bg-white/10"><FaTrash /> Xóa</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>}
-        </div>
-        <div className="border-t border-white/10 p-4 text-sm">
-          {user
-            ? <><p className="font-semibold">{user.full_name}</p><p className="text-xs text-white/40">Dữ liệu riêng theo tài khoản</p></>
-            : <p className="text-white/40">Bạn đang trò chuyện ẩn danh</p>}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--ink)] text-white shadow-2xl transition-all duration-300 ease-in-out lg:static lg:z-auto lg:shadow-none ${
+          sidebarOpen
+            ? "w-72 translate-x-0 opacity-100"
+            : "-translate-x-full pointer-events-none lg:translate-x-0 lg:w-0 lg:overflow-hidden lg:opacity-0"
+        }`}
+      >
+        <div className="flex h-full w-72 flex-col">
+          <div className="flex items-center justify-between border-b border-white/10 p-5">
+            <Link href="/" className="flex items-center gap-3 font-semibold">
+              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10"><FaMagic className="text-[#a9c9b0]" /></span>
+              <span>Nera<small className="block text-[10px] font-medium uppercase tracking-[.16em] text-white/45">AI home companion</small></span>
+            </Link>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="grid h-8 w-8 place-items-center rounded-xl text-white/60 transition hover:bg-white/10 hover:text-white"
+              aria-label="Thu gọn lịch sử"
+              title="Thu gọn lịch sử"
+            >
+              <FaBars />
+            </button>
+          </div>
+          <div className="p-4">
+            <button onClick={newChat} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-[var(--ink)] transition hover:bg-[#e7eee7]">
+              <FaPlus /> Cuộc trò chuyện mới
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-white/35"><FaHistory /> Lịch sử</p>
+            {!user
+              ? <Link href="/login?next=/chat" className="text-sm text-[#a9c9b0] hover:underline">Đăng nhập để lưu lịch sử</Link>
+              : sessions.length === 0
+                ? <p className="text-sm text-white/40">Chưa có cuộc trò chuyện.</p>
+                : <div className="space-y-2">
+                  {sessions.map(session => (
+                    <div key={session.session_id} className={`group relative rounded-xl transition ${session.session_id === sessionId ? "bg-white/12" : "hover:bg-white/7"}`}>
+                      <button onClick={() => { setSessionMenu(null); void loadSession(session.session_id); }} className="w-full p-3 pr-10 text-left text-sm">
+                        <span className="block truncate">{session.preview}</span>
+                        <span className="text-xs text-white/35">{session.message_count} tin nhắn</span>
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); setSessionMenu(cur => cur === session.session_id ? null : session.session_id); }}
+                        aria-label={`Tùy chọn cho ${session.preview}`}
+                        className={`absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white ${sessionMenu === session.session_id ? "opacity-100 bg-white/10" : "opacity-0 group-hover:opacity-100"}`}>
+                        <FaEllipsisV />
+                      </button>
+                      {sessionMenu === session.session_id && (
+                        <div className="absolute right-2 top-[calc(50%+20px)] z-20 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#243b34] py-1 shadow-2xl">
+                          <button onClick={() => beginRename(session)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs hover:bg-white/10"><FaPen /> Đổi tên</button>
+                          <button onClick={() => { setSessionMenu(null); setDeletingSession(session); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs text-[#ffb4a0] hover:bg-white/10"><FaTrash /> Xóa</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>}
+          </div>
+          <div className="border-t border-white/10 p-4 text-sm">
+            {user
+              ? <><p className="font-semibold">{user.full_name}</p><p className="text-xs text-white/40">Dữ liệu riêng theo tài khoản</p></>
+              : <p className="text-white/40">Bạn đang trò chuyện ẩn danh</p>}
+          </div>
         </div>
       </aside>
 
@@ -683,6 +709,14 @@ function ChatContent() {
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-black/5 bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen((open) => !open)}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-black/10 bg-white text-stone-700 shadow-sm transition hover:border-black/20 hover:bg-stone-50 hover:text-black"
+              aria-label={sidebarOpen ? "Thu gọn thanh lịch sử" : "Mở thanh lịch sử"}
+              title={sidebarOpen ? "Thu gọn thanh lịch sử" : "Mở thanh lịch sử"}
+            >
+              <FaBars />
+            </button>
             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
             <div>
               <h1 className="font-semibold">Nera đang ở đây</h1>
