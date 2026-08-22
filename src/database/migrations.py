@@ -13,14 +13,9 @@ POSTGRES_MIGRATIONS = (
     "ALTER TABLE sale_profiles ADD COLUMN IF NOT EXISTS calendar_access_token TEXT",
     "ALTER TABLE sale_profiles ADD COLUMN IF NOT EXISTS calendar_refresh_token TEXT",
     "ALTER TABLE sale_profiles ADD COLUMN IF NOT EXISTS calendar_token_expires_at TIMESTAMPTZ",
-    """
-    UPDATE property_media
-    SET url = 'https://www.nerahome.space/property-placeholder.svg'
-    WHERE url IN (
-        'https://images.example.com/sr-a1208-cover.jpg',
-        'https://images.example.com/sr-l18-cover.jpg'
-    )
-    """,
+    "DELETE FROM property_media WHERE property_id IN (SELECT id FROM properties WHERE code IN ('SR-A1208', 'SR-L18'))",
+    "DELETE FROM property_sale_assignments WHERE property_id IN (SELECT id FROM properties WHERE code IN ('SR-A1208', 'SR-L18'))",
+    "DELETE FROM properties WHERE code IN ('SR-A1208', 'SR-L18')",
 )
 
 

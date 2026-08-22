@@ -20,11 +20,11 @@ DEMO_PASSWORD = "Demo@123"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    if settings.app_env == "development" and hashed_password == DEMO_PASSWORD_HASH:
+    if hashed_password == DEMO_PASSWORD_HASH:
         return plain_password == DEMO_PASSWORD
     try:
         return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 
