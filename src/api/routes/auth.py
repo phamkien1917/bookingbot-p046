@@ -8,7 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import get_settings
 from src.database import get_session
 from src.database.models import User, UserRole, UserStatus
-from src.schemas.auth import PasswordUpdate, Token, UserRegister, UserResponse, UserUpdate
+from src.schemas.auth import (
+    ForgotPasswordRequest,
+    PasswordUpdate,
+    ResetPasswordRequest,
+    Token,
+    UserRegister,
+    UserResponse,
+    UserUpdate,
+)
 from src.services.auth_service import create_access_token, get_password_hash, register_user, verify_password
 from src.utils.time import utcnow
 
@@ -28,6 +36,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
         path="/",
     )
 
+
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserRegister, db: AsyncSession = Depends(get_session)):
     try:
@@ -41,14 +50,14 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_sessi
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Registration error: {str(e)}")
 
+
 @router.post("/login", response_model=Token)
 async def login(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_session),
 ):
-    # Find user by email
-    stmt = select(User).where(User.email == form_data.username)
+    stmt = select(User).where(User.email == form_data.username.lower().strip())
     result = await db.execute(stmt)
     user = result.scalars().first()
 
@@ -162,3 +171,43 @@ async def update_password(
     user.password_hash = get_password_hash(password_data.new_password)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    stmt = select(User).where(User.email == data.email.lower().strip())
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+
+    if not user:
+        return {
+            "message": "Nếu email tồn tại trong hệ thống, bạn có thể thiết lập lại mật khẩu ngay.",
+            "exists": False,
+        }
+
+    return {
+        "message": "Email hợp lệ. Bạn có thể tiến hành đặt lại mật khẩu mới.",
+        "exists": True,
+        "email": user.email,
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    data: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    stmt = select(User).where(User.email == data.email.lower().strip())
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản với email này.")
+
+    user.password_hash = get_password_hash(data.new_password)
+    user.updated_at = utcnow()
+    await db.commit()
+    return {"message": "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới."}

@@ -17,3 +17,12 @@ def test_oauth_state_rejects_tampering() -> None:
         _decode_oauth_state(f"{state[:-1]}{replacement}")
 
     assert exc_info.value.status_code == 400
+
+
+def test_login_oauth_state() -> None:
+    from src.api.routes.google_oauth import _create_login_oauth_state, _decode_oauth_payload
+
+    state = _create_login_oauth_state()
+    payload = _decode_oauth_payload(state)
+    assert payload.get("purpose") == "google_login"
+
