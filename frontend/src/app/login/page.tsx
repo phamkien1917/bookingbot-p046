@@ -31,9 +31,11 @@ function LoginForm() {
     const googleToken = searchParams.get("google_token");
     if (googleToken) {
       localStorage.setItem("nera_auth_token", googleToken);
+      document.cookie = `bookingbot_session=${googleToken}; path=/; max-age=604800; samesite=lax`;
       void refresh().then(() => {
         const next = searchParams.get("next");
         router.replace(next || "/");
+        router.refresh();
       });
     }
   }, [searchParams, refresh, router]);
