@@ -447,15 +447,43 @@ class ConversationStore:
             Message ID
         """
         import uuid
+        from datetime import datetime
+        from uuid import UUID
 
         from src.database.connection import get_session_context
-        from src.database.models import Conversation, Message, MessageRole
+        from src.database.models import Conversation, CustomerProfile, Message, MessageRole, User
 
         async with get_session_context() as session:
-            # Get or create conversation
             from sqlalchemy import select
+
+            user_uuid = UUID(user_id)
+            # Ensure CustomerProfile exists for customer_user_id foreign key constraint
+            cust_profile = (
+                await session.execute(
+                    select(CustomerProfile).where(CustomerProfile.user_id == user_uuid)
+                )
+            ).scalar_one_or_none()
+            if not cust_profile:
+                existing_user = (
+                    await session.execute(
+                        select(User).where(User.id == user_uuid)
+                    )
+                ).scalar_one_or_none()
+                if existing_user:
+                    short_id = str(user_uuid).replace("-", "")[:8].upper()
+                    new_cp = CustomerProfile(
+                        user_id=user_uuid,
+                        customer_code=f"CUS-{short_id}",
+                        preferred_contact_channel="IN_APP",
+                    )
+                    session.add(new_cp)
+                    await session.flush()
+                else:
+                    return str(uuid.uuid4())
+
+            # Get or create conversation
             stmt = select(Conversation).where(
-                Conversation.customer_user_id == UUID(user_id),
+                Conversation.customer_user_id == user_uuid,
                 Conversation.status == "OPEN"
             ).order_by(Conversation.created_at.desc())
             result = await session.execute(stmt)
@@ -464,7 +492,7 @@ class ConversationStore:
             if not conversation:
                 conversation = Conversation(
                     id=uuid.uuid4(),
-                    customer_user_id=UUID(user_id),
+                    customer_user_id=user_uuid,
                     status="OPEN",
                 )
                 session.add(conversation)

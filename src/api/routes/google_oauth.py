@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.routes.auth import require_roles
 from src.config import get_settings
 from src.database import get_session
-from src.database.models import SaleProfile, User, UserRole, UserStatus
+from src.database.models import CustomerProfile, SaleProfile, User, UserRole, UserStatus
 from src.services.auth_service import ALGORITHM, SECRET_KEY, create_access_token, get_password_hash
 from src.utils.time import utcnow
 
@@ -157,15 +157,37 @@ async def google_callback(
             user = User(
                 email=email,
                 full_name=full_name,
-                password_hash=get_password_hash(crypto_random_str := f"gauth_{email}"),
+                password_hash=get_password_hash(f"gauth_{email}"),
                 role=UserRole.CUSTOMER,
                 status=UserStatus.ACTIVE,
             )
             db.add(user)
+            await db.flush()
+
+            short_id = str(user.id).replace("-", "")[:8].upper()
+            profile = CustomerProfile(
+                user_id=user.id,
+                customer_code=f"CUS-{short_id}",
+                preferred_contact_channel="IN_APP",
+            )
+            db.add(profile)
             await db.commit()
             await db.refresh(user)
         else:
             user.last_login_at = utcnow()
+            # Ensure CustomerProfile exists if user is customer
+            if user.role == UserRole.CUSTOMER or str(user.role) == "CUSTOMER":
+                cust_profile = (
+                    await db.execute(select(CustomerProfile).where(CustomerProfile.user_id == user.id))
+                ).scalar_one_or_none()
+                if not cust_profile:
+                    short_id = str(user.id).replace("-", "")[:8].upper()
+                    profile = CustomerProfile(
+                        user_id=user.id,
+                        customer_code=f"CUS-{short_id}",
+                        preferred_contact_channel="IN_APP",
+                    )
+                    db.add(profile)
             await db.commit()
 
         jwt_token = create_access_token(

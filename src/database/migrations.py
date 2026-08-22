@@ -46,6 +46,13 @@ POSTGRES_MIGRATIONS = (
     FROM users WHERE email LIKE '%@xhome.com'
     ON CONFLICT (user_id) DO NOTHING
     """,
+    """
+    INSERT INTO customer_profiles (user_id, customer_code, preferred_contact_channel)
+    SELECT id, 'CUS-' || UPPER(SUBSTRING(REPLACE(id::text, '-', ''), 1, 8)), 'IN_APP'
+    FROM users
+    WHERE role = 'CUSTOMER'
+    ON CONFLICT (user_id) DO NOTHING
+    """,
 )
 
 
