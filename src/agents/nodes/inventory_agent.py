@@ -212,6 +212,47 @@ def format_property_details_markdown(item: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+async def format_intelligent_property_review(item: dict[str, Any], query: str) -> str:
+    """Generate an intelligent, comprehensive AI review for the specific property."""
+    try:
+        llm = get_llm()._create_chat_model()
+        sys_prompt = (
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI cao cấp, tinh tế và thấu hiểu khách hàng.\n"
+            "Khách hàng đang xem chi tiết một bất động sản cụ thể và đặt câu hỏi/yêu cầu review về căn nhà này.\n"
+            "Hãy trả lời trực tiếp, đánh giá súc tích, khách quan và đưa ra lời khuyên chuyên môn.\n\n"
+            "Quy tắc phản hồi:\n"
+            "1. Nhận diện đúng căn nhà đang được xem (Tên, Giá, Diện tích, Vị trí).\n"
+            "2. Phân tích các ưu điểm nổi bật (vị trí, tầm view, tiện ích, pháp lý, mức giá so với phân khúc).\n"
+            "3. Đưa ra lời khuyên phù hợp (căn này phù hợp với đối tượng nào: ở thực, gia đình trẻ, hay đầu tư cho thuê).\n"
+            "4. Giọng văn ấm áp, chuyên nghiệp, súc tích và kết thúc bằng lời mời đặt lịch xem thực tế."
+        )
+        context = {
+            "customer_query": query,
+            "property": {
+                "title": item.get("title"),
+                "price": _price_text(item.get("list_price")),
+                "area_sqm": item.get("area_sqm"),
+                "bedrooms": item.get("bedrooms"),
+                "bathrooms": item.get("bathrooms"),
+                "location": ", ".join(filter(None, [item.get("address_line"), item.get("ward"), item.get("district"), item.get("province")])),
+                "legal_status": item.get("legal_status"),
+                "orientation": item.get("orientation"),
+                "description": str(item.get("description", ""))[:600],
+            },
+        }
+        res = await llm.ainvoke([
+            SystemMessage(content=sys_prompt),
+            HumanMessage(content=f"Thông tin căn nhà đang xem:\n{json.dumps(context, ensure_ascii=False, indent=2)}\n\nCâu hỏi/Yêu cầu của khách: {query}"),
+        ])
+        content = str(res.content).strip()
+        if content:
+            return content
+    except Exception as exc:
+        logger.warning(f"Error calling LLM for property review: {exc}")
+
+    return format_property_details_markdown(item)
+
+
 async def format_intelligent_comparison(items: list[dict[str, Any]], query: str) -> str:
     """Generate rich comparison table and direct LLM comparative analysis for user question."""
     # 1. Base Markdown Table
@@ -490,11 +531,12 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
                 chosen = loaded[0]
 
         if chosen:
+            detailed_response = await format_intelligent_property_review(chosen, query)
             return {
                 "current_property_id": chosen["id"],
                 "selected_properties": [chosen],
                 "search_results": search_pool,
-                "response": format_property_details_markdown(chosen),
+                "response": detailed_response,
                 "response_kind": "PROPERTY_ADVICE",
                 "phase": "PROPERTY_SELECTED",
                 "current_agent": AgentType.RESPOND,

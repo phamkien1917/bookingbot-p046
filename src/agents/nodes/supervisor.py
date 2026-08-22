@@ -281,6 +281,9 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         or (target_date and "xem" in norm_query)
     ) and intent not in (Intent.CANCEL_BOOKING, Intent.RESCHEDULE, Intent.CHECK_STATUS):
         intent = Intent.BOOK_APPOINTMENT
+    elif state.get("current_property_id") and intent != Intent.BOOK_APPOINTMENT:
+        if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
+            intent = Intent.PROPERTY_DETAILS
 
     current_agent = AgentType.RESPOND
 
