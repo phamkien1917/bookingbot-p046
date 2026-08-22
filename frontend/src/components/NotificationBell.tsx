@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { FaBell } from "react-icons/fa";
 import { useAuth } from "./AuthProvider";
-import { apiFetch, API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type Notice = { id: string; template_key: string; payload: Record<string, unknown>; status: string };
 
@@ -39,9 +39,6 @@ export default function NotificationBell() {
 
   useEffect(() => {
     let active = true;
-    let ws: WebSocket | null = null;
-    let timer: number | null = null;
-    let retryTimeout: number | null = null;
 
     const load = async () => {
       if (!user) { setNotifications([]); return; }
@@ -51,56 +48,17 @@ export default function NotificationBell() {
       } catch { if (active) setNotifications([]); }
     };
 
-    const setupWebSocket = () => {
-      if (!user || !active) return;
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}${API_BASE}/notifications/ws`;
-      
-      ws = new WebSocket(wsUrl);
-      
-      ws.onmessage = (event) => {
-        try {
-          const newNotice = JSON.parse(event.data) as Notice;
-          if (active) {
-            setNotifications(prev => {
-              if (prev.some(n => n.id === newNotice.id)) return prev;
-              return [newNotice, ...prev];
-            });
-          }
-        } catch (e) {
-          console.error("Failed to parse websocket message", e);
-        }
-      };
-
-      ws.onclose = () => {
-        if (active) {
-          if (!timer) timer = window.setInterval(() => void load(), 3000);
-          retryTimeout = window.setTimeout(() => {
-            if (active) setupWebSocket();
-          }, 5000);
-        }
-      };
-      
-      ws.onopen = () => {
-        if (timer) {
-          window.clearInterval(timer);
-          timer = null;
-        }
-      };
-    };
-
     void load();
-    setupWebSocket();
+    const timer = window.setInterval(() => void load(), 10_000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
 
     return () => {
       active = false;
-      if (timer) window.clearInterval(timer);
-      if (retryTimeout) window.clearTimeout(retryTimeout);
-      if (ws) {
-        ws.onclose = null;
-        ws.close();
-      }
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [user]);
 

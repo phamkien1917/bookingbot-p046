@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TourRequestCreate(BaseModel):
@@ -27,6 +27,7 @@ class BookingAction(BaseModel):
 class UserStatusUpdate(BaseModel):
     status: str
 
+
 class MediaResponse(BaseModel):
     url: str
     is_cover: bool
@@ -38,7 +39,8 @@ class PropertyResponse(BaseModel):
     address: str
     district: str | None = None
     province: str | None = None
-    media: list[MediaResponse] = []
+    media: list[MediaResponse] = Field(default_factory=list)
+
 
 class SaleResponse(BaseModel):
     id: UUID
@@ -55,6 +57,8 @@ class AppointmentResponse(BaseModel):
     ends_at: datetime
 
 class BookingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     request_code: str
     status: str
@@ -68,6 +72,3 @@ class BookingResponse(BaseModel):
     property: PropertyResponse | None = None
     sale: SaleResponse | None = None
     appointment: AppointmentResponse | None = None
-
-    class Config:
-        from_attributes = True

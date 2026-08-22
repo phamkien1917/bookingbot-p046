@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useMemo, useState } from "react";
@@ -6,6 +5,7 @@ import { FaBed, FaBookmark, FaBrain, FaCheckCircle, FaChevronDown, FaChevronRigh
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
 import { formatPropertyAddress } from "@/lib/propertyAddress";
+import PropertyImage from "@/components/PropertyImage";
 
 // Helper: match property features vs insights for "Vì sao?"
 function buildMatchReasons(property: Property, insights: Record<string, unknown>): { ok: string[]; caution: string[] } {
@@ -54,7 +54,7 @@ export default function PropertyCard({ property, insights, savedIds, onDetail, o
       <div className="sm:flex">
         <div className="h-48 bg-stone-100 sm:h-auto sm:w-52 shrink-0">
           {(property.image || property.media?.[0]?.url)
-            ? <img src={property.image || property.media[0].url} alt={property.title} className="h-full w-full object-cover" />
+            ? <PropertyImage src={property.image || property.media[0].url} alt={property.title} className="h-full w-full object-cover" />
             : <div className="grid h-full min-h-40 place-items-center text-4xl">🏠</div>}
         </div>
         <div className="flex-1 p-5">

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import re
-from src.utils.time import utcnow
 from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import CustomerPreference
+from src.utils.time import utcnow
 
 SEARCH_MEMORY_KEYS = {
     "district", "province", "property_kind", "min_price", "max_price",

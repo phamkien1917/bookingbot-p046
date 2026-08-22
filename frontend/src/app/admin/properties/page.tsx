@@ -51,7 +51,7 @@ export default function AdminPropertiesPage() {
         body: JSON.stringify({ status: newStatus })
       });
       await load();
-    } catch (err) {
+    } catch {
       alert("Lỗi khi cập nhật trạng thái");
     }
   };

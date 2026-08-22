@@ -1,6 +1,4 @@
 from collections.abc import Callable
-from datetime import datetime
-from src.utils.time import utcnow
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -12,6 +10,7 @@ from src.database import get_session
 from src.database.models import User, UserRole, UserStatus
 from src.schemas.auth import PasswordUpdate, Token, UserRegister, UserResponse, UserUpdate
 from src.services.auth_service import create_access_token, get_password_hash, register_user, verify_password
+from src.utils.time import utcnow
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -19,13 +18,12 @@ settings = get_settings()
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
-    is_prod = settings.app_env == "production"
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
         httponly=True,
-        secure=is_prod,
-        samesite="none" if is_prod else "lax",
+        secure=settings.app_env == "production",
+        samesite="lax",
         max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )

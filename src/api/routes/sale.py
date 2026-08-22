@@ -1,5 +1,4 @@
 from uuid import UUID
-from src.utils.time import utcnow
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -22,6 +21,7 @@ from src.services.booking_service import (
     reject_sale_request,
 )
 from src.services.route_optimizer import optimize_daily_route
+from src.utils.time import utcnow
 
 router = APIRouter(prefix="/sale", tags=["sale"])
 
@@ -103,8 +103,13 @@ async def optimize_route(
 ):
     """Optimize the appointment route for a specific date using TSP."""
     try:
-        optimized = await optimize_daily_route(db, user.id, date)
-        return {"message": "Route optimized successfully", "count": len(optimized)}
+        optimized, total_distance_km = await optimize_daily_route(db, user.id, date)
+        return {
+            "message": "Route optimized successfully",
+            "count": len(optimized),
+            "appointment_ids": [str(appointment.id) for appointment in optimized],
+            "total_distance_km": round(total_distance_km, 2),
+        }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

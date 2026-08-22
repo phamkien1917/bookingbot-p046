@@ -167,13 +167,13 @@ INSERT INTO property_media (
     (
         '50000000-0000-0000-0000-000000000001',
         '40000000-0000-0000-0000-000000000001',
-        'IMAGE', 'https://images.example.com/sr-a1208-cover.jpg',
+        'IMAGE', 'https://www.nerahome.space/property-placeholder.svg',
         'DEMO', 'Ảnh đại diện căn A-1208', 0, TRUE
     ),
     (
         '50000000-0000-0000-0000-000000000002',
         '40000000-0000-0000-0000-000000000002',
-        'IMAGE', 'https://images.example.com/sr-l18-cover.jpg',
+        'IMAGE', 'https://www.nerahome.space/property-placeholder.svg',
         'DEMO', 'Ảnh đại diện lô đất L18', 0, TRUE
     )
 ON CONFLICT (id) DO NOTHING;

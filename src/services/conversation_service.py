@@ -1,7 +1,6 @@
 """Persistent chat history backed by PostgreSQL."""
 
 import json
-from src.utils.time import utcnow
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -9,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.models import Conversation, Message, MessageRole
+from src.utils.time import utcnow
 
 
 def _as_uuid(value: str) -> UUID | None:

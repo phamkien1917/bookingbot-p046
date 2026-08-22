@@ -1,10 +1,9 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  FaArrowRight, FaBrain, FaCheck, FaCheckCircle, FaComments,
+  FaArrowRight, FaBrain, FaCheckCircle, FaComments,
   FaExclamationCircle, FaSpinner, FaTimes, FaTrash
 } from "react-icons/fa";
 import Header from "@/components/Header";

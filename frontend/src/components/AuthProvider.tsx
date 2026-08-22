@@ -99,11 +99,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
-      const payload = (await response.json()) as { detail?: string; user?: User; access_token?: string };
+      const payload = (await response.json()) as { detail?: string; user?: User };
       if (!response.ok || !payload.user) throw new Error(payload.detail ?? "Đăng nhập thất bại");
-      if (payload.access_token && typeof window !== "undefined") {
-        localStorage.setItem("bookingbot_token", payload.access_token);
-      }
 
       // Read the new cookie back from the server before protected pages render.
       const confirmedUser = await apiFetch<User>("/auth/me");
@@ -126,9 +123,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const operation = ++operationVersion.current;
     setLoading(true);
     try {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("bookingbot_token");
-      }
       await apiFetch<void>("/auth/logout", { method: "POST" });
       if (operation === operationVersion.current) {
         setUser(null);

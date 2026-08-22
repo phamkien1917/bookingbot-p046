@@ -1,5 +1,4 @@
 from datetime import timedelta
-from src.utils.time import utcnow
 
 import bcrypt
 import jwt
@@ -9,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import get_settings
 from src.database.models import CustomerProfile, User
 from src.schemas.auth import UserRegister
+from src.utils.time import utcnow
 
 settings = get_settings()
 

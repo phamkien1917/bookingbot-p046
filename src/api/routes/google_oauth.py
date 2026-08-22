@@ -1,43 +1,66 @@
-﻿import json
-from datetime import datetime, timedelta
-import httpx
-from src.utils.time import utcnow
+from datetime import timedelta
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import httpx
+import jwt
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.routes.auth import require_roles
-from src.database import get_session
-from src.database.models import User, UserRole, SaleProfile
 from src.config import get_settings
+from src.database import get_session
+from src.database.models import SaleProfile, User, UserRole
+from src.services.auth_service import ALGORITHM, SECRET_KEY
+from src.utils.time import utcnow
 
 router = APIRouter(prefix="/auth/google", tags=["oauth"])
 
-@router.get("/login")
-async def google_login(
-    user: User = Depends(require_roles(UserRole.SALE)),
-):
+
+def _oauth_settings():
     settings = get_settings()
-    state = str(user.id)
-    
-    client_id = getattr(settings, "google_client_id", "mock_client_id")
-    redirect_uri = "http://localhost:3000/api/v1/auth/google/callback"
-    
+    if not settings.google_client_id or not settings.google_client_secret:
+        raise HTTPException(status_code=503, detail="Google Calendar chưa được cấu hình")
+    return settings
+
+
+def _create_oauth_state(user_id: str) -> str:
+    return jwt.encode(
+        {
+            "user_id": user_id,
+            "purpose": "google_calendar_oauth",
+            "exp": utcnow() + timedelta(minutes=10),
+        },
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
+
+
+def _decode_oauth_state(state: str) -> str:
+    try:
+        payload = jwt.decode(state, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=400, detail="OAuth state không hợp lệ hoặc đã hết hạn") from exc
+    if payload.get("purpose") != "google_calendar_oauth" or not payload.get("user_id"):
+        raise HTTPException(status_code=400, detail="OAuth state không hợp lệ")
+    return str(payload["user_id"])
+
+
+@router.get("/login")
+async def google_login(user: User = Depends(require_roles(UserRole.SALE))):
+    settings = _oauth_settings()
     params = {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
+        "client_id": settings.google_client_id,
+        "redirect_uri": settings.google_redirect_uri,
         "response_type": "code",
         "scope": "https://www.googleapis.com/auth/calendar.events",
         "access_type": "offline",
         "prompt": "consent",
-        "state": state,
+        "state": _create_oauth_state(str(user.id)),
     }
-    
-    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
-    return {"url": auth_url}
+    return {"url": f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"}
+
 
 @router.get("/callback")
 async def google_callback(
@@ -45,55 +68,41 @@ async def google_callback(
     state: str,
     db: AsyncSession = Depends(get_session),
 ):
-    settings = get_settings()
-    client_id = getattr(settings, "google_client_id", "mock_client_id")
-    client_secret = getattr(settings, "google_client_secret", "mock_client_secret")
-    redirect_uri = "http://localhost:3000/api/v1/auth/google/callback"
-    
+    settings = _oauth_settings()
+    user_id = _decode_oauth_state(state)
+
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
                     "code": code,
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "redirect_uri": redirect_uri,
+                    "client_id": settings.google_client_id,
+                    "client_secret": settings.google_client_secret,
+                    "redirect_uri": settings.google_redirect_uri,
                     "grant_type": "authorization_code",
                 },
             )
-            data = resp.json()
-            if "error" in data:
-                data = {
-                    "access_token": "mock_access_token",
-                    "refresh_token": "mock_refresh_token",
-                    "expires_in": 3600
-                }
-    except Exception:
-        data = {
-            "access_token": "mock_access_token",
-            "refresh_token": "mock_refresh_token",
-            "expires_in": 3600
-        }
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="Không thể kết nối Google Calendar") from exc
 
-    user_id = state
-    
-    stmt = select(SaleProfile).where(SaleProfile.user_id == user_id)
-    profile = (await db.execute(stmt)).scalar_one_or_none()
-    
+    access_token = data.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=502, detail="Google không trả về access token")
+
+    profile = (
+        await db.execute(select(SaleProfile).where(SaleProfile.user_id == user_id))
+    ).scalar_one_or_none()
     if not profile:
         raise HTTPException(status_code=404, detail="Sale profile not found")
-        
-    profile.calendar_provider = "GOOGLE"
-    profile.calendar_access_token = data.get("access_token")
-    if data.get("refresh_token"):
-        profile.calendar_refresh_token = data.get("refresh_token")
-        
-    expires_in = data.get("expires_in", 3600)
-    profile.calendar_token_expires_at = utcnow() + timedelta(seconds=expires_in)
-    
-    db.add(profile)
-    await db.commit()
-    
-    return RedirectResponse(url="http://localhost:3000/sale")
 
+    profile.calendar_provider = "GOOGLE"
+    profile.calendar_access_token = access_token
+    if data.get("refresh_token"):
+        profile.calendar_refresh_token = data["refresh_token"]
+    profile.calendar_token_expires_at = utcnow() + timedelta(seconds=data.get("expires_in", 3600))
+    await db.commit()
+
+    return RedirectResponse(url=f"{settings.frontend_url.rstrip('/')}/sale")

@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { FaBars, FaBell, FaBookmark, FaCalendarAlt, FaComments, FaMagic, FaSignOutAlt, FaTimes, FaUserCircle } from "react-icons/fa";
+import { useState } from "react";
+import { FaBars, FaBookmark, FaCalendarAlt, FaMagic, FaSignOutAlt, FaTimes, FaUserCircle } from "react-icons/fa";
 import { roleHome, useAuth } from "./AuthProvider";
-import { apiFetch } from "@/lib/api";
 import NotificationBell from "./NotificationBell";
 
 export default function Header() {

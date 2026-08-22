@@ -1,16 +1,16 @@
+import asyncio
 from uuid import UUID
 
-import asyncio
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.routes.auth import get_current_user
+from src.config import get_settings
 from src.database import get_session
 from src.database.models import DeliveryStatus, Notification, User, UserStatus
-from src.config import get_settings
 from src.services.auth_service import ALGORITHM, SECRET_KEY
-import jwt
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -65,22 +65,19 @@ async def websocket_notifications(
 ):
     await websocket.accept()
     settings = get_settings()
-    
+
     token = websocket.cookies.get(settings.auth_cookie_name)
-    if not token:
-        token = websocket.query_params.get("token")
-        
     if not token:
         await websocket.close(code=1008)
         return
-        
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("user_id")
         if not user_id:
             await websocket.close(code=1008)
             return
-            
+
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         if not user or user.status != UserStatus.ACTIVE:
@@ -89,18 +86,18 @@ async def websocket_notifications(
     except jwt.PyJWTError:
         await websocket.close(code=1008)
         return
-        
+
     from src.services.redis_service import get_event_pubsub
     pubsub = get_event_pubsub()
     channel = f"notifications:{user.id}"
-    
+
     async def listen_to_redis():
         async for event in pubsub.subscribe(channel):
             try:
                 await websocket.send_json(event)
             except Exception:
                 break
-                
+
     task = asyncio.create_task(listen_to_redis())
     try:
         while True:

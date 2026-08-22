@@ -7,12 +7,11 @@ cancellation with confirmation, and atomic rescheduling.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.agents.state import AgentState, AgentType, Intent
 from src.database.connection import get_session_context
@@ -73,7 +72,6 @@ async def _find_tour_request_id(customer_id: UUID, code: str | None, active_id: 
 async def booking_agent(state: AgentState) -> dict[str, Any]:
     """Booking Agent node: manages entire booking lifecycle."""
     intent = state.get("intent")
-    query = state.get("query", "")
     customer_id_str = state.get("customer_id")
     customer_id = UUID(customer_id_str) if customer_id_str else None
     customer_role = state.get("customer_role")
@@ -141,7 +139,7 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
         return {
             "phase": "AWAITING_CANCEL_CONFIRMATION",
             "active_request_id": str(request_id),
-            "response": f"Bạn có chắc chắn muốn hủy yêu cầu đặt lịch này không? Hãy trả lời **xác nhận** hoặc **không**.",
+            "response": "Bạn có chắc chắn muốn hủy yêu cầu đặt lịch này không? Hãy trả lời **xác nhận** hoặc **không**.",
             "current_agent": AgentType.RESPOND,
             "suggested_actions": ["Xác nhận", "Không"],
         }
@@ -371,7 +369,7 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
             local_start = booking.preferred_start.astimezone(LOCAL_TZ)
             local_end = booking.preferred_end.astimezone(LOCAL_TZ) if booking.preferred_end else local_start + timedelta(hours=1)
             duration_mins = int((local_end - local_start).total_seconds() / 60)
-            
+
             prop = booking.property
             prop_title = prop.title if prop else "Bất động sản"
             prop_addr = prop.address if prop and hasattr(prop, "address") and prop.address else "Địa chỉ căn hộ"

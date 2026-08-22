@@ -5,7 +5,8 @@ This defines the state that flows through all nodes in the agent graph.
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, TypedDict
+
 from src.database.models import UserRole
 
 

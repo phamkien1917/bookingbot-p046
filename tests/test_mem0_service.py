@@ -3,9 +3,9 @@
 Run with: pytest tests/test_mem0_service.py -v
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestMemoryService:
@@ -172,7 +172,7 @@ class TestSemanticMemory:
         """Test client returns None when Chroma not available."""
         # Mock to simulate missing Chroma
         with patch("builtins.__import__", side_effect=ImportError):
-            client = semantic_memory._get_client()
+            semantic_memory._get_client()
             # Should handle gracefully
 
 
@@ -268,6 +268,7 @@ class TestMemoryPerformance:
     async def test_context_building_performance(self):
         """Test that context building doesn't add significant latency."""
         import time
+
         from src.services.mem0_service import MemoryService
 
         service = MemoryService()

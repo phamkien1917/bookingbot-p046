@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
@@ -6,6 +5,7 @@ import { useMemo } from "react";
 import { FaBookmark, FaBrain, FaCheck, FaCompass, FaShieldAlt } from "react-icons/fa";
 
 import { formatPropertyPrice } from "@/components/PropertyTile";
+import PropertyImage from "@/components/PropertyImage";
 import type { Property } from "@/lib/types";
 
 const INSIGHT_LABELS: Record<string, string> = {
@@ -99,7 +99,7 @@ export default function InsightsSidebar({
               {latestMatches.slice(0, 3).map((property) => (
                 <button key={property.id} onClick={() => onSelectProperty(property)} className="flex w-full gap-3 rounded-xl border border-black/5 p-2 text-left">
                   {property.image || property.media?.[0]?.url
-                    ? <img src={property.image || property.media?.[0]?.url} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                    ? <PropertyImage src={property.image || property.media?.[0]?.url} alt="" className="h-14 w-14 rounded-lg object-cover" />
                     : <div className="grid h-14 w-14 place-items-center rounded-lg bg-stone-100">🏡</div>}
                   <span className="min-w-0">
                     <strong className="line-clamp-2 text-xs">{property.title}</strong>

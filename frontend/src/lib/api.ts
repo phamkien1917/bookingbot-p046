@@ -1,5 +1,6 @@
-// Same-origin or remote backend API endpoint.
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+// Browser traffic always uses the same origin. Next.js proxies this path to the
+// backend, avoiding CORS/third-party-cookie failures in production.
+export const API_BASE = "/api/v1";
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -9,15 +10,11 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit & { signal?: AbortSignal } = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("bookingbot_token") : null;
-  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
     headers: {
       ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...authHeaders,
       ...options.headers,
     },
   });

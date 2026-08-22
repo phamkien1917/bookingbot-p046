@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Leaflet and its routing plugin are loaded dynamically from their browser bundles. */
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { FaArrowLeft, FaClock, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
@@ -14,6 +16,21 @@ interface CalendarAppointment {
   starts_at: string;
   ends_at: string;
   property: { id: string; title: string; address: string; latitude: number | null; longitude: number | null } | null;
+}
+
+interface OptimizedRoute {
+  appointment_ids: string[];
+  total_distance_km: number;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] as string);
 }
 
 function MapComponent({ appointments }: { appointments: CalendarAppointment[] }) {
@@ -85,9 +102,9 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
           (container as any).outerHTML = '<div id="route-map" class="w-full h-full rounded-[1.5rem] border border-black/5 bg-[#f7f5ef] z-0 shadow-inner min-h-[400px]"></div>';
       }
       
-      const validPoints = appointments
-        .filter(a => a.property?.latitude && a.property?.longitude)
-        .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+      const validPoints = appointments.filter(
+        (appointment) => appointment.property?.latitude != null && appointment.property?.longitude != null,
+      );
 
       // Center around HCMC or first point
       const center = validPoints.length > 0 
@@ -126,7 +143,7 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
 
         const popupContent = group.apts.map(apt => {
           const timeString = new Date(apt.starts_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
-          return `<b>${apt.property!.title}</b><br/>${timeString} - ${apt.status}`;
+          return `<b>${escapeHtml(apt.property!.title)}</b><br/>${timeString} - ${escapeHtml(apt.status)}`;
         }).join('<hr style="margin:8px 0; border-color:#eee;" />');
 
         L.marker([group.apts[0].property!.latitude, group.apts[0].property!.longitude], {icon: customIcon})
@@ -176,12 +193,15 @@ export default function RouteMapPage() {
   const [optimizing, setOptimizing] = useState(false);
   const [error, setError] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [optimizedOrder, setOptimizedOrder] = useState<string[]>([]);
+  const [optimizedDistance, setOptimizedDistance] = useState<number | null>(null);
   
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch<CalendarAppointment[]>("/sale/schedule");
       setAllAppointments(res);
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi tải dữ liệu");
     } finally {
@@ -195,8 +215,9 @@ export default function RouteMapPage() {
     setOptimizing(true);
     setError("");
     try {
-      await apiFetch(`/sale/optimize-route?date=${selectedDate}`, { method: "POST" });
-      await load();
+      const result = await apiFetch<OptimizedRoute>(`/sale/optimize-route?date=${selectedDate}`, { method: "POST" });
+      setOptimizedOrder(result.appointment_ids);
+      setOptimizedDistance(result.total_distance_km);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi tối ưu lộ trình");
     } finally {
@@ -212,7 +233,15 @@ export default function RouteMapPage() {
                      String(localDate.getDate()).padStart(2, '0');
     return localStr === selectedDate;
   });
-  const sortedPoints = [...filteredAppointments].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  const orderIndex = new Map(optimizedOrder.map((id, index) => [id, index]));
+  const sortedPoints = [...filteredAppointments].sort((a, b) => {
+    const aIndex = orderIndex.get(a.id);
+    const bIndex = orderIndex.get(b.id);
+    if (aIndex != null && bIndex != null) return aIndex - bIndex;
+    if (aIndex != null) return -1;
+    if (bIndex != null) return 1;
+    return new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+  });
 
   return (
     <ProtectedPage roles={["SALE"]}>
@@ -225,7 +254,10 @@ export default function RouteMapPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold">Lộ trình</h1>
-                <p className="text-sm text-[var(--muted)] mt-1">{sortedPoints.length} điểm đến được phân công</p>
+                <p className="text-sm text-[var(--muted)] mt-1">
+                  {sortedPoints.length} điểm đến được phân công
+                  {optimizedDistance != null ? ` · ${optimizedDistance.toFixed(1)} km theo lộ trình đề xuất` : ""}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -239,7 +271,11 @@ export default function RouteMapPage() {
                   type="date" 
                   className="text-sm border border-gray-300 rounded-xl px-4 py-2 bg-white font-semibold text-[var(--ink)] outline-none focus:border-[var(--forest)] focus:ring-2 focus:ring-[var(--forest)]/20 shadow-sm"
                   value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
+                  onChange={e => {
+                    setSelectedDate(e.target.value);
+                    setOptimizedOrder([]);
+                    setOptimizedDistance(null);
+                  }}
                 />
               </div>
             </div>
@@ -277,7 +313,7 @@ export default function RouteMapPage() {
             </div>
             
             <div className="flex-1 min-h-[400px] h-full relative">
-              <MapComponent appointments={filteredAppointments} />
+              <MapComponent appointments={sortedPoints} />
             </div>
           </div>
           

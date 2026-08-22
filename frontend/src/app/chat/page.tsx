@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,6 +11,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
+import PropertyImage from "@/components/PropertyImage";
 import { apiFetch } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
@@ -222,7 +222,7 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
       <div className="sm:flex">
         <div className="h-48 bg-stone-100 sm:h-auto sm:w-52 shrink-0">
           {(property.image || property.media?.[0]?.url)
-            ? <img src={property.image || property.media[0].url} alt={property.title} className="h-full w-full object-cover" />
+            ? <PropertyImage src={property.image || property.media[0].url} alt={property.title} className="h-full w-full object-cover" />
             : <div className="grid h-full min-h-40 place-items-center text-4xl">🏠</div>}
         </div>
         <div className="flex-1 p-5">
@@ -394,7 +394,7 @@ function InsightsSidebar({ insights, memorySummary, savedProperties, latestMatch
                 <button key={property.id} onClick={() => onSelectProperty(property)}
                   className="flex w-full gap-3 rounded-xl border border-black/5 p-2 text-left transition hover:bg-stone-50">
                   {(property.image || property.media?.[0]?.url)
-                    ? <img src={property.image || property.media[0].url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
+                    ? <PropertyImage src={property.image || property.media[0].url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
                     : <div className="grid h-14 w-14 place-items-center rounded-lg bg-stone-100 shrink-0">🏡</div>}
                   <span className="min-w-0">
                     <strong className="line-clamp-2 text-xs leading-4">{property.title}</strong>
@@ -870,7 +870,7 @@ function ChatContent() {
             <h2 className="pr-10 text-2xl font-bold">{selected.title}</h2>
             <p className="mt-2 font-bold text-[var(--coral)]">{formatPropertyPrice(selected.list_price)}</p>
             {(selected.image || selected.media?.[0]?.url) && (
-              <img src={selected.image || selected.media[0].url} alt={selected.title} className="mt-5 h-72 w-full rounded-xl object-cover" />
+              <PropertyImage src={selected.image || selected.media[0].url} alt={selected.title} className="mt-5 h-72 w-full rounded-xl object-cover" />
             )}
             {/* AI match reasons in detail modal */}
             {(() => { const { ok, caution } = buildMatchReasons(selected, insights); return (ok.length > 0 || caution.length > 0) && (

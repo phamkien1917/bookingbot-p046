@@ -23,8 +23,8 @@ Architecture:
 import json
 import logging
 import time
-from datetime import datetime, timedelta
-from typing import Any, Optional
+from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -45,7 +45,7 @@ class MemoryEntry(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     score: float = Field(default=1.0, ge=0.0, le=1.0)
-    category: Optional[str] = None  # preference, fact, plan, etc.
+    category: str | None = None  # preference, fact, plan, etc.
 
 
 class ExtractedFact(BaseModel):
@@ -63,7 +63,7 @@ class MemoryContext(BaseModel):
     relevant_memories: list[MemoryEntry] = Field(default_factory=list)
     preferences: dict[str, Any] = Field(default_factory=dict)
     recent_conversation: list[dict] = Field(default_factory=list)
-    summary: Optional[str] = None
+    summary: str | None = None
 
 
 # ============== Extraction Policy ==============
@@ -115,8 +115,9 @@ Nếu không có fact nào, trả về: []"""
     def _get_llm(self):
         """Lazy LLM initialization."""
         if self._llm is None:
-            from src.services.llm import get_llm
             from langchain_core.messages import SystemMessage
+
+            from src.services.llm import get_llm
             self._llm = get_llm()
             self._system = SystemMessage(content=self.SYSTEM_PROMPT)
         return self._llm
@@ -213,6 +214,8 @@ class SemanticMemory:
                 # Use pgvector via Mem0
                 # Requires: mem0-ai with postgres config
                 from mem0.configs import Mem0Config
+
+                _ = Mem0Config
                 self._client = {"type": "postgres", "config": settings}
             else:
                 raise ValueError(f"Unknown provider: {self.provider}")
@@ -234,9 +237,9 @@ class SemanticMemory:
         self,
         user_id: str,
         content: str,
-        metadata: Optional[dict] = None,
-        category: Optional[str] = None,
-    ) -> Optional[str]:
+        metadata: dict | None = None,
+        category: str | None = None,
+    ) -> str | None:
         """Add a memory entry.
 
         Args:
@@ -271,7 +274,6 @@ class SemanticMemory:
                     }]
                 )
             elif self.provider == "qdrant":
-                from qdrant_client.models import Distance, VectorParams, PointStruct
                 from mem0.ai import Mem0
 
                 m = Mem0(config={
@@ -300,7 +302,7 @@ class SemanticMemory:
         user_id: str,
         query: str,
         limit: int = 5,
-        category: Optional[str] = None,
+        category: str | None = None,
     ) -> list[MemoryEntry]:
         """Search memories for a user.
 
@@ -430,7 +432,7 @@ class ConversationStore:
         user_id: str,
         role: str,
         content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> str:
         """Save a message to conversation history.
 
@@ -444,9 +446,10 @@ class ConversationStore:
         Returns:
             Message ID
         """
+        import uuid
+
         from src.database.connection import get_session_context
         from src.database.models import Conversation, Message, MessageRole
-        import uuid
 
         async with get_session_context() as session:
             # Get or create conversation
@@ -496,9 +499,10 @@ class ConversationStore:
         Returns:
             List of message dicts
         """
+        from sqlalchemy import select
+
         from src.database.connection import get_session_context
         from src.database.models import Conversation, Message
-        from sqlalchemy import select
 
         async with get_session_context() as session:
             # Get latest open conversation
@@ -550,8 +554,9 @@ class ConversationStore:
         ])
 
         try:
-            from src.services.llm import get_llm
             from langchain_core.messages import HumanMessage
+
+            from src.services.llm import get_llm
 
             llm = get_llm()
             prompt = f"""Tóm tắt cuộc trò chuyện sau trong 2-3 câu tiếng Việt, tập trung vào:
@@ -599,10 +604,11 @@ class PreferenceStore:
         Returns:
             True if saved
         """
-        from src.database.connection import get_session_context
-        from src.database.models import CustomerPreference
         import uuid
         from datetime import datetime
+
+        from src.database.connection import get_session_context
+        from src.database.models import CustomerPreference
 
         async with get_session_context() as session:
             # Check existing
@@ -643,9 +649,10 @@ class PreferenceStore:
         Returns:
             Dict of key -> value
         """
+        from sqlalchemy import select
+
         from src.database.connection import get_session_context
         from src.database.models import CustomerPreference
-        from sqlalchemy import select
 
         async with get_session_context() as session:
             stmt = select(CustomerPreference).where(
@@ -670,9 +677,10 @@ class PreferenceStore:
         Returns:
             True if deleted
         """
+        from sqlalchemy import delete
+
         from src.database.connection import get_session_context
         from src.database.models import CustomerPreference
-        from sqlalchemy import delete
 
         async with get_session_context() as session:
             stmt = delete(CustomerPreference).where(
@@ -713,8 +721,8 @@ class MemoryService:
 
     def __init__(
         self,
-        semantic_provider: Optional[str] = None,
-        collection_name: Optional[str] = None,
+        semantic_provider: str | None = None,
+        collection_name: str | None = None,
     ):
         settings = get_settings()
 
@@ -750,7 +758,7 @@ class MemoryService:
         user_id: str,
         role: str,
         content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> str:
         """Add a message to conversation history.
 
@@ -777,7 +785,7 @@ class MemoryService:
         self,
         user_id: str,
         session_id: str,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> list[dict]:
         """Get conversation history.
 
@@ -800,9 +808,9 @@ class MemoryService:
         self,
         user_id: str,
         content: str,
-        category: Optional[str] = None,
-        metadata: Optional[dict] = None,
-    ) -> Optional[str]:
+        category: str | None = None,
+        metadata: dict | None = None,
+    ) -> str | None:
         """Add a semantic memory.
 
         Args:
@@ -821,7 +829,7 @@ class MemoryService:
         user_id: str,
         query: str,
         limit: int = 5,
-        category: Optional[str] = None,
+        category: str | None = None,
     ) -> list[MemoryEntry]:
         """Search semantic memories.
 
@@ -887,7 +895,7 @@ class MemoryService:
         self,
         user_id: str,
         session_id: str,
-        current_query: Optional[str] = None,
+        current_query: str | None = None,
     ) -> MemoryContext:
         """Build context for LLM response generation.
 
@@ -988,7 +996,7 @@ class MemoryService:
 
 # ============== Singleton ==============
 
-_memory_service: Optional[MemoryService] = None
+_memory_service: MemoryService | None = None
 
 
 def get_memory_service() -> MemoryService:

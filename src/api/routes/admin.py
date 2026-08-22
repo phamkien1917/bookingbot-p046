@@ -1,11 +1,9 @@
 import uuid
 from datetime import timedelta
 from uuid import UUID
-from src.utils.time import utcnow
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from src.schemas.admin import PropertyCreate, PropertyUpdate, SaleProfileUpdate
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -25,8 +23,10 @@ from src.database.models import (
     UserRole,
     UserStatus,
 )
+from src.schemas.admin import PropertyCreate, PropertyUpdate, SaleProfileUpdate
 from src.schemas.booking import UserStatusUpdate
 from src.services.booking_service import list_all_bookings
+from src.utils.time import utcnow
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -106,7 +106,7 @@ async def admin_analytics(
     db: AsyncSession = Depends(get_session),
 ):
     """Return analytics data for admin dashboard charts."""
-    from sqlalchemy import case, and_
+    from sqlalchemy import case
     today = utcnow().astimezone(ZoneInfo("Asia/Ho_Chi_Minh")).date()
     start_date = today - timedelta(days=28)  # 4 weeks ago
 
@@ -153,11 +153,11 @@ async def admin_analytics(
     for week_offset in range(3, -1, -1):
         week_end = today - timedelta(days=week_offset * 7)
         week_start = week_end - timedelta(days=7)
-        
+
         week_total = sum(req_stats.get(week_start + timedelta(days=i), {}).get("total", 0) for i in range(7))
         week_confirmed = sum(req_stats.get(week_start + timedelta(days=i), {}).get("confirmed", 0) for i in range(7))
         rate = round(week_confirmed / week_total * 100, 1) if week_total else 0.0
-        
+
         weekly.append({
             "week_label": f"{week_start.strftime('%d/%m')} – {(week_end - timedelta(days=1)).strftime('%d/%m')}",
             "total": week_total,
@@ -172,13 +172,13 @@ async def admin_analytics(
         func.count(TourRequest.id)
     ).group_by(TourRequest.status)
     dist_result = await db.execute(dist_stmt)
-    
+
     dist = {k.lower(): 0 for k in ["BOOKED", "WAITING_APPROVAL", "CANCELLED", "REJECTED", "EXPIRED"]}
     for status_val, count in dist_result.all():
         key = status_val.value.lower() if hasattr(status_val, 'value') else str(status_val).lower()
         if key in dist:
             dist[key] = count
-            
+
     no_shows_total = await db.scalar(
         select(func.count(Appointment.id)).where(Appointment.status == AppointmentStatus.NO_SHOW)
     ) or 0

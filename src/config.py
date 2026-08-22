@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
 
     # Authentication
-    jwt_secret_key: str = "change-this-development-secret"
+    jwt_secret_key: str = "development-only-secret-change-me-123456"
     access_token_expire_minutes: int = Field(default=10080, ge=5)
     auth_cookie_name: str = "bookingbot_session"
 
@@ -64,7 +64,8 @@ class Settings(BaseSettings):
     # Google Calendar
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
+    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
+    frontend_url: str = "http://localhost:3001"
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"
 
@@ -101,4 +102,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
- 
+

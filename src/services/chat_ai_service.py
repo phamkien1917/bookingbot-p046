@@ -94,7 +94,7 @@ class LLMCallResult:
     latency_ms: int
 
 
-class ChatAIUnavailable(RuntimeError):
+class ChatAIUnavailableError(RuntimeError):
     """Raised when the configured provider cannot serve a chat turn."""
 
 
@@ -184,10 +184,10 @@ class ChatAIService:
 
     def _model(self, *, temperature: float, max_tokens: int) -> tuple[ChatOpenAI, str]:
         if not self.configured:
-            raise ChatAIUnavailable("not_configured")
+            raise ChatAIUnavailableError("not_configured")
         now = time.monotonic()
         if now < self._blocked_until:
-            raise ChatAIUnavailable(self._last_failure_code or "circuit_open")
+            raise ChatAIUnavailableError(self._last_failure_code or "circuit_open")
         api_key, model_name, base_url, headers = self._provider()
         model = ChatOpenAI(
             model=model_name,
@@ -256,7 +256,7 @@ class ChatAIService:
                 timeout=self.settings.chat_llm_timeout_seconds + 2,
             )
         except Exception as exc:
-            raise ChatAIUnavailable(self._record_failure(exc)) from exc
+            raise ChatAIUnavailableError(self._record_failure(exc)) from exc
         value = reconcile_understanding(message, value)
         latency_ms = round((time.perf_counter() - started) * 1000)
         logger.info("Chat LLM intent model=%s latency_ms=%s", model_name, latency_ms)
@@ -326,7 +326,7 @@ class ChatAIService:
                 timeout=self.settings.chat_llm_timeout_seconds + 2,
             )
         except Exception as exc:
-            raise ChatAIUnavailable(self._record_failure(exc)) from exc
+            raise ChatAIUnavailableError(self._record_failure(exc)) from exc
         latency_ms = round((time.perf_counter() - started) * 1000)
         logger.info("Chat LLM narrative model=%s latency_ms=%s", model_name, latency_ms)
         return LLMCallResult(value=value, model=model_name, latency_ms=latency_ms)

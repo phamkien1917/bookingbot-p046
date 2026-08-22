@@ -2,13 +2,12 @@
 
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
-from uuid import UUID
 import uuid
+from datetime import datetime, timedelta
+from uuid import UUID
 
 from langchain_core.tools import tool
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, select
 
 from src.database.connection import get_session_context
 from src.database.models import Appointment, HoldStatus, Property, PropertyHold, PropertyStatus
@@ -27,7 +26,7 @@ _DISTRICT_ALIASES = {
 }
 
 
-def _expand_districts(district: Optional[str]) -> list[str]:
+def _expand_districts(district: str | None) -> list[str]:
     """Expand district thành danh sách districts cần search."""
     if not district:
         return []
@@ -43,13 +42,13 @@ def _expand_districts(district: Optional[str]) -> list[str]:
 
 @tool
 async def search_properties(
-    district: Optional[str] = None,
-    province: Optional[str] = None,
-    property_kind: Optional[str] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    min_bedrooms: Optional[int] = None,
-    min_area: Optional[float] = None,
+    district: str | None = None,
+    province: str | None = None,
+    property_kind: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    min_bedrooms: int | None = None,
+    min_area: float | None = None,
     limit: int = 10,
 ) -> str:
     """Tìm kiếm bất động sản theo các tiêu chí.

@@ -163,10 +163,11 @@ class LongTermMemory:
 
         async with get_session_context() as session:
             import uuid
-            from src.utils.time import utcnow
 
             # Check if preference exists
             from sqlalchemy import select
+
+            from src.utils.time import utcnow
             stmt = select(CustomerPreference).where(
                 CustomerPreference.customer_user_id == UUID(customer_id),
                 CustomerPreference.preference_key == key,

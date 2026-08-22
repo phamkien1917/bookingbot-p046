@@ -1,7 +1,19 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Leaflet is loaded dynamically from its browser bundle. */
+
 import { useEffect, useRef } from "react";
 import type { Property } from "@/lib/types";
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] as string);
+}
 
 export default function PropertiesMap({ properties }: { properties: Property[] }) {
   const mapRef = useRef<any>(null);
@@ -48,7 +60,9 @@ export default function PropertiesMap({ properties }: { properties: Property[] }
       validProps.forEach(p => {
         const marker = L.marker([p.latitude, p.longitude]).addTo(map);
         const price = p.list_price == null ? "Liên hệ" : `${(p.list_price / 1000000000).toFixed(2)} tỷ`;
-        marker.bindPopup(`<b>${p.title}</b><br/>${p.district}, ${p.province}<br/>${price}`);
+        marker.bindPopup(
+          `<b>${escapeHtml(p.title)}</b><br/>${escapeHtml(p.district ?? "")}, ${escapeHtml(p.province ?? "")}<br/>${price}`,
+        );
       });
       
       if (validProps.length > 1) {

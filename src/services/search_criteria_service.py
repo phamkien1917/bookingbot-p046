@@ -7,7 +7,6 @@ which is maintained independently by another team member.
 import re
 import unicodedata
 
-
 DISTRICT_NAMES = {
     "ba dinh": "Quận Ba Đình",
     "hoan kiem": "Quận Hoàn Kiếm",

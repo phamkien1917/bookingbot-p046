@@ -2,30 +2,18 @@
 
 import logging
 import uuid
-from pathlib import Path
 from uuid import UUID
 
-from src.utils.time import utcnow
-
 from fastapi import APIRouter, Depends, Header, HTTPException
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.agents import create_initial_agent_state, run_agent
 from src.api.routes.auth import get_current_user, get_optional_current_user
 from src.database import get_session
 from src.database.models import User, UserRole
 from src.models.schemas import ChatRequest, ChatResponse
-from src.services.chat_ai_service import (
-    ChatAIUnavailable,
-    ChatUnderstanding,
-    SearchNarrative,
-    get_chat_ai_service,
-    order_properties,
-    render_grounded_search,
-)
-from src.services.chat_orchestrator import orchestrate_chat
-from src.services.chat_state_service import load_chat_state, save_chat_state
+from src.services.chat_ai_service import get_chat_ai_service
 from src.services.conversation_service import (
     delete_persistent_session,
     get_persistent_session,
@@ -40,18 +28,18 @@ from src.services.customer_memory_service import (
     remember_search_criteria,
 )
 from src.services.memory import get_short_term_memory
+from src.utils.time import utcnow
 
 from .admin import router as admin_router
 from .auth import router as auth_router
 from .bookings import router as bookings_router
 from .chat import router as chat_router
 from .favorites import router as favorites_router
+from .google_oauth import router as google_oauth_router
 from .memory import router as memory_router
 from .notifications import router as notifications_router
 from .properties import router as properties_router
 from .sale import router as sale_router
-from .google_oauth import router as google_oauth_router
-from src.agents import create_initial_agent_state, run_agent
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -239,7 +227,6 @@ async def chat(
             status_code=503,
             detail="Trợ lý đang gặp sự cố tạm thời. Vui lòng thử lại sau ít phút.",
         ) from exc
-    return HTMLResponse(content=ui_path.read_text(encoding="utf-8"), status_code=200)
 
 
 @router.get("/status")

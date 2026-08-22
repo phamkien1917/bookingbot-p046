@@ -1,12 +1,12 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FaCalendarAlt, FaMapMarkerAlt, FaRobot, FaSpinner, FaClock } from "react-icons/fa";
+import { FaCalendarAlt, FaMapMarkerAlt, FaRobot, FaSpinner } from "react-icons/fa";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProtectedPage from "@/components/ProtectedPage";
+import PropertyImage from "@/components/PropertyImage";
 import { apiFetch } from "@/lib/api";
 import type { Booking } from "@/lib/types";
 
@@ -95,7 +95,7 @@ export default function MyBookingsPage() {
                 <article key={booking.id} className="bg-white rounded-[1.5rem] overflow-hidden border border-black/5 shadow-sm flex flex-col transition-all duration-300 hover:shadow-md hover:-translate-y-1">
                   <div className="h-48 bg-[#e6eee7]">
                     {booking.property.media[0]?.url ? (
-                      <img src={booking.property.media[0].url} alt={booking.property.title} className="w-full h-full object-cover" />
+                      <PropertyImage src={booking.property.media[0].url} alt={booking.property.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full grid place-items-center text-5xl">🏠</div>
                     )}

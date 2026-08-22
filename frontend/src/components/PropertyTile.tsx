@@ -1,9 +1,9 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
 import { FaBed, FaBookmark, FaCalendarAlt, FaMagic, FaMapMarkerAlt, FaRegBookmark, FaRulerCombined } from "react-icons/fa";
 import type { Property } from "@/lib/types";
+import PropertyImage from "@/components/PropertyImage";
 
 export function formatPropertyPrice(price?: number | null) {
   if (!price) return "Liên hệ";
@@ -30,7 +30,7 @@ export default function PropertyTile({
     <article className="group flex h-full flex-col overflow-hidden rounded-[1.65rem] border border-black/5 bg-white shadow-[0_12px_40px_rgba(22,47,42,.07)] transition duration-500 hover:-translate-y-1.5 hover:shadow-[0_28px_70px_rgba(22,47,42,.14)]">
       <div className={`relative overflow-hidden bg-stone-100 ${compact ? "h-44" : "h-56"}`}>
         <Link href={`/properties/${property.id}`} className="block h-full">
-          {image ? <img src={image} alt={property.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="grid h-full place-items-center text-5xl">🏡</div>}
+          {image ? <PropertyImage src={image} alt={property.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="grid h-full place-items-center text-5xl">🏡</div>}
         </Link>
         <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-[var(--forest)] backdrop-blur">Có thể xem</span>
         {onSave && <button onClick={() => onSave(property)} aria-label={saved ? "Bỏ lưu" : "Lưu nhà"} aria-pressed={saved} className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-[var(--forest)] shadow-sm transition hover:scale-105">{saved ? <FaBookmark /> : <FaRegBookmark />}</button>}

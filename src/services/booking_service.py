@@ -1,8 +1,7 @@
 import uuid
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
-from datetime import date, datetime, time, timedelta
-from src.utils.time import utcnow
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +15,6 @@ from src.database.models import (
     DeliveryStatus,
     Message,
     MessageRole,
-    DeliveryStatus,
     Notification,
     NotificationChannel,
     Property,
@@ -31,8 +29,9 @@ from src.database.models import (
     UserRole,
     UserStatus,
 )
-from src.schemas.booking import TourRequestCreate, BookingResponse
-from src.exceptions import BookingNotFoundError, BookingConflictError, BookingPermissionError
+from src.exceptions import BookingConflictError, BookingNotFoundError, BookingPermissionError
+from src.schemas.booking import BookingResponse, TourRequestCreate
+from src.utils.time import utcnow
 
 LOCAL_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 SLOT_HOURS = (9, 10, 14, 16)
@@ -459,7 +458,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         },
         status=DeliveryStatus.PENDING,
     ))
-    
+
     # Proactively inject confirmed booking message into Customer Chat
     target_conv_id = row.conversation_id
     if not target_conv_id:
@@ -652,7 +651,7 @@ async def _reassign_waiting_request(db: AsyncSession, row: TourRequest, trigger:
     eligible_sale_ids = [sale.user_id for sale in eligible_sales]
     start_of_day = datetime.combine(row.preferred_start.date(), time.min, tzinfo=row.preferred_start.tzinfo or LOCAL_TZ)
     end_of_day = start_of_day + timedelta(days=1)
-    
+
     workloads = (await db.execute(
         select(Appointment.sale_user_id, func.count(Appointment.id))
         .where(

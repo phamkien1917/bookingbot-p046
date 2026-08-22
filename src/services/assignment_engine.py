@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime
-from src.utils.time import utcnow
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -15,6 +14,7 @@ from src.database.models import (
     SaleProfile,
     User,
 )
+from src.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 
