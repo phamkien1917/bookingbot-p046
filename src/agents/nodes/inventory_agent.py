@@ -171,73 +171,70 @@ def format_criteria_summary(criteria: dict[str, Any]) -> str:
 
 
 def format_search_results_markdown(items: list[dict[str, Any]], criteria: dict[str, Any], soft_prefs: list[str]) -> str:
-    heading = "Mình đã tìm thấy các bất động sản phù hợp"
     summary = format_criteria_summary(criteria)
+    intro = f"Nera đã tìm thấy **{len(items)} bất động sản** phù hợp nhất"
     if summary:
-        heading += f" với tiêu chí **{summary}**"
-    heading += ":"
+        intro += f" với tiêu chí **{summary}**"
+    intro += " cho bạn:\n"
 
     blocks = []
     for index, item in enumerate(items, 1):
         location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
-        facts = [
-            _price_text(item.get("list_price")),
-            f"{item.get('area_sqm'):g} m²" if item.get("area_sqm") else None,
-            f"{item.get('bedrooms')} phòng ngủ" if item.get("bedrooms") is not None else None,
-            location,
-        ]
-        fact_line = " · ".join(part for part in facts if part)
-        blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{fact_line}")
+        price = _price_text(item.get("list_price"))
+        area = f"{item.get('area_sqm'):g} m²" if item.get("area_sqm") else ""
+        beds = f"{item.get('bedrooms')} PN" if item.get("bedrooms") is not None else ""
+        specs = " · ".join(filter(None, [price, area, beds, location]))
+        blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{specs}")
 
     body = "\n\n".join(blocks)
+    note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
 
-    note = ""
-    if soft_prefs:
-        note = f"\n\n*(Đã cân nhắc thêm mong muốn: {', '.join(soft_prefs)})*"
-
-    return f"{heading}\n\n{body}{note}\n\nBạn muốn chọn căn số mấy để xem chi tiết hoặc đặt lịch xem nhà?"
+    return f"{intro}\n{body}{note}\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊"
 
 
 def format_property_details_markdown(item: dict[str, Any]) -> str:
     location = ", ".join(filter(None, [item.get("address_line"), item.get("ward"), item.get("district"), item.get("province")]))
-    lines = [
-        f"**{item.get('title', 'Thông tin Bất động sản')}**\n",
-        f"- 💰 **Giá niêm yết:** {_price_text(item.get('list_price'))}",
-        f"- 📐 **Diện tích:** {item.get('area_sqm') or 'Chưa cập nhật'} m²",
-        f"- 🛏️ **Phòng ngủ:** {item.get('bedrooms') if item.get('bedrooms') is not None else 'Chưa cập nhật'}",
-        f"- 🚿 **Phòng tắm/WC:** {item.get('bathrooms') if item.get('bathrooms') is not None else 'Chưa cập nhật'}",
-        f"- 📍 **Địa chỉ:** {location or 'Chưa cập nhật'}",
-        f"- 🏷️ **Loại BĐS:** {item.get('property_kind') or 'Chưa cập nhật'}",
-        f"- 📋 **Mã căn:** `{item.get('code') or item.get('id')}`",
-    ]
-    if item.get("description"):
-        lines.append(f"- 📝 **Mô tả:** {str(item['description'])[:450]}")
+    desc = str(item.get("description") or "").strip()
+    if len(desc) > 300:
+        desc = desc[:300] + "..."
 
-    lines.append("\nBạn có muốn mình kiểm tra lịch trống và hỗ trợ **đặt lịch xem căn này** không?")
+    lines = [
+        f"### 🏠 {item.get('title', 'Thông tin Bất động sản')}\n",
+        f"• **Giá niêm yết:** {_price_text(item.get('list_price'))}",
+        f"• **Diện tích:** {item.get('area_sqm') or 'Chưa cập nhật'} m² ({item.get('bedrooms') or '—'} PN · {item.get('bathrooms') or '—'} WC)",
+        f"• **Vị trí:** {location or 'Chưa cập nhật'}",
+        f"• **Mã căn:** `{item.get('code') or item.get('id')}`",
+    ]
+    if desc:
+        lines.append(f"\n**Mô tả nổi bật:**\n{desc}")
+
+    lines.append("\nBạn có muốn Nera hỗ trợ **đặt lịch xem trực tiếp** căn này vào khung giờ nào không?")
     return "\n".join(lines)
 
 
 async def format_intelligent_comparison(items: list[dict[str, Any]], query: str) -> str:
     """Generate rich comparison table and direct LLM comparative analysis for user question."""
     # 1. Base Markdown Table
-    table_lines = ["📊 **Bảng so sánh nhanh các bất động sản bạn đang quan tâm:**\n"]
-    for index, item in enumerate(items, 1):
-        location = ", ".join(filter(None, [item.get("district"), item.get("province")]))
-        table_lines.append(
-            f"**{index}. {item.get('title', 'Bất động sản')}**\n"
-            f"- 💰 Giá: **{_price_text(item.get('list_price'))}**\n"
-            f"- 📐 Diện tích: {item.get('area_sqm') or '—'} m² | {item.get('bedrooms') or '—'} PN | {item.get('bathrooms') or '—'} WC\n"
-            f"- 📍 Vị trí: {location}\n"
-        )
+    table_lines = ["📊 **Bảng so sánh chi tiết giữa các bất động sản bạn quan tâm:**\n"]
+    table_lines.append("| Tiêu chí | " + " | ".join(f"Căn {idx}: {it.get('title', '')[:25]}" for idx, it in enumerate(items, 1)) + " |")
+    table_lines.append("|" + "---|" * (len(items) + 1))
+    table_lines.append("| **Giá bán** | " + " | ".join(_price_text(it.get("list_price")) for it in items) + " |")
+    table_lines.append("| **Diện tích** | " + " | ".join(f"{it.get('area_sqm') or '—'} m²" for it in items) + " |")
+    table_lines.append("| **Kết cấu** | " + " | ".join(f"{it.get('bedrooms') or '—'} PN · {it.get('bathrooms') or '—'} WC" for it in items) + " |")
+    table_lines.append("| **Vị trí** | " + " | ".join(", ".join(filter(None, [it.get("district"), it.get("province")])) for it in items) + " |")
 
     # 2. Call LLM for personalized comparative insights (e.g. "căn nào thoáng hơn", "gần trường hơn")
     try:
         llm = get_llm()._create_chat_model()
         sys_prompt = (
-            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI. Hãy so sánh các bất động sản sau và trả lời trực tiếp câu hỏi so sánh của khách hàng "
-            "(đặc biệt phân tích các khía cạnh khách quan tâm như độ thoáng, vị trí, tiện ích, giá bán, phù hợp gia đình).\n"
-            "Trình bày chuyên nghiệp, dùng bảng Markdown rõ ràng kèm phần đánh giá/kết luận súc tích. "
-            "Kết thúc bằng câu hỏi gợi ý khách chọn đặt lịch đi xem căn phù hợp nhất."
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI cao cấp, nhiệt tình, am hiểu và thấu hiểu khách hàng.\n"
+            "Hãy so sánh các bất động sản và trả lời trực tiếp câu hỏi của khách hàng bằng giọng văn tự nhiên, ấm áp, mạch lạc và súc tích.\n\n"
+            "Quy tắc định dạng:\n"
+            "1. Mở đầu bằng một lời dẫn tự nhiên, thân thiện.\n"
+            "2. Sử dụng bảng so sánh Markdown đẹp mắt (các cột: Tiêu chí, Căn 1, Căn 2...). Đảm bảo phân tích các hàng: Giá bán, Diện tích, Phòng ngủ / WC, Vị trí, Điểm nổi bật & Độ thoáng.\n"
+            "3. Phần 'Đánh giá & Lời khuyên từ Nera': Trả lời trực diện vào câu hỏi của khách (ví dụ: căn nào thoáng hơn, ưu nhược điểm từng căn, phù hợp với ai) bằng giọng văn chuyên môn, khách quan.\n"
+            "4. Tuyệt đối KHÔNG dùng các ký tự thừa như gạch nối rải rác, ký hiệu vụn vặt không cần thiết.\n"
+            "5. Kết thúc bằng câu hỏi gợi ý nhẹ nhàng để khách đặt lịch đi xem thực tế."
         )
         context = {
             "customer_query": query,
@@ -264,8 +261,62 @@ async def format_intelligent_comparison(items: list[dict[str, Any]], query: str)
     except Exception as e:
         logger.warning(f"Intelligent comparison LLM failed: {e}. Using structured table.")
 
-    table_lines.append("Bạn muốn xem chi tiết hoặc đặt lịch đi xem căn số mấy?")
+    table_lines.append("\nBạn có muốn Nera hỗ trợ đặt lịch đi xem thực tế căn nào trong số này không?")
     return "\n".join(table_lines)
+
+
+def resolve_comparison_targets(query: str, pool: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Intelligently resolve which properties to compare from user natural query."""
+    if not pool:
+        return []
+    q = query.lower()
+
+    # 1. Relative positional phrases: "2 căn cuối", "hai căn cuối cùng", "căn cuối", "2 căn đầu", "3 căn đầu"
+    if re.search(r"(?:2|hai)\s*căn\s*(?:cuối|sau)", q):
+        return pool[-2:] if len(pool) >= 2 else pool
+    if re.search(r"(?:3|ba)\s*căn\s*(?:cuối|sau)", q):
+        return pool[-3:] if len(pool) >= 3 else pool
+    if re.search(r"(?:2|hai)\s*căn\s*(?:đầu|trước)", q):
+        return pool[:2]
+    if re.search(r"(?:3|ba)\s*căn\s*(?:đầu|trước)", q):
+        return pool[:3]
+    if re.search(r"căn\s*(?:cuối|sau cùng)", q):
+        return [pool[-1]]
+    if re.search(r"căn\s*(?:đầu|thứ nhất)", q):
+        return [pool[0]]
+
+    # 2. Pair ordinals: "căn 1 và căn 2", "căn 4 và 5", "căn 1 với căn 3", "số 2 và 4"
+    found_indices = []
+    m_pair = re.search(r"căn\s*(?:số)?\s*(\d+)\s*(?:và|,|với)\s*(?:căn\s*(?:số)?)?\s*(\d+)", q)
+    if m_pair:
+        i1, i2 = int(m_pair.group(1)) - 1, int(m_pair.group(2)) - 1
+        if 0 <= i1 < len(pool) and i1 not in found_indices:
+            found_indices.append(i1)
+        if 0 <= i2 < len(pool) and i2 not in found_indices:
+            found_indices.append(i2)
+    else:
+        # Individual mentions: "căn 1", "căn 2", "căn 3"
+        for m in re.finditer(r"(?:căn\s*(?:số|thứ)?|số)\s*(\d+)", q):
+            idx = int(m.group(1)) - 1
+            if 0 <= idx < len(pool) and idx not in found_indices:
+                found_indices.append(idx)
+
+    if len(found_indices) >= 2:
+        return [pool[i] for i in found_indices]
+
+    # 3. Explicit quantities: "so sánh 2 căn", "so sánh 3 căn", "so sánh 4 căn"
+    m_qty = re.search(r"so\s*sánh\s*(\d+)\s*căn", q)
+    if m_qty:
+        qty = int(m_qty.group(1))
+        return pool[:qty]
+
+    if re.search(r"so\s*sánh\s*hai\s*căn", q):
+        return pool[:2]
+    if re.search(r"so\s*sánh\s*ba\s*căn", q):
+        return pool[:3]
+
+    # 4. Default: take up to 2 items if pool has 2, else 3
+    return pool[:2] if len(pool) == 2 else pool[:3]
 
 
 def format_comparison_markdown(items: list[dict[str, Any]]) -> str:
@@ -282,6 +333,82 @@ def format_comparison_markdown(items: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+async def answer_feature_question_on_properties(query: str, pool: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Answer direct questions about amenities/features for the current set of properties."""
+    if not pool:
+        return None
+
+    try:
+        llm = get_llm()._create_chat_model()
+        sys_prompt = (
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI tận tâm, trung thực và am hiểu.\n"
+            "Khách hàng đang hỏi một câu hỏi cụ thể về tiện ích/đặc điểm (như trường học, pháp lý/sổ đỏ, chỗ đỗ xe, ban công, độ thoáng, hướng...) "
+            "đối với danh sách các bất động sản đang thảo luận.\n\n"
+            "Hãy đọc kỹ thông tin và mô tả thực tế của các căn hộ dưới đây và trả lời trực tiếp cho khách hàng:\n"
+            "1. Chỉ ra cụ thể căn số mấy đáp ứng tốt nhất yêu cầu của khách và giải thích chi tiết tại sao (dựa trên địa chỉ, mô tả tiện ích thực tế).\n"
+            "2. Trình bày tự nhiên, ấm áp, mạch lạc theo từng đầu mục rõ ràng.\n"
+            "3. Kết thúc bằng câu hỏi gợi ý xem chi tiết hoặc đặt lịch đi xem thực tế căn phù hợp."
+        )
+        context = {
+            "customer_question": query,
+            "properties": [
+                {
+                    "ordinal": idx,
+                    "title": it.get("title"),
+                    "price": _price_text(it.get("list_price")),
+                    "area_sqm": it.get("area_sqm"),
+                    "bedrooms": it.get("bedrooms"),
+                    "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
+                    "description": str(it.get("description", ""))[:400],
+                }
+                for idx, it in enumerate(pool, 1)
+            ]
+        }
+        res = await llm.ainvoke([
+            SystemMessage(content=sys_prompt),
+            HumanMessage(content=json.dumps(context, ensure_ascii=False))
+        ])
+        if res and res.content and len(res.content.strip()) > 30:
+            res_text = res.content.strip()
+            res_lower = res_text.lower()
+
+            # Filter pool to only the properties specifically mentioned/recommended in the answer
+            matched_props = []
+            for idx, prop in enumerate(pool, 1):
+                title = prop.get("title", "").lower()
+                ordinal_patterns = [f"căn {idx}", f"căn số {idx}", f"căn thứ {idx}"]
+                title_keywords = [w for w in title.split() if len(w) >= 3]
+
+                is_matched = any(p in res_lower for p in ordinal_patterns)
+                if not is_matched and len(title_keywords) >= 2:
+                    # Match if key title phrase or at least 2 significant words are in the answer
+                    is_matched = any(" ".join(title_keywords[i:i+2]) in res_lower for i in range(len(title_keywords) - 1))
+
+                if is_matched and prop not in matched_props:
+                    matched_props.append(prop)
+
+            # If specific properties were matched, show ONLY them; otherwise show top 1
+            final_selected = matched_props if matched_props else pool[:1]
+
+            return {
+                "response": res_text,
+                "selected_properties": final_selected,
+                "search_results": pool,
+                "current_property_id": final_selected[0]["id"] if final_selected else None,
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    "Xem chi tiết căn này",
+                    "Đặt lịch xem nhà",
+                    "So sánh với các căn khác",
+                ],
+            }
+    except Exception as e:
+        logger.warning(f"Feature QA LLM failed: {e}")
+    return None
+
+
 async def inventory_agent(state: AgentState) -> dict[str, Any]:
     """Inventory Agent node: handles searching, selecting, detailing, and comparing properties."""
     query = state.get("query", "")
@@ -293,21 +420,21 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
     current_prop_id = state.get("current_property_id")
     selected_idx = state.get("selected_property_index")
 
+    # Step 0: Check if this is a feature question on existing search results
+    q_low = query.lower()
+    feature_patterns = [
+        "có căn nào", "căn nào gần", "căn nào có", "căn nào view", "căn nào hướng", "căn nào tầng",
+        "căn nào rẻ", "căn nào đẹp", "gần trường", "sổ đỏ", "sổ hồng", "ô tô", "đỗ xe", "để xe",
+        "hầm", "gửi xe", "chính sách", "pháp lý", "thủ tục", "vay vốn", "ngân hàng", "tiện ích"
+    ]
+    if search_pool and any(p in q_low for p in feature_patterns) and not any(k in q_low for k in ["tìm thêm", "search", "lọc lại", "đổi sang"]):
+        feature_ans = await answer_feature_question_on_properties(query, search_pool)
+        if feature_ans:
+            return feature_ans
+
     # Step 1: Handle COMPARE_PROPERTIES
     if intent == Intent.COMPARE_PROPERTIES:
-        # Check if user mentioned specific ordinals (e.g. "căn 1 và căn 2" -> [0, 1])
-        found_ordinals = []
-        for m in re.finditer(r"(?:căn\s*(?:số)?|số)\s*(\d+)", query, re.IGNORECASE):
-            idx = int(m.group(1)) - 1
-            if idx not in found_ordinals and 0 <= idx < len(search_pool):
-                found_ordinals.append(idx)
-
-        if len(found_ordinals) >= 2:
-            props = [search_pool[i] for i in found_ordinals]
-        elif len(search_pool) >= 2:
-            props = search_pool[:3]
-        else:
-            props = existing_properties
+        props = resolve_comparison_targets(query, search_pool)
 
         if len(props) < 2:
             # Query top available properties in the same area to compare
@@ -321,26 +448,36 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             props = await query_properties_from_db(alt_criteria, limit=3)
 
         if props:
-            comparison_text = await format_intelligent_comparison(props[:3], query)
+            comparison_text = await format_intelligent_comparison(props, query)
             return {
-                "selected_properties": props[:3],
+                "selected_properties": props,
                 "search_results": search_pool,
-                "comparison_properties": props[:3],
+                "comparison_properties": props,
                 "response": comparison_text,
                 "response_kind": "PROPERTY_ADVICE",
                 "phase": "PROPERTY_SELECTED",
                 "current_agent": AgentType.RESPOND,
                 "suggested_actions": [
-                    f"Chọn căn số 1",
-                    f"Chọn căn số 2" if len(props) >= 2 else "Đặt lịch xem",
-                    "Đặt lịch xem nhà",
-                ],
+                    f"Chọn căn số {i}" for i in range(1, len(props) + 1)
+                ] + ["Đặt lịch xem nhà"],
             }
 
     # Step 2: Handle PROPERTY_DETAILS (Evaluated before selection to answer questions on selected property!)
     if intent == Intent.PROPERTY_DETAILS:
         chosen = None
-        if current_prop_id and search_pool:
+        q = query.lower()
+        if re.search(r"căn\s*(?:cuối|sau cùng)", q) and search_pool:
+            chosen = search_pool[-1]
+        elif re.search(r"căn\s*(?:đầu|thứ nhất)", q) and search_pool:
+            chosen = search_pool[0]
+        else:
+            m_ord = re.search(r"(?:căn\s*(?:số|thứ)?|số)\s*(\d+)", q)
+            if m_ord and search_pool:
+                idx = int(m_ord.group(1)) - 1
+                if 0 <= idx < len(search_pool):
+                    chosen = search_pool[idx]
+
+        if not chosen and current_prop_id and search_pool:
             chosen = next((p for p in search_pool if p.get("id") == current_prop_id), None)
         if not chosen and search_pool:
             if selected_idx is not None and 0 <= selected_idx < len(search_pool):

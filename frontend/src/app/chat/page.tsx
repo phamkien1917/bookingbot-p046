@@ -712,26 +712,27 @@ function ChatContent() {
                     {message.role === "user" ? (
                       message.content
                     ) : (
-                      <div className="prose prose-sm max-w-none text-stone-800">
+                      <div className="prose prose-sm max-w-none text-stone-800 leading-relaxed">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
                             table: ({ ...props }) => (
-                              <div className="my-3 overflow-x-auto rounded-xl border border-black/10 shadow-xs">
-                                <table className="w-full text-left text-xs border-collapse" {...props} />
+                              <div className="my-4 overflow-x-auto rounded-2xl border border-stone-200/80 bg-white shadow-xs">
+                                <table className="w-full text-left text-[14px] border-collapse min-w-[480px]" {...props} />
                               </div>
                             ),
-                            thead: ({ ...props }) => <thead className="bg-[#f0f5f0] text-[var(--forest)] font-bold border-b border-black/10" {...props} />,
-                            th: ({ ...props }) => <th className="p-2.5 font-bold text-xs text-[var(--forest)] border-r border-black/10 last:border-r-0" {...props} />,
-                            td: ({ ...props }) => <td className="p-2.5 text-xs text-stone-700 border-t border-black/10 border-r last:border-r-0" {...props} />,
-                            p: ({ ...props }) => <p className="mb-2.5 last:mb-0 leading-relaxed" {...props} />,
-                            ul: ({ ...props }) => <ul className="my-2 list-disc pl-5 space-y-1" {...props} />,
-                            ol: ({ ...props }) => <ol className="my-2 list-decimal pl-5 space-y-1" {...props} />,
-                            li: ({ ...props }) => <li className="text-[14px]" {...props} />,
-                            h1: ({ ...props }) => <h1 className="text-lg font-bold my-2 text-[var(--forest)]" {...props} />,
-                            h2: ({ ...props }) => <h2 className="text-base font-bold my-2 text-[var(--forest)]" {...props} />,
-                            h3: ({ ...props }) => <h3 className="text-sm font-bold my-1.5 text-[var(--forest)]" {...props} />,
-                            strong: ({ ...props }) => <strong className="font-bold text-[var(--ink)]" {...props} />,
+                            thead: ({ ...props }) => <thead className="bg-[#eef4ee] text-[var(--forest)] font-bold border-b border-stone-200" {...props} />,
+                            tr: ({ ...props }) => <tr className="even:bg-stone-50/50 hover:bg-emerald-50/30 transition-colors" {...props} />,
+                            th: ({ ...props }) => <th className="py-3 px-4 font-bold text-[14px] text-[var(--forest)] border-r border-stone-200/70 last:border-r-0 whitespace-nowrap" {...props} />,
+                            td: ({ ...props }) => <td className="py-3 px-4 text-[14px] text-stone-700 border-t border-stone-200/60 border-r border-stone-200/60 last:border-r-0 align-top leading-6" {...props} />,
+                            p: ({ ...props }) => <p className="mb-3 last:mb-0 leading-relaxed text-[15px]" {...props} />,
+                            ul: ({ ...props }) => <ul className="my-2.5 list-disc pl-5 space-y-1.5" {...props} />,
+                            ol: ({ ...props }) => <ol className="my-2.5 list-decimal pl-5 space-y-1.5" {...props} />,
+                            li: ({ ...props }) => <li className="text-[15px] leading-relaxed" {...props} />,
+                            h1: ({ ...props }) => <h1 className="text-lg font-bold my-3 text-[var(--forest)]" {...props} />,
+                            h2: ({ ...props }) => <h2 className="text-base font-bold my-2.5 text-[var(--forest)]" {...props} />,
+                            h3: ({ ...props }) => <h3 className="text-[15px] font-bold my-2 text-[var(--forest)]" {...props} />,
+                            strong: ({ ...props }) => <strong className="font-semibold text-stone-900" {...props} />,
                           }}
                         >
                           {message.content}

@@ -298,6 +298,9 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         phase = state.get("phase")
         if phase in ("AWAITING_CANCEL_CONFIRMATION", "AWAITING_AUTH", "AWAITING_SLOT", "AWAITING_DATE"):
             current_agent = AgentType.BOOKING
+        elif intent == Intent.CONFIRM and (state.get("current_property_id") or state.get("selected_properties")):
+            current_agent = AgentType.BOOKING
+            intent = Intent.BOOK_APPOINTMENT
         else:
             current_agent = AgentType.RESPOND
     else:

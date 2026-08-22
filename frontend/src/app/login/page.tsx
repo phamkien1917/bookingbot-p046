@@ -71,7 +71,18 @@ export default function LoginPage() {
           </form>
           <button onClick={() => { setIsRegister((value) => !value); setError(""); }} className="mt-5 w-full text-sm font-semibold text-[var(--forest)]">{isRegister ? "Đã có tài khoản? Đăng nhập" : "Lần đầu đến đây? Tạo tài khoản người mua"}</button>
 
-          {!isRegister && <div className="mt-8 border-t border-black/5 pt-6"><p className="mb-3 text-xs font-semibold uppercase tracking-[.14em] text-stone-400">Vào nhanh bản demo · mật khẩu Demo@123</p><div className="flex flex-wrap gap-2">{demos.map((demo) => <button key={demo.email} onClick={() => setForm((current) => ({ ...current, email: demo.email, password: "Demo@123" }))} className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:border-[var(--sage)] hover:text-[var(--forest)]">{demo.label}</button>)}</div></div>}
+          {process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true" && !isRegister && (
+            <div className="mt-8 border-t border-black/5 pt-6">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[.14em] text-stone-400">Vào nhanh bản demo · mật khẩu Demo@123</p>
+              <div className="flex flex-wrap gap-2">
+                {demos.map((demo) => (
+                  <button key={demo.email} onClick={() => setForm((current) => ({ ...current, email: demo.email, password: "Demo@123" }))} className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:border-[var(--sage)] hover:text-[var(--forest)]">
+                    {demo.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </main>
