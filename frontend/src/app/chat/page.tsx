@@ -9,6 +9,8 @@ import {
   FaCompass, FaEllipsisV, FaExclamationCircle, FaHistory, FaMagic, FaMapMarkerAlt,
   FaPaperPlane, FaPen, FaPlus, FaRegBookmark, FaShieldAlt, FaTimes, FaTimesCircle, FaTrash
 } from "react-icons/fa";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
@@ -706,8 +708,36 @@ function ChatContent() {
                   <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
                 )}
                 <div className="max-w-2xl w-full">
-                  <div className={`whitespace-pre-line rounded-[1.35rem] px-5 py-3.5 text-[15px] leading-7 ${message.role === "user" ? "rounded-tr-md bg-[var(--ink)] text-white" : "rounded-tl-md border border-black/5 bg-white shadow-sm"}`}>
-                    {message.content}
+                  <div className={`rounded-[1.35rem] px-5 py-3.5 text-[15px] leading-7 ${message.role === "user" ? "rounded-tr-md bg-[var(--ink)] text-white whitespace-pre-line" : "rounded-tl-md border border-black/5 bg-white shadow-sm"}`}>
+                    {message.role === "user" ? (
+                      message.content
+                    ) : (
+                      <div className="prose prose-sm max-w-none text-stone-800">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            table: ({ ...props }) => (
+                              <div className="my-3 overflow-x-auto rounded-xl border border-black/10 shadow-xs">
+                                <table className="w-full text-left text-xs border-collapse" {...props} />
+                              </div>
+                            ),
+                            thead: ({ ...props }) => <thead className="bg-[#f0f5f0] text-[var(--forest)] font-bold border-b border-black/10" {...props} />,
+                            th: ({ ...props }) => <th className="p-2.5 font-bold text-xs text-[var(--forest)] border-r border-black/10 last:border-r-0" {...props} />,
+                            td: ({ ...props }) => <td className="p-2.5 text-xs text-stone-700 border-t border-black/10 border-r last:border-r-0" {...props} />,
+                            p: ({ ...props }) => <p className="mb-2.5 last:mb-0 leading-relaxed" {...props} />,
+                            ul: ({ ...props }) => <ul className="my-2 list-disc pl-5 space-y-1" {...props} />,
+                            ol: ({ ...props }) => <ol className="my-2 list-decimal pl-5 space-y-1" {...props} />,
+                            li: ({ ...props }) => <li className="text-[14px]" {...props} />,
+                            h1: ({ ...props }) => <h1 className="text-lg font-bold my-2 text-[var(--forest)]" {...props} />,
+                            h2: ({ ...props }) => <h2 className="text-base font-bold my-2 text-[var(--forest)]" {...props} />,
+                            h3: ({ ...props }) => <h3 className="text-sm font-bold my-1.5 text-[var(--forest)]" {...props} />,
+                            strong: ({ ...props }) => <strong className="font-bold text-[var(--ink)]" {...props} />,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
 
                   {/* Quick reply chips */}
