@@ -42,7 +42,7 @@ POSTGRES_MIGRATIONS = (
     """,
     """
     INSERT INTO sale_profiles (user_id, employee_code, branch_name, job_title, specialties, max_daily_tours, calendar_provider)
-    SELECT id, 'NV-' || SUBSTRING(id::text, 33, 4), 'Văn phòng kinh doanh', 'Chuyên viên tư vấn', '["Căn hộ", "Nhà phố"]'::JSONB, 8, 'LOCAL'
+    SELECT id, 'NV-' || SUBSTRING(id::text, 33, 4), 'Văn phòng kinh doanh', 'Chuyên viên tư vấn', '["Căn hộ", "Nhà phố"]'::JSONB, 8, 'GOOGLE'
     FROM users WHERE email LIKE '%@xhome.com'
     ON CONFLICT (user_id) DO NOTHING
     """,
