@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  ...(process.env.DOCKER_BUILD === "true" ? { output: "standalone" } : {}),
   async rewrites() {
-    const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
+    const backend = process.env.BACKEND_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://127.0.0.1:8000";
     return [{ source: "/api/v1/:path*", destination: `${backend}/api/v1/:path*` }];
   },
 };
