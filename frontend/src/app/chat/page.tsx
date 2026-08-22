@@ -709,14 +709,16 @@ function ChatContent() {
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-black/5 bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen((open) => !open)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-black/10 bg-white text-stone-700 shadow-sm transition hover:border-black/20 hover:bg-stone-50 hover:text-black"
-              aria-label={sidebarOpen ? "Thu gọn thanh lịch sử" : "Mở thanh lịch sử"}
-              title={sidebarOpen ? "Thu gọn thanh lịch sử" : "Mở thanh lịch sử"}
-            >
-              <FaBars />
-            </button>
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-black/10 bg-white text-stone-700 shadow-sm transition hover:border-black/20 hover:bg-stone-50 hover:text-black"
+                aria-label="Mở thanh lịch sử"
+                title="Mở thanh lịch sử"
+              >
+                <FaBars />
+              </button>
+            )}
             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
             <div>
               <h1 className="font-semibold">Nera đang ở đây</h1>
