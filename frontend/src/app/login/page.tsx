@@ -102,7 +102,7 @@ function LoginForm() {
       {error && (
         <div role="alert" className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
           <p>{error}</p>
-          {!isRegister && (
+          {!isRegister && (error.toLowerCase().includes("mật khẩu") || error.toLowerCase().includes("password") || error.toLowerCase().includes("incorrect") || error.toLowerCase().includes("không chính xác")) && (
             <p className="mt-2 text-xs">
               Quên mật khẩu?{" "}
               <Link href="/forgot-password" className="font-bold underline hover:text-red-900">
