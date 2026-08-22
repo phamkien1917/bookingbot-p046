@@ -51,9 +51,8 @@ export default function LoginPage() {
           <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b9d5bf]">Trải nghiệm tiếp nối</p>
           <h1 className="mt-5 text-5xl font-semibold leading-[1.05] tracking-[-.05em]">Quay lại đúng nơi câu chuyện đang dở.</h1>
           <p className="mt-6 max-w-md text-lg leading-8 text-white/60">Đăng nhập để Nera nhớ nhu cầu, căn đã lưu và lịch xem của bạn — không phải bắt đầu lại từ một form trống.</p>
-          <div className="mt-9 space-y-4 text-sm text-white/75"><p className="flex items-center gap-3"><FaCheck className="text-[#b9d5bf]" /> Sở thích được lưu ở PostgreSQL</p><p className="flex items-center gap-3"><FaCheck className="text-[#b9d5bf]" /> Bạn có thể xem và xóa memory</p><p className="flex items-center gap-3"><FaCheck className="text-[#b9d5bf]" /> Phiên đăng nhập dùng cookie HttpOnly</p></div>
         </div>
-        <p className="relative text-xs text-white/35">Nera chỉ dùng memory để cá nhân hóa trải nghiệm tìm nhà.</p>
+        <p className="relative text-xs text-white/35">© 2026 Nera Home · Đồng hành cùng bạn tìm kiếm không gian sống lý tưởng.</p>
       </section>
 
       <section className="grid place-items-center px-4 py-10 sm:px-8">
