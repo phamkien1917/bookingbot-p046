@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 from src.agents.state import AgentState, AgentType, Intent
 from src.database.connection import get_session_context
 from src.database.models import Property, PropertyKind, PropertyStatus
+from src.services.chat_state_service import normalize_text
 from src.services.llm import get_llm
 
 logger = logging.getLogger(__name__)
