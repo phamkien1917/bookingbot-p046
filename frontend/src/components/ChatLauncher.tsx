@@ -9,9 +9,6 @@ import PropertyImage from "@/components/PropertyImage";
 import type { Property } from "@/lib/types";
 
 type ChatItem = { role: "user" | "assistant"; content: string; properties?: Property[] };
-import type { Property } from "@/lib/types";
-
-type ChatItem = { role: "user" | "assistant"; content: string; properties?: Property[] };
 type ChatReply = { response: string; session_id: string; properties?: Property[] };
 
 const suggestions = ["Tìm nhà Hà Nội trên 10 tỷ", "Căn hộ 2 phòng ngủ", "Tôi muốn đặt lịch xem nhà"];
