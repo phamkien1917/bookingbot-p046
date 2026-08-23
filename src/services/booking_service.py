@@ -31,6 +31,7 @@ from src.database.models import (
 )
 from src.exceptions import BookingConflictError, BookingNotFoundError, BookingPermissionError
 from src.schemas.booking import BookingResponse, TourRequestCreate
+from src.utils.property_text import build_full_address, clean_property_title
 from src.utils.time import utcnow
 
 LOCAL_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
@@ -71,8 +72,8 @@ def serialize_booking(row: TourRequest) -> BookingResponse:
         "expires_at": row.expires_at,
         "property": {
             "id": prop.id,
-            "title": prop.title,
-            "address": ", ".join(filter(None, [prop.address_line, prop.ward, prop.district, prop.province])),
+            "title": clean_property_title(prop.title),
+            "address": build_full_address(prop.address_line, prop.ward, prop.district, prop.province),
             "district": prop.district,
             "province": prop.province,
             "media": media,
@@ -266,7 +267,7 @@ async def create_tour_request(
     notification_payload = {
         "request_code": request.request_code,
         "property_id": str(prop.id),
-        "property_title": prop.title,
+        "property_title": clean_property_title(prop.title),
         "starts_at": data.preferred_start.isoformat(),
         "ends_at": data.preferred_end.isoformat(),
     }
@@ -332,7 +333,7 @@ async def cancel_customer_booking(db: AsyncSession, booking_id: UUID, customer_i
             template_key="booking_cancelled_by_customer",
             payload={
                 "request_code": row.request_code,
-                "property_title": row.property.title if row.property else None,
+                "property_title": clean_property_title(row.property.title) if row.property else None,
                 "reason": reason or "Khách hàng yêu cầu hủy",
             },
             status=DeliveryStatus.PENDING,
@@ -452,7 +453,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         template_key="booking_confirmed",
         payload={
             "booking_code": appointment.booking_code,
-            "property_title": row.property.title if row.property else None,
+            "property_title": clean_property_title(row.property.title) if row.property else None,
             "starts_at": appointment.starts_at.isoformat(),
             "ends_at": appointment.ends_at.isoformat(),
         },
@@ -475,7 +476,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         local_start = appointment.starts_at.astimezone(LOCAL_TZ)
         local_end = appointment.ends_at.astimezone(LOCAL_TZ) if appointment.ends_at else local_start + timedelta(hours=1)
         duration_mins = int((local_end - local_start).total_seconds() / 60)
-        prop_title = row.property.title if row.property else "Bất động sản"
+        prop_title = clean_property_title(row.property.title) if row.property else "Bất động sản"
         prop_addr = row.property.address_line if row.property else "Địa chỉ BĐS"
         prop_id_str = str(row.property_id)
         sale_user = await db.get(User, sale_user_id)
@@ -536,7 +537,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
                 template_key=template_key,
                 payload={
                     "booking_code": appointment.booking_code,
-                    "property_title": row.property.title if row.property else None,
+                    "property_title": clean_property_title(row.property.title) if row.property else None,
                     "starts_at": appointment.starts_at.isoformat(),
                     "meeting_address": appointment.meeting_address,
                 },
@@ -577,7 +578,7 @@ async def _notify_customer_and_operators(
 ) -> None:
     payload = {
         "request_code": row.request_code,
-        "property_title": row.property.title if row.property else None,
+        "property_title": clean_property_title(row.property.title) if row.property else None,
         "starts_at": row.preferred_start.isoformat() if row.preferred_start else None,
         "message": message,
     }
@@ -683,7 +684,7 @@ async def _reassign_waiting_request(db: AsyncSession, row: TourRequest, trigger:
     ))
     payload = {
         "request_code": row.request_code,
-        "property_title": row.property.title if row.property else None,
+        "property_title": clean_property_title(row.property.title) if row.property else None,
         "starts_at": row.preferred_start.isoformat(),
         "trigger": trigger,
     }
