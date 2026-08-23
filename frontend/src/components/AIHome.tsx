@@ -105,7 +105,7 @@ export default function AIHome() {
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[.84fr_1.16fr]">
           <div className="animate-soft-rise">
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[var(--sage)]/30 bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--forest)] backdrop-blur"><FaMagic className="text-[var(--coral)]" /> Trợ lý tìm nhà có trí nhớ</div>
-            <h1 className="max-w-xl text-4xl font-semibold leading-[1.05] tracking-[-.045em] sm:text-5xl lg:text-6xl">Đừng lọc nhà.<br /><span className="text-[var(--forest)]">Hãy kể về cuộc sống bạn muốn.</span></h1>
+            <h1 className="max-w-xl text-4xl font-semibold leading-[1.05] tracking-[-.045em] sm:text-5xl lg:text-6xl">Không cần biết mình muốn gì.<br /><span className="text-[var(--forest)]">Chỉ cần kể, Nera sẽ hiểu.</span></h1>
             <p className="mt-7 max-w-lg text-lg leading-8 text-[var(--muted)]">Nera lắng nghe, nhớ điều bạn thích, giải thích vì sao một căn phù hợp và kết nối đúng Sale khi bạn muốn đi xem.</p>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[var(--muted)]"><span className="flex items-center gap-2"><FaBrain className="text-[var(--forest)]" /> Nhớ sở thích</span><span className="flex items-center gap-2"><FaShieldAlt className="text-[var(--forest)]" /> Bạn kiểm soát memory</span><span className="flex items-center gap-2"><FaCalendarCheck className="text-[var(--forest)]" /> Sale xác nhận thật</span></div>
           </div>
