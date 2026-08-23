@@ -39,6 +39,7 @@ interface SaleBooking {
   preferred_start: string;
   preferred_end: string;
   expires_at?: string;
+  customer_note?: string;
   customer?: { full_name: string; phone: string; email: string };
   property: { id: string; title: string; address: string };
 }
