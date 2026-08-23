@@ -289,7 +289,6 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     elif re.search(r"\b(thay doi nhu cau|doi nhu cau|nhu cau moi|xoa tieu chi|muon thay doi)\b", norm_query):
         intent = Intent.SEARCH_PROPERTY
         merged_criteria = {}
-        updates["search_criteria"] = {}
 
     current_agent = AgentType.RESPOND
 
