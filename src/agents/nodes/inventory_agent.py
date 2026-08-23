@@ -19,6 +19,7 @@ from src.database.connection import get_session_context
 from src.database.models import Property, PropertyKind, PropertyStatus
 from src.services.chat_state_service import normalize_text
 from src.services.llm import get_llm
+from src.utils.property_text import clean_property_title
 
 logger = logging.getLogger(__name__)
 
@@ -43,16 +44,6 @@ def _price_text(value: Any) -> str:
     return f"{amount / 1_000_000:g} triệu"
 
 
-_JUNK_TITLE_PREFIX = re.compile(r"^\s*gi[oỏ]\s*h[aà]ng\s*m[oớ]i\s*\|\|\s*", re.IGNORECASE)
-
-
-def _clean_title(raw_title: str | None) -> str | None:
-    """Drop crawler marketing noise (e.g. "Giỏ hàng mới ||") from the front of a title."""
-    if not raw_title:
-        return raw_title
-    return _JUNK_TITLE_PREFIX.sub("", raw_title).strip()
-
-
 def serialize_property_item(prop: Property) -> dict[str, Any]:
     """Serialize Property model to JSON-safe dictionary for cards and prompt context."""
     media = sorted(prop.media or [], key=lambda item: (not item.is_cover, item.sort_order))
@@ -71,7 +62,7 @@ def serialize_property_item(prop: Property) -> dict[str, Any]:
         "id": str(prop.id),
         "code": prop.code,
         "property_kind": prop.property_kind.value if prop.property_kind else None,
-        "title": _clean_title(prop.title),
+        "title": clean_property_title(prop.title),
         "description": str(prop.description)[:1200] if prop.description else None,
         "status": prop.status.value if prop.status else None,
         "address_line": prop.address_line,

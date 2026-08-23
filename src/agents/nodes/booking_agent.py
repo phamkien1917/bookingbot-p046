@@ -27,6 +27,7 @@ from src.services.booking_service import (
     reschedule_customer_booking,
 )
 from src.services.chat_state_service import LOCAL_TZ
+from src.utils.property_text import clean_property_title
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
                     }
                 lines = ["📋 **Danh sách các lịch xem nhà gần đây của bạn:**\n"]
                 for b in bookings[:5]:
-                    prop_title = b.property.title if b.property else "Bất động sản"
+                    prop_title = clean_property_title(b.property.title) if b.property else "Bất động sản"
                     when = b.preferred_start.astimezone(LOCAL_TZ).strftime("%H:%M ngày %d/%m/%Y")
                     code = b.appointment.booking_code if b.appointment else b.request_code
                     lines.append(f"- **{code}** | {prop_title} | ⏰ {when} | Trạng thái: **{b.status}**")
@@ -180,7 +181,7 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
 
             booking = await get_customer_booking(session, request_id, customer_id)
             prop = booking.property
-            prop_title = prop.title if prop else "Bất động sản"
+            prop_title = clean_property_title(prop.title) if prop else "Bất động sản"
             prop_addr = prop.address if prop and hasattr(prop, "address") and prop.address else "Địa chỉ căn hộ"
             prop_id_val = str(prop.id) if prop and hasattr(prop, "id") else str(booking.id)
             local_start = booking.preferred_start.astimezone(LOCAL_TZ)
@@ -251,7 +252,7 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
         async with get_session_context() as session:
             booking = await get_customer_booking(session, request_id, customer_id)
             property_id = booking.property_id
-            prop_title = booking.property.title if booking.property else "căn nhà"
+            prop_title = clean_property_title(booking.property.title) if booking.property else "căn nhà"
 
         target_date_str = state.get("requested_date")
         if not target_date_str:
@@ -371,7 +372,7 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
             duration_mins = int((local_end - local_start).total_seconds() / 60)
 
             prop = booking.property
-            prop_title = prop.title if prop else "Bất động sản"
+            prop_title = clean_property_title(prop.title) if prop else "Bất động sản"
             prop_addr = prop.address if prop and hasattr(prop, "address") and prop.address else "Địa chỉ căn hộ"
             prop_id_val = str(prop.id) if prop and hasattr(prop, "id") else prop_id_str
             sale_name = slot.get("sale_name") or "Chuyên viên tư vấn"
@@ -445,7 +446,7 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
     # Get Property Title
     async with get_session_context() as session:
         prop = await session.get(Property, UUID(prop_id))
-        prop_title = prop.title if prop else "bất động sản"
+        prop_title = clean_property_title(prop.title) if prop else "bất động sản"
 
     target_date_str = state.get("requested_date")
     if not target_date_str:
