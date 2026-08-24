@@ -16,6 +16,14 @@ POSTGRES_MIGRATIONS = (
     "DELETE FROM property_media WHERE property_id IN (SELECT id FROM properties WHERE code IN ('SR-A1208', 'SR-L18'))",
     "DELETE FROM property_sale_assignments WHERE property_id IN (SELECT id FROM properties WHERE code IN ('SR-A1208', 'SR-L18'))",
     "DELETE FROM properties WHERE code IN ('SR-A1208', 'SR-L18')",
+    "DELETE FROM property_external_sellers WHERE property_id IN (SELECT id FROM properties WHERE code = 'BDS_PR46136708')",
+    "DELETE FROM property_media WHERE property_id IN (SELECT id FROM properties WHERE code = 'BDS_PR46136708')",
+    "DELETE FROM property_sale_assignments WHERE property_id IN (SELECT id FROM properties WHERE code = 'BDS_PR46136708')",
+    "DELETE FROM tour_requests WHERE property_id IN (SELECT id FROM properties WHERE code = 'BDS_PR46136708')",
+    "DELETE FROM appointments WHERE property_id IN (SELECT id FROM properties WHERE code = 'BDS_PR46136708')",
+    "DELETE FROM property_holds WHERE property_id IN (SELECT id FROM properties WHERE code = 'BDS_PR46136708')",
+    "DELETE FROM saved_properties WHERE property_id IN (SELECT id FROM properties WHERE code = 'BDS_PR46136708')",
+    "DELETE FROM properties WHERE code = 'BDS_PR46136708'",
     """
     INSERT INTO users (id, role, email, phone, password_hash, full_name, email_verified_at, phone_verified_at) VALUES
     ('20000000-0000-0000-0000-000000000000', 'SALE', 'hanh.bt.sale0@xhome.com', '+84999000000', 'DEMO_ONLY_REPLACE_WITH_ARGON2ID_HASH', 'Bùi Thị Hạnh', now(), now()),
