@@ -1,7 +1,6 @@
 """Persistent chat history backed by PostgreSQL."""
 
 import json
-from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -9,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.database.models import Conversation, Message, MessageRole
+from src.utils.time import utcnow
 
 
 def _as_uuid(value: str) -> UUID | None:
@@ -47,9 +47,11 @@ async def get_persistent_session(db: AsyncSession, session_id: str, customer_id:
     )
     if not row:
         return None
+    meta = _metadata(row.summary)
+    meta["customer_id"] = str(row.customer_user_id)
     return {
         "messages": [_message_dict(message) for message in row.messages],
-        "metadata": _metadata(row.summary),
+        "metadata": meta,
     }
 
 
@@ -71,7 +73,7 @@ async def save_persistent_session(
         db.add(row)
         await db.flush()
     row.summary = json.dumps(metadata or {}, ensure_ascii=False, default=str)
-    row.updated_at = datetime.now(UTC)
+    row.updated_at = utcnow()
     await db.execute(delete(Message).where(Message.conversation_id == conversation_id))
 
     role_map = {
@@ -150,6 +152,6 @@ async def rename_persistent_session(
     metadata = _metadata(row.summary)
     metadata["title"] = title.strip()
     row.summary = json.dumps(metadata, ensure_ascii=False, default=str)
-    row.updated_at = datetime.now(UTC)
+    row.updated_at = utcnow()
     await db.flush()
     return metadata

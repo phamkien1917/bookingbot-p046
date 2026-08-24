@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FaArrowLeft, FaArrowRight, FaClock, FaSpinner, FaCalendarAlt } from "react-icons/fa";
@@ -32,23 +32,33 @@ function ScheduleContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const fetchSlots = useCallback(async (quiet = false) => {
     if (!propertyId) return;
-    let active = true;
-    Promise.all([
-      apiFetch<Property>(`/properties/${propertyId}`),
-      apiFetch<{ slots: AvailabilitySlot[] }>(`/bookings/availability?property_id=${propertyId}&date=${selectedDate}`),
-    ]).then(([propertyData, slotData]) => {
-      if (!active) return;
+    if (!quiet) setLoading(true);
+    try {
+      const [propertyData, slotData] = await Promise.all([
+        apiFetch<Property>(`/properties/${propertyId}`),
+        apiFetch<{ slots: AvailabilitySlot[] }>(`/bookings/availability?property_id=${propertyId}&date=${selectedDate}`),
+      ]);
       setProperty(propertyData);
       setSlots(slotData.slots);
-      setSelectedSlot(slotData.slots[0] ?? null);
-      setError("");
-    }).catch((reason: unknown) => {
-      if (active) setError(reason instanceof Error ? reason.message : "Không tải được lịch trống");
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+      
+      // Keep selected slot if still available, else pick first
+      setSelectedSlot((prev) => {
+        const stillAvailable = slotData.slots.find(s => s.starts_at === prev?.starts_at && s.sale_user_id === prev?.sale_user_id);
+        return stillAvailable ?? slotData.slots[0] ?? null;
+      });
+      if (!quiet) setError("");
+    } catch (reason: unknown) {
+      if (!quiet) setError(reason instanceof Error ? reason.message : "Không tải được lịch trống");
+    } finally {
+      if (!quiet) setLoading(false);
+    }
   }, [propertyId, selectedDate]);
+
+  useEffect(() => {
+    fetchSlots();
+  }, [fetchSlots]);
 
   const submit = async () => {
     if (!propertyId || !selectedSlot) return;
@@ -67,7 +77,12 @@ function ScheduleContent() {
       });
       router.push(`/booking/hold?booking_id=${booking.id}`);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Không thể tạo lịch xem");
+      const msg = reason instanceof Error ? reason.message : "Không thể tạo lịch xem";
+      setError(msg);
+      if (msg.includes("vui lòng chọn giờ khác")) {
+        setSelectedSlot(null);
+        void fetchSlots(true);
+      }
     } finally {
       setSubmitting(false);
     }

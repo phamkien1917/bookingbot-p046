@@ -1,6 +1,8 @@
 """Pydantic schemas for API requests and responses."""
 
 
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
@@ -17,6 +19,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Session ID for conversation continuity"
     )
+    property_id: UUID | None = Field(
+        default=None,
+        description="Trusted property context opened by the user",
+    )
 
 
 class ChatResponse(BaseModel):
@@ -27,7 +33,14 @@ class ChatResponse(BaseModel):
     session_id: str | None = Field(default=None, description="Session ID")
     properties: list | None = Field(default_factory=list, description="Danh sách bất động sản gợi ý")
     insights: dict | None = Field(default_factory=dict, description="Thông tin AI thu thập được từ người dùng")
+    suggested_actions: list[str] | None = Field(default_factory=list, description="Gợi ý phản hồi nhanh cho khách hàng")
+    metadata: dict | None = Field(default_factory=dict, description="Metadata phiên chat")
     memory_summary: str = Field(default="", description="Tóm tắt sở thích dài hạn mà người dùng cho phép lưu")
+    auth_required: bool = Field(default=False, description="User must sign in before continuing the current action")
+    ai_mode: str = Field(default="fallback", description="llm_grounded, llm_direct, llm_intent, or fallback")
+    ai_model: str | None = Field(default=None, description="Model used for this turn, when available")
+    ai_latency_ms: int = Field(default=0, ge=0, description="Total provider latency for this turn")
+    ai_fallback_reason: str | None = Field(default=None, description="Sanitized fallback category")
 
 
 class HITLDecision(BaseModel):

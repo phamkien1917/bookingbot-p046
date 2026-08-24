@@ -1,23 +1,26 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  FaBed, FaBookmark, FaBrain, FaCalendarAlt, FaCheck, FaCheckCircle, FaChevronDown, FaChevronRight,
+  FaBars, FaBed, FaBookmark, FaBrain, FaCalendarAlt, FaCheck, FaCheckCircle, FaChevronDown, FaChevronRight,
   FaCompass, FaEllipsisV, FaExclamationCircle, FaHistory, FaMagic, FaMapMarkerAlt,
   FaPaperPlane, FaPen, FaPlus, FaRegBookmark, FaShieldAlt, FaTimes, FaTimesCircle, FaTrash
 } from "react-icons/fa";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
+import PropertyImage from "@/components/PropertyImage";
 import { apiFetch } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
+import { formatPropertyAddress, formatPropertyTitle } from "@/lib/propertyAddress";
 
-interface ChatMessage { role: "user" | "assistant"; content: string; properties?: Property[]; quickReplies?: string[] }
-interface ChatResponse { response: string; session_id: string; properties: Property[]; insights: Record<string, unknown>; memory_summary?: string }
+interface ChatMessage { role: "user" | "assistant"; content: string; properties?: Property[]; quickReplies?: string[]; authRequired?: boolean; aiMode?: string; aiModel?: string | null; aiLatencyMs?: number }
+interface ChatResponse { response: string; session_id: string; properties: Property[]; insights: Record<string, unknown>; memory_summary?: string; auth_required?: boolean; ai_mode: string; ai_model?: string | null; ai_latency_ms: number }
 interface SessionSummary { session_id: string; preview: string; message_count: number; last_active: string }
-interface SessionDetail { messages: Array<{ role: string; content: string; properties?: Property[] }> }
+interface SessionDetail { messages: Array<{ role: string; content: string; properties?: Property[]; ai_mode?: string; ai_model?: string | null }> }
 
 const greeting: ChatMessage = {
   role: "assistant",
@@ -28,15 +31,25 @@ const greeting: ChatMessage = {
 // ────────────────────────────────────────────────────────────
 // Helper: derive quick-reply chips from AI message content
 // ────────────────────────────────────────────────────────────
-function deriveQuickReplies(content: string): string[] {
+function deriveQuickReplies(content: string, propertyCount = 0): string[] {
   const lower = content.toLowerCase();
-  if (lower.includes("phòng ngủ") || lower.includes("phòng ng")) {
+  if (lower.includes("bạn chọn căn số mấy")) {
+    return Array.from({ length: Math.min(propertyCount, 5) }, (_, index) => `Chọn căn số ${index + 1}`);
+  }
+  if (lower.includes("khung giờ số mấy")) {
+    const slotCount = (content.match(/\*\*\d+\./g) || []).length;
+    return Array.from({ length: Math.min(slotCount, 4) }, (_, index) => `${index + 1}`);
+  }
+  if (lower.includes("vào ngày nào") || lower.includes("chọn ngày nào")) {
+    return ["Ngày mai", "Thứ Bảy tuần sau"];
+  }
+  if (lower.includes("bao nhiêu phòng ngủ") || lower.includes("mấy phòng ngủ")) {
     return ["1 phòng ngủ", "2 phòng ngủ", "3 phòng ngủ", "Chưa chắc"];
   }
-  if (lower.includes("ngân sách") || lower.includes("giá") || lower.includes("triệu") || lower.includes("tỷ")) {
+  if (lower.includes("ngân sách bao nhiêu") || lower.includes("khoảng giá nào")) {
     return ["Dưới 15 triệu/tháng", "15–20 triệu/tháng", "Trên 20 triệu/tháng", "Muốn mua, không thuê"];
   }
-  if (lower.includes("khu vực") || lower.includes("quận") || lower.includes("nơi làm việc")) {
+  if (lower.includes("ở khu vực nào") || lower.includes("quận nào") || lower.includes("nơi làm việc ở đâu")) {
     return ["Cầu Giấy", "Thanh Xuân", "Nam Từ Liêm", "Hà Đông"];
   }
   if (lower.includes("thời gian") || lower.includes("chuyển vào") || lower.includes("khi nào")) {
@@ -64,7 +77,7 @@ function buildMatchReasons(property: Property, insights: Record<string, unknown>
     else caution.push(`Có thể hơi cao so với ngân sách`);
   }
 
-  const beds = insights.bedrooms as number | undefined;
+  const beds = (insights.min_bedrooms ?? insights.bedrooms) as number | undefined;
   if (beds && property.bedrooms != null) {
     if (property.bedrooms >= beds) ok.push(`Đủ ${property.bedrooms} phòng ngủ`);
     else caution.push(`Ít hơn yêu cầu phòng ngủ`);
@@ -94,6 +107,10 @@ const INSIGHT_LABELS: Record<string, string> = {
   keyword: "Từ khoá",
   features: "Tiện ích",
   move_in: "Chuyển vào",
+  soft_preferences: "Ưu tiên mềm",
+  household_context: "Hoàn cảnh",
+  commute_landmark: "Điểm đi làm",
+  max_commute_minutes: "Di chuyển tối đa",
 };
 
 function formatInsightValue(key: string, value: unknown): string {
@@ -205,17 +222,17 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
       <div className="sm:flex">
         <div className="h-48 bg-stone-100 sm:h-auto sm:w-52 shrink-0">
           {(property.image || property.media?.[0]?.url)
-            ? <img src={property.image || property.media[0].url} alt={property.title} className="h-full w-full object-cover" />
+            ? <PropertyImage src={property.image || property.media[0].url} alt={property.title} className="h-full w-full object-cover" />
             : <div className="grid h-full min-h-40 place-items-center text-4xl">🏠</div>}
         </div>
         <div className="flex-1 p-5">
           <div className="flex flex-wrap justify-between gap-2">
-            <h2 className="max-w-sm font-semibold leading-6">{property.title}</h2>
+            <h2 className="max-w-sm font-semibold leading-6">{formatPropertyTitle(property.title)}</h2>
             <span className="font-semibold text-[var(--coral)]">{formatPropertyPrice(property.list_price)}</span>
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaMapMarkerAlt className="mr-1 inline" />
-            {property.address_full || [property.address_line, property.district, property.province].filter(Boolean).join(", ")}
+            {formatPropertyAddress(property)}
           </p>
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaBed className="mr-1 inline text-[var(--forest)]" />{property.bedrooms ?? 0} phòng ngủ · {property.area_sqm} m²
@@ -377,10 +394,10 @@ function InsightsSidebar({ insights, memorySummary, savedProperties, latestMatch
                 <button key={property.id} onClick={() => onSelectProperty(property)}
                   className="flex w-full gap-3 rounded-xl border border-black/5 p-2 text-left transition hover:bg-stone-50">
                   {(property.image || property.media?.[0]?.url)
-                    ? <img src={property.image || property.media[0].url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
+                    ? <PropertyImage src={property.image || property.media[0].url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
                     : <div className="grid h-14 w-14 place-items-center rounded-lg bg-stone-100 shrink-0">🏡</div>}
                   <span className="min-w-0">
-                    <strong className="line-clamp-2 text-xs leading-4">{property.title}</strong>
+                    <strong className="line-clamp-2 text-xs leading-4">{formatPropertyTitle(property.title)}</strong>
                     <small className="mt-1 block text-[var(--coral)]">{formatPropertyPrice(property.list_price)}</small>
                   </span>
                 </button>
@@ -401,7 +418,7 @@ function InsightsSidebar({ insights, memorySummary, savedProperties, latestMatch
             {savedProperties.slice(0, 3).map(p => (
               <Link href={`/properties/${p.id}`} key={p.id}
                 className="block truncate rounded-xl bg-[#fbfaf7] px-3 py-2.5 text-xs font-medium hover:bg-stone-100 mb-1">
-                {p.title}
+                {formatPropertyTitle(p.title)}
               </Link>
             ))}
           </section>
@@ -443,6 +460,8 @@ function ChatContent() {
   const searchParams = useSearchParams();
   const propertyId = searchParams.get("property_id");
   const initialPrompt = searchParams.get("prompt");
+  const isNewParam = searchParams.get("new") === "1";
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
@@ -455,6 +474,7 @@ function ChatContent() {
   const [savedProperties, setSavedProperties] = useState<Property[]>([]);
   const [memorySummary, setMemorySummary] = useState("");
   const [insights, setInsights] = useState<Record<string, unknown>>({});
+  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);
   const [renamingSession, setRenamingSession] = useState<SessionSummary | null>(null);
   const [deletingSession, setDeletingSession] = useState<SessionSummary | null>(null);
@@ -462,7 +482,8 @@ function ChatContent() {
   const [sessionActionLoading, setSessionActionLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const propertyLoaded = useRef(false);
-  const promptSent = useRef(false);
+  const handledPromptRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadSessions = useCallback(async () => {
     if (!user) { setSessions([]); return; }
@@ -487,6 +508,118 @@ function ChatContent() {
     return () => window.clearTimeout(t);
   }, [loadMemory, loadSavedProperties, loadSessions]);
 
+  const sessionLoadedOnMount = useRef(false);
+
+  const stopGenerating = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  }, []);
+
+  async function send(event?: FormEvent, quickText?: string, targetSessionId?: string) {
+    event?.preventDefault();
+    if (loading) return; // Prevent double submit while generating
+    const text = (quickText ?? input).trim();
+    if (!text) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const activeSessionId = targetSessionId || sessionId;
+
+    setInput(""); setError(""); setLoading(true);
+    setMessages(cur => [...cur, { role: "user", content: text }]);
+    try {
+      const res = await apiFetch<ChatResponse>("/chat", {
+        method: "POST",
+        headers: { "X-Session-ID": activeSessionId },
+        body: JSON.stringify({ message: text, property_id: propertyId || undefined }),
+        signal: controller.signal,
+      });
+      setSessionId(res.session_id || activeSessionId);
+      const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
+      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }]);
+      setInsights(res.insights ?? {});
+      if (res.memory_summary) setMemorySummary(res.memory_summary);
+      void loadSessions();
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) {
+        return; // User intentionally stopped/interrupted
+      }
+      setError(err instanceof Error ? err.message : "Nera chưa phản hồi được.");
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setLoading(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (initialPrompt && handledPromptRef.current !== initialPrompt) {
+      handledPromptRef.current = initialPrompt;
+      const nextSession = crypto.randomUUID();
+      window.sessionStorage.setItem("nera_chat_session_id", nextSession);
+      setSessionId(nextSession);
+      sessionLoadedOnMount.current = true;
+
+      // Clean query parameters from URL so subsequent reload does not re-send
+      const url = new URL(window.location.href);
+      url.searchParams.delete("prompt");
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+
+      void send(undefined, initialPrompt, nextSession);
+      return;
+    }
+
+    if (isNewParam && !initialPrompt) {
+      const nextSession = crypto.randomUUID();
+      window.sessionStorage.setItem("nera_chat_session_id", nextSession);
+      setSessionId(nextSession);
+      setMessages([greeting]);
+      sessionLoadedOnMount.current = true;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      return;
+    }
+
+    const stored = window.sessionStorage.getItem("nera_chat_session_id");
+    if (stored) {
+      setSessionId(stored);
+      if (user && !propertyId && !sessionLoadedOnMount.current) {
+        sessionLoadedOnMount.current = true;
+        void apiFetch<SessionDetail>(`/session/${stored}`)
+          .then(data => {
+            if (data.messages && data.messages.length > 0) {
+              setMessages(data.messages.map(m => ({
+                role: m.role.toLowerCase() === "user" ? "user" : "assistant",
+                content: m.content,
+                properties: m.properties,
+                aiMode: m.ai_mode,
+                aiModel: m.ai_model,
+              })));
+            }
+          })
+          .catch(() => {
+            // Silently start fresh without showing an error banner
+          });
+      }
+    }
+  }, [user, initialPrompt, propertyId, isNewParam]);
+
+  useEffect(() => {
+    window.sessionStorage.setItem("nera_chat_session_id", sessionId);
+  }, [sessionId]);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   useEffect(() => {
@@ -497,45 +630,25 @@ function ChatContent() {
       .catch(() => setError("Không tìm thấy bất động sản này."));
   }, [propertyId]);
 
-  async function send(event?: FormEvent, quickText?: string) {
-    event?.preventDefault();
-    const text = (quickText ?? input).trim();
-    if (!text || loading) return;
-    setInput(""); setError(""); setLoading(true);
-    setMessages(cur => [...cur, { role: "user", content: text }]);
-    try {
-      const res = await apiFetch<ChatResponse>("/chat", {
-        method: "POST",
-        headers: { "X-Session-ID": sessionId },
-        body: JSON.stringify({ message: text })
-      });
-      setSessionId(res.session_id || sessionId);
-      const chips = deriveQuickReplies(res.response);
-      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips }]);
-      setInsights(res.insights ?? {});
-      if (res.memory_summary) setMemorySummary(res.memory_summary);
-      void loadSessions();
-    } catch (err) { setError(err instanceof Error ? err.message : "Nera chưa phản hồi được."); }
-    finally { setLoading(false); }
-  }
-
-  useEffect(() => {
-    if (!initialPrompt || promptSent.current) return;
-    const t = window.setTimeout(() => { if (!promptSent.current) { promptSent.current = true; void send(undefined, initialPrompt); } }, 0);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPrompt]);
-
   async function loadSession(id: string) {
     try {
       const data = await apiFetch<SessionDetail>(`/session/${id}`);
       setSessionId(id);
-      setMessages(data.messages.map(m => ({ role: m.role.toLowerCase() === "user" ? "user" : "assistant", content: m.content, properties: m.properties })));
+      if (data.messages && data.messages.length > 0) {
+        setMessages(data.messages.map(m => ({ role: m.role.toLowerCase() === "user" ? "user" : "assistant", content: m.content, properties: m.properties, aiMode: m.ai_mode, aiModel: m.ai_model })));
+      } else {
+        setMessages([greeting]);
+      }
+      setExpandedCards({});
       setError("");
     } catch { setError("Không tải được cuộc trò chuyện."); }
   }
 
-  function newChat() { setSessionId(crypto.randomUUID()); setMessages([greeting]); setInput(""); setError(""); setInsights({}); router.replace("/chat"); }
+  function newChat() {
+    const nextSession = crypto.randomUUID();
+    window.sessionStorage.setItem("nera_chat_session_id", nextSession);
+    setSessionId(nextSession); setMessages([greeting]); setInput(""); setError(""); setInsights({}); setExpandedCards({}); router.replace("/chat");
+  }
 
   function beginRename(s: SessionSummary) { setSessionMenu(null); setRenamingSession(s); setSessionTitle(s.preview); }
 
@@ -588,8 +701,8 @@ function ChatContent() {
         headers: { "X-Session-ID": sessionId },
         body: JSON.stringify({ message: text })
       });
-      const chips = deriveQuickReplies(res.response);
-      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips }]);
+      const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
+      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }]);
       setInsights(res.insights ?? {});
       if (res.memory_summary) setMemorySummary(res.memory_summary);
       void loadSessions();
@@ -601,51 +714,76 @@ function ChatContent() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--paper)] text-[var(--ink)]">
+      {/* ── Mobile backdrop for sidebar ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Đóng lịch sử"
+        />
+      )}
+
       {/* ── Left sidebar: session history ── */}
-      <aside className="hidden w-72 shrink-0 flex-col bg-[var(--ink)] text-white lg:flex">
-        <div className="border-b border-white/10 p-5">
-          <Link href="/" className="flex items-center gap-3 font-semibold">
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10"><FaMagic className="text-[#a9c9b0]" /></span>
-            <span>Nera<small className="block text-[10px] font-medium uppercase tracking-[.16em] text-white/45">AI home companion</small></span>
-          </Link>
-        </div>
-        <div className="p-4">
-          <button onClick={newChat} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-[var(--ink)] transition hover:bg-[#e7eee7]">
-            <FaPlus /> Cuộc trò chuyện mới
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
-          <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-white/35"><FaHistory /> Lịch sử</p>
-          {!user
-            ? <Link href="/login?next=/chat" className="text-sm text-[#a9c9b0] hover:underline">Đăng nhập để lưu lịch sử</Link>
-            : sessions.length === 0
-              ? <p className="text-sm text-white/40">Chưa có cuộc trò chuyện.</p>
-              : <div className="space-y-2">
-                {sessions.map(session => (
-                  <div key={session.session_id} className={`group relative rounded-xl transition ${session.session_id === sessionId ? "bg-white/12" : "hover:bg-white/7"}`}>
-                    <button onClick={() => { setSessionMenu(null); void loadSession(session.session_id); }} className="w-full p-3 pr-10 text-left text-sm">
-                      <span className="block truncate">{session.preview}</span>
-                      <span className="text-xs text-white/35">{session.message_count} tin nhắn</span>
-                    </button>
-                    <button onClick={e => { e.stopPropagation(); setSessionMenu(cur => cur === session.session_id ? null : session.session_id); }}
-                      aria-label={`Tùy chọn cho ${session.preview}`}
-                      className={`absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white ${sessionMenu === session.session_id ? "opacity-100 bg-white/10" : "opacity-0 group-hover:opacity-100"}`}>
-                      <FaEllipsisV />
-                    </button>
-                    {sessionMenu === session.session_id && (
-                      <div className="absolute right-2 top-[calc(50%+20px)] z-20 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#243b34] py-1 shadow-2xl">
-                        <button onClick={() => beginRename(session)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs hover:bg-white/10"><FaPen /> Đổi tên</button>
-                        <button onClick={() => { setSessionMenu(null); setDeletingSession(session); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs text-[#ffb4a0] hover:bg-white/10"><FaTrash /> Xóa</button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>}
-        </div>
-        <div className="border-t border-white/10 p-4 text-sm">
-          {user
-            ? <><p className="font-semibold">{user.full_name}</p><p className="text-xs text-white/40">Dữ liệu riêng theo tài khoản</p></>
-            : <p className="text-white/40">Bạn đang trò chuyện ẩn danh</p>}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--ink)] text-white shadow-2xl transition-all duration-300 ease-in-out lg:static lg:z-auto lg:shadow-none ${
+          sidebarOpen
+            ? "w-72 translate-x-0 opacity-100"
+            : "-translate-x-full pointer-events-none lg:translate-x-0 lg:w-0 lg:overflow-hidden lg:opacity-0"
+        }`}
+      >
+        <div className="flex h-full w-72 flex-col">
+          <div className="flex items-center justify-between border-b border-white/10 p-5">
+            <Link href="/" className="flex items-center gap-3 font-semibold">
+              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10"><FaMagic className="text-[#a9c9b0]" /></span>
+              <span>Nera<small className="block text-[10px] font-medium uppercase tracking-[.16em] text-white/45">AI home companion</small></span>
+            </Link>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="grid h-8 w-8 place-items-center rounded-xl text-white/60 transition hover:bg-white/10 hover:text-white"
+              aria-label="Thu gọn lịch sử"
+              title="Thu gọn lịch sử"
+            >
+              <FaBars />
+            </button>
+          </div>
+          <div className="p-4">
+            <button onClick={newChat} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-[var(--ink)] transition hover:bg-[#e7eee7]">
+              <FaPlus /> Cuộc trò chuyện mới
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4 dark-sidebar-scroll">
+            <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-white/35"><FaHistory /> Lịch sử</p>
+            {!user
+              ? <Link href="/login?next=/chat" className="text-sm text-[#a9c9b0] hover:underline">Đăng nhập để lưu lịch sử</Link>
+              : sessions.length === 0
+                ? <p className="text-sm text-white/40">Chưa có cuộc trò chuyện.</p>
+                : <div className="space-y-2">
+                  {sessions.map(session => (
+                    <div key={session.session_id} className={`group relative rounded-xl transition ${session.session_id === sessionId ? "bg-white/12" : "hover:bg-white/7"}`}>
+                      <button onClick={() => { setSessionMenu(null); void loadSession(session.session_id); }} className="w-full p-3 pr-10 text-left text-sm">
+                        <span className="block truncate">{session.preview}</span>
+                        <span className="text-xs text-white/35">{session.message_count} tin nhắn</span>
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); setSessionMenu(cur => cur === session.session_id ? null : session.session_id); }}
+                        aria-label={`Tùy chọn cho ${session.preview}`}
+                        className={`absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/55 transition hover:bg-white/10 hover:text-white ${sessionMenu === session.session_id ? "opacity-100 bg-white/10" : "opacity-0 group-hover:opacity-100"}`}>
+                        <FaEllipsisV />
+                      </button>
+                      {sessionMenu === session.session_id && (
+                        <div className="absolute right-2 top-[calc(50%+20px)] z-20 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#243b34] py-1 shadow-2xl">
+                          <button onClick={() => beginRename(session)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs hover:bg-white/10"><FaPen /> Đổi tên</button>
+                          <button onClick={() => { setSessionMenu(null); setDeletingSession(session); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs text-[#ffb4a0] hover:bg-white/10"><FaTrash /> Xóa</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>}
+          </div>
+          <div className="border-t border-white/10 p-4 text-sm">
+            {user
+              ? <><p className="font-semibold">{user.full_name}</p><p className="text-xs text-white/40">Dữ liệu riêng theo tài khoản</p></>
+              : <p className="text-white/40">Bạn đang trò chuyện ẩn danh</p>}
+          </div>
         </div>
       </aside>
 
@@ -653,6 +791,16 @@ function ChatContent() {
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-black/5 bg-white/85 px-4 py-4 backdrop-blur sm:px-6">
           <div className="flex items-center gap-3">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-black/10 bg-white text-stone-700 shadow-sm transition hover:border-black/20 hover:bg-stone-50 hover:text-black"
+                aria-label="Mở thanh lịch sử"
+                title="Mở thanh lịch sử"
+              >
+                <FaBars />
+              </button>
+            )}
             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
             <div>
               <h1 className="font-semibold">Nera đang ở đây</h1>
@@ -673,49 +821,121 @@ function ChatContent() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mx-auto max-w-3xl space-y-6">
             {messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={`animate-message-in ${message.role === "user" ? "flex justify-end" : "flex gap-3"}`}>
-                {message.role === "assistant" && (
-                  <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
-                )}
-                <div className="max-w-2xl w-full">
-                  <div className={`whitespace-pre-line rounded-[1.35rem] px-5 py-3.5 text-[15px] leading-7 ${message.role === "user" ? "rounded-tr-md bg-[var(--ink)] text-white" : "rounded-tl-md border border-black/5 bg-white shadow-sm"}`}>
-                    {message.content}
-                  </div>
-
-                  {/* Quick reply chips */}
-                  {message.role === "assistant" && message.quickReplies && message.quickReplies.length > 0 && index === messages.length - 1 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {message.quickReplies.map(chip => (
-                        <button key={chip} onClick={() => void send(undefined, chip)}
-                          className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm">
-                          {chip}
-                        </button>
-                      ))}
+              <div key={`${message.role}-${index}`} className="animate-message-in">
+                {message.role === "user" ? (
+                  <div className="flex justify-end">
+                    <div className="w-fit max-w-[80%] rounded-[1.35rem] rounded-tr-xs bg-[var(--ink)] px-5 py-3 text-[15px] leading-relaxed text-white shadow-xs whitespace-pre-line break-words">
+                      {message.content}
                     </div>
-                  )}
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs"><FaMagic /></span>
+                    <div className="w-fit max-w-[88%] min-w-0 space-y-3">
+                      <div className="w-fit max-w-full rounded-[1.35rem] rounded-tl-xs border border-black/5 bg-white px-5 py-3.5 text-[15px] leading-relaxed text-stone-800 shadow-xs">
+                        <div className="prose prose-sm max-w-none text-stone-800 leading-relaxed">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              table: ({ ...props }) => (
+                                <div className="my-4 overflow-x-auto rounded-2xl border border-stone-200/80 bg-white shadow-xs">
+                                  <table className="w-full text-left text-[14px] border-collapse min-w-[480px]" {...props} />
+                                </div>
+                              ),
+                              thead: ({ ...props }) => <thead className="bg-[#eef4ee] text-[var(--forest)] font-bold border-b border-stone-200" {...props} />,
+                              tr: ({ ...props }) => <tr className="even:bg-stone-50/50 hover:bg-emerald-50/30 transition-colors" {...props} />,
+                              th: ({ ...props }) => <th className="py-3 px-4 font-bold text-[14px] text-[var(--forest)] border-r border-stone-200/70 last:border-r-0 whitespace-nowrap" {...props} />,
+                              td: ({ ...props }) => <td className="py-3 px-4 text-[14px] text-stone-700 border-t border-stone-200/60 border-r border-stone-200/60 last:border-r-0 align-top leading-6" {...props} />,
+                              p: ({ ...props }) => <p className="mb-3 last:mb-0 leading-relaxed text-[15px]" {...props} />,
+                              ul: ({ ...props }) => <ul className="my-2.5 list-disc pl-5 space-y-1.5" {...props} />,
+                              ol: ({ ...props }) => <ol className="my-2.5 list-decimal pl-5 space-y-1.5" {...props} />,
+                              li: ({ ...props }) => <li className="text-[15px] leading-relaxed" {...props} />,
+                              h1: ({ ...props }) => <h1 className="text-lg font-bold my-3 text-[var(--forest)]" {...props} />,
+                              h2: ({ ...props }) => <h2 className="text-base font-bold my-2.5 text-[var(--forest)]" {...props} />,
+                              h3: ({ ...props }) => <h3 className="text-[15px] font-bold my-2 text-[var(--forest)]" {...props} />,
+                              strong: ({ ...props }) => <strong className="font-semibold text-stone-900" {...props} />,
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
 
-                  {/* Property cards */}
-                  {message.properties?.map((property, pi) => (
-                    <PropertyCard
-                      key={property.id}
-                      property={property}
-                      insights={insights}
-                      savedIds={savedIds}
-                      animDelay={pi * 80}
-                      onDetail={() => setSelected(property)}
-                      onSave={() => void save(property)}
-                      onBook={() => book(property)}
-                      onReject={() => setFeedbackProperty(property)}
-                    />
-                  ))}
-                </div>
+                      {/* Quick reply chips */}
+                      {message.quickReplies && message.quickReplies.length > 0 && index === messages.length - 1 && (
+                        <div className="flex flex-wrap gap-2">
+                          {message.quickReplies.map(chip => (
+                            <button
+                              key={chip}
+                              disabled={loading}
+                              onClick={() => void send(undefined, chip)}
+                              className={`rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm ${
+                                loading ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                              }`}
+                            >
+                              {chip}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Auth required */}
+                      {message.authRequired && index === messages.length - 1 && (
+                        <Link href="/login?next=/chat" className="inline-flex rounded-full bg-[var(--forest)] px-5 py-2.5 text-xs font-semibold text-white">
+                          Đăng nhập để tiếp tục
+                        </Link>
+                      )}
+
+                      {/* Property cards */}
+                      {message.properties && message.properties.length > 0 && (() => {
+                        const isExpanded = expandedCards[index] ?? false;
+                        const totalCards = message.properties.length;
+                        const displayed = isExpanded ? message.properties : message.properties.slice(0, 5);
+                        const hasMore = totalCards > 5;
+
+                        return (
+                          <div className="space-y-3 pt-1">
+                            {displayed.map((property, pi) => (
+                              <PropertyCard
+                                key={property.id}
+                                property={property}
+                                insights={insights}
+                                savedIds={savedIds}
+                                animDelay={pi * 60}
+                                onDetail={() => setSelected(property)}
+                                onSave={() => void save(property)}
+                                onBook={() => book(property)}
+                                onReject={() => setFeedbackProperty(property)}
+                              />
+                            ))}
+
+                            {hasMore && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))}
+                                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--forest)]/20 bg-[#f4f8f4] hover:bg-[#e8f1e8] px-4 py-3.5 text-xs font-semibold text-[var(--forest)] shadow-xs transition-all hover:border-[var(--forest)]/40 active:scale-[0.99] cursor-pointer"
+                              >
+                                <span>
+                                  {isExpanded
+                                    ? "Thu gọn danh sách (chỉ hiện 5 căn đầu)"
+                                    : `Xem tất cả ${totalCards} bất động sản (còn ${totalCards - 5} căn khác)`}
+                                </span>
+                                <FaChevronDown className={`transition-transform duration-200 text-xs ${isExpanded ? "rotate-180" : ""}`} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
             {loading && (
               <div className="flex animate-message-in items-start gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
-                <div className="flex gap-1 rounded-[1.35rem] rounded-tl-md bg-white px-5 py-5 shadow-sm">
+                <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs"><FaMagic /></span>
+                <div className="flex gap-1 rounded-[1.35rem] rounded-tl-md bg-white px-5 py-5 shadow-xs border border-stone-100">
                   <i className="typing-dot" /><i className="typing-dot [animation-delay:150ms]" /><i className="typing-dot [animation-delay:300ms]" />
                 </div>
               </div>
@@ -735,15 +955,34 @@ function ChatContent() {
             <input
               aria-label="Tin nhắn"
               value={input}
+              disabled={loading}
               onChange={e => setInput(e.target.value)}
-              placeholder="Nói điều bạn thích, không thích hoặc muốn thay đổi…"
-              className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] py-4 pl-5 pr-14 text-sm outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
+              placeholder={loading ? "Nera đang trả lời, vui lòng chờ trong giây lát…" : "Nói điều bạn thích, không thích hoặc muốn thay đổi…"}
+              className={`w-full rounded-2xl border border-black/10 bg-[#fbfaf7] py-4 pl-5 pr-14 text-sm outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10 transition-colors ${
+                loading ? "opacity-60 cursor-not-allowed bg-stone-100/70" : ""
+              }`}
             />
-            <button disabled={loading || !input.trim()}
-              className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink)] text-white transition hover:scale-105 disabled:opacity-30"
-              aria-label="Gửi tin nhắn">
-              <FaPaperPlane />
-            </button>
+            {loading ? (
+              <button
+                type="button"
+                onClick={stopGenerating}
+                className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--forest)] text-white shadow-xs transition hover:scale-105 hover:bg-[#163825] active:scale-95 cursor-pointer"
+                aria-label="Tạm dừng"
+                title="Bấm để dừng"
+              >
+                {/* Clean white stop square / circle icon */}
+                <span className="h-3.5 w-3.5 rounded-[3px] bg-white block" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim() || loading}
+                className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink)] text-white transition hover:scale-105 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                aria-label="Gửi tin nhắn"
+              >
+                <FaPaperPlane />
+              </button>
+            )}
           </div>
           <p className="mx-auto mt-2 max-w-3xl text-center text-[10px] text-stone-400">
             Nera dùng dữ liệu hệ thống làm nguồn sự thật và không tự xác nhận lịch thay Sale.
@@ -786,7 +1025,7 @@ function ChatContent() {
           <div className="w-full max-w-md animate-message-in rounded-[1.7rem] bg-white p-6 shadow-2xl">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-red-50 text-red-600"><FaTrash /></span>
             <h2 id="delete-chat-title" className="mt-5 text-xl font-semibold">Xóa cuộc trò chuyện?</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">"{deletingSession.preview}" sẽ bị xóa vĩnh viễn.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">“{deletingSession.preview}” sẽ bị xóa vĩnh viễn.</p>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setDeletingSession(null)} className="flex-1 rounded-full border border-black/10 py-2.5 font-semibold">Giữ lại</button>
               <button onClick={() => void deleteSession()} disabled={sessionActionLoading}
@@ -802,10 +1041,10 @@ function ChatContent() {
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
           <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.7rem] bg-white p-6">
             <button onClick={() => setSelected(null)} className="absolute right-4 top-4 rounded-full bg-slate-100 p-2" aria-label="Đóng"><FaTimes /></button>
-            <h2 className="pr-10 text-2xl font-bold">{selected.title}</h2>
+            <h3 className="text-lg font-bold">{formatPropertyTitle(selected.title)}</h3>
             <p className="mt-2 font-bold text-[var(--coral)]">{formatPropertyPrice(selected.list_price)}</p>
             {(selected.image || selected.media?.[0]?.url) && (
-              <img src={selected.image || selected.media[0].url} alt={selected.title} className="mt-5 h-72 w-full rounded-xl object-cover" />
+              <PropertyImage src={selected.image || selected.media[0].url} alt={selected.title} className="mt-5 h-72 w-full rounded-xl object-cover" />
             )}
             {/* AI match reasons in detail modal */}
             {(() => { const { ok, caution } = buildMatchReasons(selected, insights); return (ok.length > 0 || caution.length > 0) && (
@@ -837,10 +1076,14 @@ function ChatContent() {
   );
 }
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
 export default function ChatPage() {
   return (
-    <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[var(--paper)]">Đang mở Nera…</div>}>
-      <ChatContent />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<div className="grid min-h-screen place-items-center bg-[var(--paper)]">Đang mở Nera…</div>}>
+        <ChatContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

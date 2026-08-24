@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -10,6 +9,8 @@ import { FaComments } from "react-icons/fa6";
 import { apiFetch } from "@/lib/api";
 import type { Property } from "@/lib/types";
 import { roleHome, useAuth } from "@/components/AuthProvider";
+import { formatPropertyTitle } from "@/lib/propertyAddress";
+import PropertyImage from "@/components/PropertyImage";
 
 export default function PropertyDetail() {
   const { user } = useAuth();
@@ -108,18 +109,18 @@ export default function PropertyDetail() {
         <section className="mb-8" aria-label="Thư viện ảnh bất động sản">
           <div className="grid h-[360px] gap-3 sm:h-[460px] lg:grid-cols-[2fr_1fr]">
             <button type="button" onClick={() => galleryImages.length && setLightboxOpen(true)} className="group relative min-h-0 overflow-hidden rounded-[1.5rem] bg-[#e6eee7] text-left focus:outline-none focus:ring-4 focus:ring-[var(--forest)]/30 transition-transform hover:scale-[1.01] shadow-sm">
-              {galleryImages[currentImageIndex] ? <img src={galleryImages[currentImageIndex].url} alt={galleryImages[currentImageIndex].caption || property.title} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="absolute inset-0 flex items-center justify-center text-5xl text-[var(--sage)] opacity-50">🏠</div>}
+              {galleryImages[currentImageIndex] ? <PropertyImage src={galleryImages[currentImageIndex].url} alt={galleryImages[currentImageIndex].caption || property.title} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" /> : <div className="absolute inset-0 flex items-center justify-center text-5xl text-[var(--sage)] opacity-50">🏠</div>}
               {galleryImages.length > 0 && <span className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full bg-[var(--ink)]/80 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm"><FaImages /> {galleryImages.length} ảnh · Bấm để phóng to</span>}
             </button>
             <div className="grid min-h-0 grid-cols-2 gap-3 lg:grid-cols-1 lg:grid-rows-2">
               {galleryImages.slice(1, 3).map((image, offset) => {
                 const index = offset + 1;
-                return <button key={`${image.url}-${index}`} type="button" onClick={() => { setActiveImageIndex(index); setLightboxOpen(true); }} className="group relative min-h-0 overflow-hidden rounded-[1.5rem] bg-[#e6eee7] text-left focus:outline-none focus:ring-4 focus:ring-[var(--forest)]/30 transition-transform hover:scale-[1.02] shadow-sm"><img src={image.url} alt={image.caption || `${property.title} ${index + 1}`} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110" />{index === 2 && galleryImages.length > 3 && <span className="absolute inset-0 grid place-items-center bg-[var(--ink)]/50 backdrop-blur-sm text-sm font-bold text-white transition-opacity group-hover:bg-[var(--ink)]/60">+{galleryImages.length - 2} ảnh khác</span>}</button>;
+                return <button key={`${image.url}-${index}`} type="button" onClick={() => { setActiveImageIndex(index); setLightboxOpen(true); }} className="group relative min-h-0 overflow-hidden rounded-[1.5rem] bg-[#e6eee7] text-left focus:outline-none focus:ring-4 focus:ring-[var(--forest)]/30 transition-transform hover:scale-[1.02] shadow-sm"><PropertyImage src={image.url} alt={image.caption || `${property.title} ${index + 1}`} className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110" />{index === 2 && galleryImages.length > 3 && <span className="absolute inset-0 grid place-items-center bg-[var(--ink)]/50 backdrop-blur-sm text-sm font-bold text-white transition-opacity group-hover:bg-[var(--ink)]/60">+{galleryImages.length - 2} ảnh khác</span>}</button>;
               })}
               {galleryImages.length < 2 && <div className="hidden rounded-[1.5rem] bg-[#fbfaf7] border border-black/5 lg:block shadow-sm" />}
             </div>
           </div>
-          {galleryImages.length > 0 && <div className="mt-4 flex gap-3 overflow-x-auto pb-2" aria-label="Chọn ảnh"><button type="button" onClick={() => { setActiveImageIndex(0); setLightboxOpen(true); }} className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${activeImageIndex === 0 ? "border-[var(--forest)] ring-2 ring-[var(--forest)]/30" : "border-transparent opacity-70 hover:opacity-100 hover:scale-105"}`}><img src={galleryImages[0].url} alt="Ảnh đại diện" className="h-full w-full object-cover" /></button>{galleryImages.slice(1).map((image, index) => { const actualIndex = index + 1; return <button key={`${image.url}-thumb`} type="button" onClick={() => { setActiveImageIndex(actualIndex); setLightboxOpen(true); }} className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${activeImageIndex === actualIndex ? "border-[var(--forest)] ring-2 ring-[var(--forest)]/30" : "border-transparent opacity-70 hover:opacity-100 hover:scale-105"}`}><img src={image.url} alt={`${property.title} ảnh ${actualIndex + 1}`} className="h-full w-full object-cover" /></button>; })}</div>}
+          {galleryImages.length > 0 && <div className="mt-4 flex gap-3 overflow-x-auto pb-2" aria-label="Chọn ảnh"><button type="button" onClick={() => { setActiveImageIndex(0); setLightboxOpen(true); }} className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${activeImageIndex === 0 ? "border-[var(--forest)] ring-2 ring-[var(--forest)]/30" : "border-transparent opacity-70 hover:opacity-100 hover:scale-105"}`}><PropertyImage src={galleryImages[0].url} alt="Ảnh đại diện" className="h-full w-full object-cover" /></button>{galleryImages.slice(1).map((image, index) => { const actualIndex = index + 1; return <button key={`${image.url}-thumb`} type="button" onClick={() => { setActiveImageIndex(actualIndex); setLightboxOpen(true); }} className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${activeImageIndex === actualIndex ? "border-[var(--forest)] ring-2 ring-[var(--forest)]/30" : "border-transparent opacity-70 hover:opacity-100 hover:scale-105"}`}><PropertyImage src={image.url} alt={`${property.title} ảnh ${actualIndex + 1}`} className="h-full w-full object-cover" /></button>; })}</div>}
         </section>
 
         {/* Badges */}
@@ -132,7 +133,7 @@ export default function PropertyDetail() {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Content */}
           <div className="flex-1">
-            <h1 className="text-4xl font-bold mb-3 tracking-tight">{property.title}</h1>
+            <h1 className="text-4xl font-bold mb-3 tracking-tight">{formatPropertyTitle(property.title)}</h1>
             <div className="flex items-center text-[var(--muted)] text-sm mb-6 bg-white w-fit px-4 py-2 rounded-xl border border-black/5 shadow-sm">
               <FaMapMarkerAlt className="mr-2 text-[var(--coral)]" /> {property.address_line || ""}, {property.ward || ""}, {property.district || ""}, {property.province || ""}
             </div>
@@ -246,10 +247,10 @@ export default function PropertyDetail() {
             <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Đóng thư viện ảnh" className="absolute right-0 top-0 z-10 rounded-full bg-white/10 p-3 text-xl text-white transition hover:bg-white/30"><FaTimes /></button>
             <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
               {galleryImages.length > 1 && <button type="button" onClick={showPreviousImage} aria-label="Ảnh trước" className="absolute left-0 z-10 rounded-full bg-white/15 p-4 text-xl text-white transition hover:bg-white/30 sm:left-3 hover:scale-110"><FaChevronLeft /></button>}
-              <img src={galleryImages[currentImageIndex].url} alt={galleryImages[currentImageIndex].caption || `${property.title} ảnh ${currentImageIndex + 1}`} className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl" />
+              <PropertyImage src={galleryImages[currentImageIndex].url} alt={galleryImages[currentImageIndex].caption || `${property.title} ảnh ${currentImageIndex + 1}`} className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl" />
               {galleryImages.length > 1 && <button type="button" onClick={showNextImage} aria-label="Ảnh tiếp theo" className="absolute right-0 z-10 rounded-full bg-white/15 p-4 text-xl text-white transition hover:bg-white/30 sm:right-3 hover:scale-110"><FaChevronRight /></button>}
             </div>
-            <div className="mt-4 flex w-full max-w-5xl items-center gap-3 overflow-x-auto pb-2"><span className="mr-3 shrink-0 text-sm font-bold tracking-widest text-white/70 bg-black/40 px-3 py-1 rounded-full">{currentImageIndex + 1} / {galleryImages.length}</span>{galleryImages.map((image, index) => <button key={`${image.url}-lightbox-thumb`} type="button" onClick={() => setActiveImageIndex(index)} aria-label={`Xem ảnh ${index + 1}`} className={`h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${index === currentImageIndex ? "border-[var(--coral)] ring-2 ring-[var(--coral)]/50 scale-105" : "border-transparent opacity-50 hover:opacity-100"}`}><img src={image.url} alt="" className="h-full w-full object-cover" /></button>)}</div>
+            <div className="mt-4 flex w-full max-w-5xl items-center gap-3 overflow-x-auto pb-2"><span className="mr-3 shrink-0 text-sm font-bold tracking-widest text-white/70 bg-black/40 px-3 py-1 rounded-full">{currentImageIndex + 1} / {galleryImages.length}</span>{galleryImages.map((image, index) => <button key={`${image.url}-lightbox-thumb`} type="button" onClick={() => setActiveImageIndex(index)} aria-label={`Xem ảnh ${index + 1}`} className={`h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${index === currentImageIndex ? "border-[var(--coral)] ring-2 ring-[var(--coral)]/50 scale-105" : "border-transparent opacity-50 hover:opacity-100"}`}><PropertyImage src={image.url} alt="" className="h-full w-full object-cover" /></button>)}</div>
           </div>
         </div>}
       </main>

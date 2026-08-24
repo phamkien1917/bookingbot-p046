@@ -1,7 +1,6 @@
 """Assignment and sale agent tools for the agent."""
 
 import logging
-from datetime import datetime
 from uuid import UUID
 
 from langchain_core.tools import tool
@@ -13,6 +12,7 @@ from src.database.models import (
     SaleProfile,
     User,
 )
+from src.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def calculate_assignment_score(
                     .join(User, SaleProfile.user_id == User.id)
                     .where(
                         SaleProfile.user_id == UUID(sale_id),
-                        SaleProfile.is_accepting_tours.is_(True),
+                        SaleProfile.is_accepting_tours,
                         User.status == "ACTIVE",
                     )
                 )
@@ -75,7 +75,7 @@ def calculate_assignment_score(
                     select(SaleProfile, User)
                     .join(User, SaleProfile.user_id == User.id)
                     .where(
-                        SaleProfile.is_accepting_tours.is_(True),
+                        SaleProfile.is_accepting_tours,
                         User.status == "ACTIVE",
                     )
                 )
@@ -183,8 +183,9 @@ def assign_sale_to_booking(
 
     from src.database.models import Appointment
 
+    requested_sale_id = sale_id
+
     async def _assign():
-        selected_sale_id = sale_id
         async with get_session_context() as session:
             # Get booking
             apt_stmt = select(Appointment).where(Appointment.id == UUID(booking_id))
@@ -194,7 +195,7 @@ def assign_sale_to_booking(
             if not apt:
                 return {"error": "Booking not found"}
 
-            if not selected_sale_id:
+            if not requested_sale_id:
                 # Get best sale using score calculation
                 # For now, just pick first available
                 from sqlalchemy import select as sel
@@ -204,7 +205,7 @@ def assign_sale_to_booking(
                     sel(SaleProfile, User)
                     .join(User, SaleProfile.user_id == User.id)
                     .where(
-                        SaleProfile.is_accepting_tours.is_(True),
+                        SaleProfile.is_accepting_tours,
                         User.status == "ACTIVE",
                     )
                     .limit(1)
@@ -217,11 +218,12 @@ def assign_sale_to_booking(
                 sale_name = best[1].full_name
             else:
                 # Validate sale exists
-                sale_stmt = select(User).where(User.id == UUID(selected_sale_id))
+                sale_stmt = select(User).where(User.id == UUID(requested_sale_id))
                 sale_result = await session.execute(sale_stmt)
                 sale_user = sale_result.scalar_one_or_none()
                 if not sale_user:
                     return {"error": "Sale not found"}
+                selected_sale_id = requested_sale_id
                 sale_name = sale_user.full_name
 
             # Update booking
@@ -233,7 +235,7 @@ def assign_sale_to_booking(
                 "booking_id": booking_id,
                 "sale_id": selected_sale_id,
                 "sale_name": sale_name,
-                "assigned_at": datetime.utcnow().isoformat(),
+                "assigned_at": utcnow().isoformat(),
             }
 
     import asyncio
@@ -277,7 +279,7 @@ def get_available_sales(
                 select(SaleProfile, User)
                 .join(User, SaleProfile.user_id == User.id)
                 .where(
-                    SaleProfile.is_accepting_tours.is_(True),
+                    SaleProfile.is_accepting_tours,
                     User.status == "ACTIVE",
                 )
                 .limit(limit)

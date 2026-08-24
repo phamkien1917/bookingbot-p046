@@ -38,7 +38,7 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-Mở `http://localhost:3000`. API docs ở `http://localhost:8000/docs`.
+Mở `http://localhost:3001` (script development của frontend dùng cổng 3001). API docs ở `http://localhost:8000/docs`.
 
 Nếu muốn chạy toàn bộ hệ thống demo bằng Docker (PostgreSQL, Redis, backend và frontend):
 
@@ -70,38 +70,43 @@ Tài khoản seed dùng mật khẩu demo chỉ được chấp nhận khi `APP_
 
 Phiên đăng nhập dùng cookie HttpOnly. API Sale/Admin và lịch sử chatbot đều kiểm tra vai trò và chủ sở hữu ở backend.
 
-## Sample queries (test agent qua `/api/v1/chat`)
+Chat production dùng `POST /api/v1/chat` và lưu trạng thái hội thoại qua nhiều lượt. LLM thật trích xuất intent bằng Structured Outputs và viết phần tư vấn trên dữ liệu PostgreSQL đã xác minh; backend vẫn độc quyền phân quyền và booking. Luồng này nằm ở service layer, không phụ thuộc hoặc chỉnh sửa `src/agents/**`; xem [kiến trúc chat](docs/chat-architecture.md).
 
-Các câu dưới đây khớp với các `Intent` agent đã cài (`src/agents/state.py`), dùng để test end-to-end sau khi đã điền `OPENAI_API_KEY`/`OPENROUTER_API_KEY` thật trong `.env`:
-
-```
-Tôi muốn tìm căn hộ 2 phòng ngủ ở quận 7, giá dưới 4 tỷ          -> SEARCH_PROPERTY
-Cho tôi xem thêm căn nào gần đó có ban công không                -> SEARCH_PROPERTY (follow-up)
-Tôi muốn đặt lịch xem căn này vào cuối tuần                       -> BOOK_APPOINTMENT
-Đổi lịch xem nhà sang chiều thứ 7 được không                     -> RESCHEDULE
-Tôi muốn huỷ lịch xem nhà đã đặt                                  -> CANCEL_BOOKING
-Lịch xem nhà của tôi đang ở trạng thái nào rồi                    -> CHECK_STATUS
-Mua nhà cần chuẩn bị giấy tờ gì                                   -> GENERAL_QA (không search DB)
-```
-
-Kỳ vọng output: agent trả lời bằng tiếng Việt tự nhiên, có gọi tool tương ứng (`search_properties`, `create_booking`, `propose_time_slots`...), không bịa property/giá không có trong DB.
+Mỗi response công khai `ai_mode`: `llm_grounded`, `llm_direct`, `llm_intent` hoặc `fallback`. Nếu provider lỗi, UI hiện rõ “Fallback theo luật” thay vì giả làm phản hồi AI. Cấu hình model bằng `OPENAI_MODEL_NAME` hoặc `MODEL_NAME` khi dùng OpenRouter.
 
 ## Kiểm tra chất lượng
 
 ```powershell
 cd C:\buildAI\P-046
 .\venv\Scripts\python.exe -m pip check
-.\venv\Scripts\python.exe -m pytest tests\test_api tests\test_database_rebuild.py tests\test_crawl_pipeline.py tests\test_batdongsan_crawler.py -q
+.\venv\Scripts\python.exe -m pytest tests -q
 
 cd frontend
 npm.cmd run lint
 npm.cmd run build
 ```
 
+Smoke test chat (không tạo booking):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_smoke.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_ai.ps1
+```
+
+Kiểm thử booking thật dùng một tài khoản customer dùng cho test; script luôn hủy booking đã tạo khi hoàn tất:
+
+```powershell
+$env:BOOKINGBOT_TEST_EMAIL="customer.demo@example.com"
+$env:BOOKINGBOT_TEST_PASSWORD="Demo@123"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_booking.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_sale_approval.ps1
+```
+
+Ma trận kiểm thử thủ công và tự động hóa tiếp theo nằm tại `eval/chat_scenarios.json`.
+
 Các biến frontend tùy chọn:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
 ```
-
 

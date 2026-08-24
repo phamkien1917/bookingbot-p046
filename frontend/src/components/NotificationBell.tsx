@@ -39,6 +39,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     let active = true;
+
     const load = async () => {
       if (!user) { setNotifications([]); return; }
       try {
@@ -46,9 +47,19 @@ export default function NotificationBell() {
         if (active) setNotifications(data.items);
       } catch { if (active) setNotifications([]); }
     };
+
     void load();
-    const timer = window.setInterval(() => void load(), 30000);
-    return () => { active = false; window.clearInterval(timer); };
+    const timer = window.setInterval(() => void load(), 10_000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, [user]);
 
   async function markRead(id: string) {

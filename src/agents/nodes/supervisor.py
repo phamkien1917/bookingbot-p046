@@ -1,419 +1,468 @@
-"""Supervisor (Conversation) Agent - Main orchestrator.
+"""Supervisor (Conversation & Classification) Agent for LangGraph.
 
-This agent classifies user intent and routes to appropriate sub-agents.
+Classifies user intent and routes to specialized sub-agents with full multi-turn context.
 """
+
+from __future__ import annotations
 
 import json
 import logging
 import re
+import time
+from datetime import datetime
+from typing import Any
+
+from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 
 from src.agents.state import AgentState, AgentType, Intent
+from src.services.chat_state_service import (
+    LOCAL_TZ,
+    extract_ordinal,
+    is_affirmative,
+    is_negative,
+    normalize_text,
+    parse_requested_date,
+    parse_requested_hour,
+)
 from src.services.llm import get_llm
-from src.services.memory import get_intent_cache
+from src.services.search_criteria_service import extract_search_criteria
+from src.utils.property_text import match_property_by_title
 
 logger = logging.getLogger(__name__)
 
 
-# Intent classification prompt
-INTENT_CLASSIFICATION_PROMPT = """Bạn là một classifier phân loại ý định của khách hàng trong hệ thống đặt lịch xem nhà.
-
-## Các intent có thể có:
-1. SEARCH_PROPERTY - Khách muốn tìm kiếm bất động sản
-2. BOOK_APPOINTMENT - Khách muốn đặt lịch xem nhà
-3. CANCEL_BOOKING - Khách muốn hủy lịch đã đặt
-4. RESCHEDULE - Khách muốn dời lịch
-5. CHECK_STATUS - Khách muốn kiểm tra trạng thái booking
-6. GET_INFO - Khách hỏi thông tin về MỘT CĂN CỤ THỂ (kèm mã căn / property_id)
-7. GENERAL_QA - Khách hỏi câu hỏi tổng quát về BĐS (lưu ý khi mua, xu hướng, thị trường...) — KHÔNG search DB
-8. GREETING - Chào hỏi, hỏi thăm
-9. FALLBACK - Không xác định được intent
-
-## Yêu cầu:
-- Chỉ trả về JSON với format bên dưới
-- Không giải thích thêm
-- confidence: mức độ tin chắc (0.0-1.0)
-
-## Hướng dẫn đọc hiểu (Từ viết tắt tiếng Việt):
-- "pn", "ngủ" -> bedrooms (phòng ngủ)
-- "vs", "wc", "tắm" -> bathrooms (phòng tắm/vệ sinh)
-- "tr", "triệu" -> x 1,000,000 VND
-- "tỷ" -> x 1,000,000,000 VND
-
-## Output format:
-{
-    "intent": "INTENT_NAME",
-    "confidence": 0.95,
-    "entities": {
-        "district": "Quận 7",
-        "province": "Hà Nội",
-        "property_kind": "APARTMENT",
-        "budget": 3000000000,            # số VND hoặc null
-        "bedrooms": 2,                   # số phòng ngủ tối thiểu
-        "bathrooms": 2,                  # số phòng tắm/vệ sinh tối thiểu
-        "area_sqm": 80,                  # diện tích tối thiểu (m²)
-        "keyword": "tên dự án, tên căn hộ hoặc đặc điểm", # từ khóa tìm kiếm
-        "property_id": "uuid-or-code",   # chỉ có khi GET_INFO về căn cụ thể
-        "booking_code": "BK12345678",
-        "preferred_date": "2026-08-07"
-    }
-}
-
-## Hội thoại mẫu:
-- "Tôi muốn tìm căn hộ 2 phòng ngủ ở quận 7" -> SEARCH_PROPERTY
-- "Đặt lịch xem căn đó vào chiều mai" -> BOOK_APPOINTMENT
-- "Tôi muốn hủy lịch" -> CANCEL_BOOKING
-- "Lịch của tôi thế nào rồi?" -> CHECK_STATUS
-- "Cho tôi xem thông tin căn mã 0223" -> GET_INFO (kèm property_id)
-- "Lưu ý khi mua căn hộ chung cư là gì?" -> GENERAL_QA
-- "Xu hướng BĐS hiện nay thế nào?" -> GENERAL_QA
-- "Xin chào" -> GREETING
-
-Phân loại tin nhắn sau và trả về JSON:"""
+class ExtractedCriteria(BaseModel):
+    area_or_ward: str | None = Field(
+        default=None,
+        description="Phường/xã, khu đô thị, dự án, tên đường hoặc địa danh cụ thể (ví dụ: Xa La, Văn Quán, Yên Hòa, Nam Trung Yên, Văn Khê, Dịch Vọng, Mễ Trì, Trung Kính, Times City...)"
+    )
+    ward: str | None = None
+    district: str | None = None
+    province: str | None = None
+    region: str | None = Field(
+        default=None,
+        description="Vùng miền nếu khách tìm theo vùng lớn: 'Miền Bắc', 'Miền Trung', hoặc 'Miền Nam'"
+    )
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description="Số lượng nhà/căn khách yêu cầu cụ thể (ví dụ: tìm 2 nhà -> limit=2, 3 căn -> limit=3)"
+    )
+    property_kind: str | None = None
+    min_price: int | None = None
+    max_price: int | None = None
+    min_bedrooms: int | None = None
+    max_bedrooms: int | None = None
+    min_bathrooms: int | None = None
+    min_area: float | None = None
 
 
-# ============== Fast-path Intent Classification ==============
-# Xử lý intent đơn giản bằng pattern matching, KHÔNG qua LLM
-# Giảm thời gian phản hồi từ 10-20s xuống <100ms
-
-_FAST_INTENT_PATTERNS = {
-    Intent.GREETING: [
-        r"^(xin\s+chào|chào|hello|hi|hey|chào\s+bạn)\s*[.!]*$",
-        r"^(tôi|tớ|mình)\s+(muốn|cần|muốn|cần)\s*$",
-    ],
-    Intent.SEARCH_PROPERTY: [
-        r"(tìm|tìm\s+kiếm|muốn\s+tìm|cần\s+tìm)\s.*(căn\s+hộ|nhà|đất|villa|biet\s*thu|townhouse)",
-        r"(căn\s+hộ|nhà\s+ở|đất\s+nền|shophouse)\s",
-        r"(quận|huyện|phường|thành\s+phố|tp)\s*\d",
-        r"(diện\s+tích|ngân\s+sách)\s*\d",
-    ],
-    Intent.BOOK_APPOINTMENT: [
-        r"(đặt\s+lich|đặt\s+lich\s+xem|dặt\s+lich|dặt\s+lich\s+xem)\s",
-        r"(hẹn\s+xem|xem\s+nhà|thăm\s+nhà)\s",
-        r"(ngày\s+nào|khi\s+nào|lúc\s+nào)\s+(đặt|xem|đi\s+xem)",
-    ],
-    Intent.CHECK_STATUS: [
-        r"(trạng\s+thái|tình\s+trạng|tới\s+đâu|rồi|chưa)\s*(lịch|booking|hẹn)",
-        r"(lịch|hẹn|booking)\s+(của|tôi)\s",
-        r"(có\s+hẹn|đã\s+đặt)\s",
-    ],
-    Intent.CANCEL_BOOKING: [
-        r"(hủy|hủy\s+bỏ|bỏ)\s+(lịch|hẹn|booking)",
-    ],
-    Intent.RESCHEDULE: [
-        r"(dời|dời\s+lịch|thay\s+đổi\s+lịch|chuyển\s+lịch)\s",
-    ],
-    Intent.GET_INFO: [
-        r"(thông\s+tin|chi\s+tiết|xem\s+thêm)\s+(căn|mã|property)",
-        r"(căn|mã|property)\s*(nào|id|mã)\s*\w",
-    ],
-    Intent.GENERAL_QA: [
-        r"(lưu\s+ý|chú\s+ý|cần\s+biết)\s+(khi|mua|đầu\s+tư)",
-        r"(xu\s+hướng|tình\s+hình|thị\s+trường)\s",
-        r"(nên|mua|đầu\s+tư)\s+(ở|đâu|khi)\s",
-        r"( CCMN|ccmn|dự\s+án)\s",
-    ],
-}
-
-_FAST_INTENT_RESPONSES = {
-    Intent.GREETING: {"intent": Intent.GREETING, "confidence": 0.95, "entities": {}},
-    Intent.SEARCH_PROPERTY: {"intent": Intent.SEARCH_PROPERTY, "confidence": 0.5, "entities": {}},
-    Intent.BOOK_APPOINTMENT: {"intent": Intent.BOOK_APPOINTMENT, "confidence": 0.5, "entities": {}},
-    Intent.CHECK_STATUS: {"intent": Intent.CHECK_STATUS, "confidence": 0.9, "entities": {}},
-    Intent.CANCEL_BOOKING: {"intent": Intent.CANCEL_BOOKING, "confidence": 0.9, "entities": {}},
-    Intent.RESCHEDULE: {"intent": Intent.RESCHEDULE, "confidence": 0.9, "entities": {}},
-    Intent.GET_INFO: {"intent": Intent.GET_INFO, "confidence": 0.5, "entities": {}},
-    Intent.GENERAL_QA: {"intent": Intent.GENERAL_QA, "confidence": 0.8, "entities": {}},
-}
+class SupervisorUnderstanding(BaseModel):
+    intent: str = Field(
+        description="One of SEARCH_PROPERTY, SELECT_PROPERTY, PROPERTY_DETAILS, COMPARE_PROPERTIES, "
+        "BOOK_APPOINTMENT, SELECT_SLOT, CHECK_STATUS, CANCEL_BOOKING, RESCHEDULE, CONFIRM, DENY, "
+        "CONSULTATION_QA, GREETING, THANKS, GOODBYE, OUT_OF_SCOPE, FALLBACK"
+    )
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    is_new_search: bool = False
+    criteria: ExtractedCriteria = Field(default_factory=ExtractedCriteria)
+    soft_preferences: list[str] = Field(default_factory=list)
+    household_context: list[str] = Field(default_factory=list)
+    commute_landmark: str | None = None
+    max_commute_minutes: int | None = None
+    property_ordinal: int | None = None
+    requested_date: str | None = None
+    requested_hour: int | None = None
+    booking_code: str | None = None
+    direct_response: str | None = None
 
 
-def _fast_classify_intent(message: str) -> dict | None:
-    """Fast intent classification bằng pattern matching.
+SUPERVISOR_SYSTEM_PROMPT = """Bạn là Supervisor AI điều phối cho hệ thống bất động sản và đặt lịch xem nhà chuyên nghiệp tại Việt Nam.
 
-    Args:
-        message: Tin nhắn của user
+Nhiệm vụ của bạn:
+1. Hiểu sâu sắc ý định (Intent) và ngữ cảnh của khách hàng qua lịch sử trò chuyện.
+2. Trả lời trực diện, chính xác câu hỏi của khách hàng. KHÔNG tự ý suy diễn hoặc ép khách vào việc tìm kiếm nhà nếu khách chỉ đang hỏi thông tin tư vấn.
+3. Trích xuất chính xác các thực thể khi khách thật sự có nhu cầu tìm BĐS (địa điểm, loại nhà, tầm giá VND, số phòng ngủ, ngày giờ, mã booking).
+4. Phân loại chuẩn xác vào các Intent sau:
 
-    Returns:
-        Dict với intent, confidence, entities hoặc None nếu không match
-    """
-    if not message:
-        return None
+- SEARCH_PROPERTY: Khách THỰC SỰ muốn tìm BĐS mới hoặc tinh chỉnh tiêu chí (ví dụ: "tìm nhà 2 ngủ ở xa la hà đông", "tìm 2 căn hộ ở Thảo Điền Quận 2", "gợi ý 3 nhà ở Liên Chiểu Đà Nẵng", "tìm căn hộ 2PN dưới 5 tỷ", "lọc nhà có ban công", "xem thêm căn khác", "nhà trên 10 tỷ ở miền bắc").
+  * SỐ LƯỢNG YÊU CẦU (limit): Nếu khách yêu cầu rõ số lượng nhà muốn tìm (ví dụ: "tìm 2 nhà", "gợi ý 3 căn", "lấy 1 căn", "top 3 căn"), trích xuất số lượng đó vào trường limit. Nếu khách không nói số lượng, để trống limit.
+  * VÙNG MIỀN (region): Khi khách tìm theo vùng miền lớn ("Miền Bắc", "Miền Trung", "Miền Nam"), BẮT BUỘC trích xuất vào trường region (giá trị: "Miền Bắc", "Miền Trung", "Miền Nam"). KHÔNG gán "Miền Bắc" vào province hay area_or_ward.
+  * ĐỊA ĐIỂM CHI TIẾT (area_or_ward): Khi khách nhắc đến bất kỳ phường/xã, khu đô thị, dự án, tên đường hay địa danh cụ thể trên toàn quốc (ví dụ:
+    - Hà Nội: Xa La, Văn Quán, Yên Hòa, Nam Trung Yên, Văn Khê, Mỗ Lao, Trung Kính, Linh Đàm, Times City, Dịch Vọng, Mễ Trì...
+    - TP. HCM: Thảo Điền, An Phú, Tân Quy, Phú Mỹ Hưng, Bến Nghé, Bến Thành, Hiệp Bình Chánh, Vinhomes Central Park...
+    - Đà Nẵng: Mỹ An, Khuê Mỹ, Phước Mỹ, An Hải Bắc, Hòa Cường, Hòa Khánh, Nam Hòa Xuân...
+    - Các tỉnh khác: Bãi Cháy (Hạ Long), Vĩnh Hải (Nha Trang), Dĩ An (Bình Dương)...),
+    BẮT BUỘC trích xuất tên địa danh/phường đó vào trường area_or_ward (hoặc ward). KHÔNG đưa tên Tỉnh/Thành phố lớn (Hà Nội, TP.HCM...) vào area_or_ward.
+  * QUẬN/HUYỆN/THÀNH PHỐ THUỘC TỈNH (district): Trích xuất vào trường district (ví dụ: "Quận Hà Đông", "Quận Cầu Giấy", "Quận 7", "Quận 2", "Quận Bình Thạnh", "Thành phố Thủ Đức", "Quận Liên Chiểu", "Quận Hải Châu", "Quận Sơn Trà", "Thành phố Nha Trang", "Thành phố Hạ Long"...).
+  * TỈNH/THÀNH PHỐ (province): Trích xuất vào trường province (ví dụ: "Hà Nội", "Hồ Chí Minh", "Đà Nẵng", "Khánh Hòa", "Quảng Ninh", "Bình Dương", "Bắc Ninh"...).
+- SELECT_PROPERTY: Khách muốn chọn 1 căn cụ thể trong danh sách đã tìm (ví dụ: "chọn căn 1", "căn đầu tiên", "xem căn số 2", "căn Masteri").
+- PROPERTY_DETAILS: Khách hỏi sâu về căn đang xem/đã chọn (ví dụ: "căn này có sổ chưa?", "giá bao nhiêu?", "diện tích thế nào?", "phí quản lý bao nhiêu?").
+- COMPARE_PROPERTIES: CHỈ khi khách THỰC SỰ YÊU CẦU SO SÁNH (dùng từ "so sánh", "đối chiếu" hoặc "so sánh căn 1 và căn 2", "so sánh các căn này"). KHÔNG phân loại vào COMPARE_PROPERTIES khi khách chỉ hỏi tìm căn có đặc điểm cụ thể (ví dụ: "căn nào trên 2 phòng ngủ", "căn nào có ban công", "căn nào rẻ nhất", "căn nào gần trường"). Những câu đó là SEARCH_PROPERTY.
+- BOOK_APPOINTMENT: Khách muốn đặt lịch hẹn xem nhà (ví dụ: "cho tôi xem căn này", "đặt lịch vào 14h thứ Bảy", "hẹn chiều mai", "chọn căn 1 và đặt lịch xem").
+- Với câu phức hợp vừa chọn căn vừa đặt lịch (ví dụ: "Chọn căn 1, đặt lịch 14h thứ Bảy", "Chọn căn số 1, cho tôi hẹn xem chiều mai"): Intent PHẢI LÀ BOOK_APPOINTMENT, đồng thời đặt property_ordinal và trích xuất requested_date, requested_hour.
+- SELECT_SLOT: Khách chọn khung giờ trong danh sách slot được đề xuất (ví dụ: "chọn slot 1", "khung giờ 2", "lúc 9h").
+- CHECK_STATUS: Khách hỏi về lịch của mình (ví dụ: "lịch của tôi thế nào rồi?", "kiểm tra mã TR-12345").
+- CANCEL_BOOKING: Khách muốn hủy lịch hẹn xem nhà.
+- RESCHEDULE: Khách muốn đổi ngày/giờ lịch hẹn đã đặt.
+- CONFIRM: Khách xác nhận, đồng ý ("xác nhận", "đồng ý", "tiếp tục", "được", "ok").
+- DENY: Khách từ chối, hủy ("không", "thôi", "hủy thao tác").
+- CONSULTATION_QA: Khách hỏi tư vấn kiến thức BĐS, pháp lý (sổ đỏ/sổ hồng, đặt cọc an toàn, công chứng, vi bằng), tài chính (vay ngân hàng, lãi suất, tỷ lệ vay), phong thủy, quy trình mua bán nhà đất, hoặc hỏi lời khuyên... Với intent này, hãy viết câu trả lời chuyên gia xuất sắc, tận tâm và giải đáp trực diện vào trường direct_response. KHÔNG tạo tiêu chí tìm kiếm giả.
+- GREETING: Chào hỏi ("chào bạn", "hello Nera", "hi"). Viết câu chào thân thiện, giới thiệu bản thân là Nera - trợ lý BĐS vào direct_response.
+- THANKS: Cảm ơn. Viết lời đáp lịch sự, tận tâm vào direct_response.
+- GOODBYE: Tạm biệt. Viết lời chào tạm biệt vào direct_response.
+- OUT_OF_SCOPE: Các câu hỏi hoàn toàn không liên quan đến BĐS, nhà đất, lịch hẹn (thời tiết, làm thơ, viết code, kể chuyện cười). Viết phản hồi lịch sự, khéo léo từ chối và hướng về BĐS vào direct_response.
 
-    cleaned = message.lower().strip()
-    # Bỏ emoji ở cuối
-    cleaned = re.sub(r"[\W_]+$", "", cleaned, flags=re.UNICODE).strip()
-
-    for intent, patterns in _FAST_INTENT_PATTERNS.items():
-        for pattern in patterns:
-            if re.search(pattern, cleaned, re.IGNORECASE | re.UNICODE):
-                result = _FAST_INTENT_RESPONSES[intent].copy()
-                logger.debug(f"Fast intent match: {intent} (pattern: {pattern})")
-                return result
-
-    return None
+LƯU Ý QUAN TRỌNG:
+- Chuẩn hóa tiền Việt: "5 tỷ" -> 5000000000, "15 triệu" -> 15000000, "khoảng 3 đến 5 tỷ" -> min_price=3000000000, max_price=5000000000.
+- Ngày xem nhà: quy đổi các từ "hôm nay", "ngày mai", "thứ Bảy", "Chủ Nhật tuần sau" về định dạng YYYY-MM-DD dựa vào ngày hiện tại được cung cấp.
+- Giữ vững ngữ cảnh hội thoại nhiều lượt. Nếu khách nói "căn đó", "căn này", đó là tham chiếu đến căn đang được chọn hoặc căn vừa thảo luận.
+- Khi khách bắt đầu một nhu cầu mua/tìm mới chung chung (ví dụ: "t muốn mua 1 căn nhà ?", "tôi muốn mua nhà", "muốn tìm nhà", "cần mua nhà", "tìm nhà") mà KHÔNG nêu rõ địa điểm hay tầm giá trong câu hiện tại: BẮT BUỘC đặt is_new_search=true và ĐỂ TRỐNG TOÀN BỘ tiêu chí (criteria), KHÔNG tự ý copy tiêu chí cũ từ các lượt chat trước.
+- Khi khách yêu cầu tiếp tục tìm kiếm theo nhu cầu cũ/sở thích đã lưu (ví dụ: "Tiếp tục tìm kiếm với nhu cầu cũ của tôi", "tiếp tục hành trình", "tìm theo nhu cầu cũ", "sở thích đã lưu"): Intent PHẢI LÀ SEARCH_PROPERTY, đặt is_new_search=false và kế thừa active_search_criteria từ context.
+"""
 
 
-async def classify_intent(
-    messages: list[dict],
-    session_id: str | None = None,
-) -> dict:
-    """Classify user intent from messages.
+def _extract_booking_code(message: str) -> str | None:
+    match = re.search(r"\b(BK[A-Z0-9-]{4,}|TR-[A-Z0-9-]{4,})\b", message.upper())
+    return match.group(1) if match else None
 
-    Thứ tự ưu tiên:
-    1. Cache - trả ngay nếu đã có kết quả
-    2. Fast classification (pattern matching) - <10ms, không gọi LLM
-    3. LLM classification - cho các trường hợp phức tạp
 
-    Args:
-        messages: List of conversation messages
-        session_id: Session ID (dùng làm cache key)
+async def supervisor_node(state: AgentState) -> dict[str, Any]:
+    """Supervisor node: runs LLM understanding on full conversation context."""
+    started = time.perf_counter()
+    query = state.get("query", "").strip()
+    history = state.get("messages", [])
+    now = datetime.now(LOCAL_TZ)
 
-    Returns:
-        Dict with intent, confidence, and entities
-    """
-    import time
-    start_time = time.time()
+    # Fast deterministic pre-checks
+    det_criteria, det_groups = extract_search_criteria(query)
+    booking_code = _extract_booking_code(query)
 
-    cache = get_intent_cache()
-    msg_hash = IntentCache.hash_messages(messages) if session_id else None
+    # Format recent history for LLM
+    recent_turns = []
+    for msg in history[-8:]:
+        role = msg.get("role", "user")
+        content = str(msg.get("content", ""))
+        if content:
+            recent_turns.append(f"{role.upper()}: {content}")
 
-    # 1) Check cache
-    if session_id and msg_hash:
-        cached = await cache.get(session_id, msg_hash)
-        if cached:
-            logger.debug(f"Intent cache hit (session={session_id})")
-            elapsed_ms = (time.time() - start_time) * 1000
-            logger.info(f"Intent classified in {elapsed_ms:.0f}ms (cache)")
-            return cached
-
-    # Lấy tin nhắn gần nhất
-    recent = messages[-5:] if len(messages) > 5 else messages
-    last_user_msg = ""
-    for msg in reversed(recent):
-        if msg.get("role") == "user":
-            last_user_msg = msg.get("content", "")
-            break
-
-    # 2) Fast classification - pattern matching (KHÔNG gọi LLM)
-    if last_user_msg:
-        fast_result = _fast_classify_intent(last_user_msg)
-        if fast_result and fast_result["confidence"] >= 0.8:
-            # Set cache for next time
-            if session_id and msg_hash:
-                await cache.set(session_id, msg_hash, fast_result)
-            elapsed_ms = (time.time() - start_time) * 1000
-            logger.info(f"Intent classified in {elapsed_ms:.0f}ms (fast-path: {fast_result['intent']})")
-            return fast_result
-
-    # 3) LLM classification - cho các trường hợp phức tạp
-    conversation = "\n".join([f"{m.get('role', 'unknown')}: {m.get('content', '')}" for m in recent])
-    prompt = f"{INTENT_CLASSIFICATION_PROMPT}\n\nTin nhắn gần nhất:\n{conversation}"
-
-    from langchain_core.messages import HumanMessage
-
-    from src.services.llm import reset_llm
-
-    last_error = None
-    tried_models = []
-
-    # Retry với automatic fallback - thử 3 model khác nhau
-    for attempt in range(3):
-        try:
-            llm = get_llm()
-            current_model = llm.model_name
-            tried_models.append(current_model)
-
-            logger.info(f"Intent LLM attempt {attempt + 1}: using {current_model}")
-
-            result = await llm.ainvoke([HumanMessage(content=prompt)])
-
-            # Parse JSON response
-            content = result.content if hasattr(result, 'content') else str(result)
-            # Extract JSON from response
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-
-            parsed = json.loads(content.strip())
-
-            # Set cache
-            if session_id and msg_hash:
-                await cache.set(session_id, msg_hash, parsed)
-
-            elapsed_ms = (time.time() - start_time) * 1000
-            logger.info(f"Intent classified in {elapsed_ms:.0f}ms (LLM: {tried_models[-1]})")
-            return parsed
-
-        except Exception as e:
-            last_error = e
-            error_str = str(e).lower()
-            logger.warning(f"Intent LLM attempt {attempt + 1} failed: {e}")
-
-            # Kiểm tra loại lỗi - nếu là quota/credits thì thử model khác
-            if any(keyword in error_str for keyword in [
-                "insufficient credits", "quota", "rate limit", "429",
-                "overloaded", "context length", "max tokens"
-            ]):
-                logger.info(f"Model {tried_models[-1] if tried_models else 'unknown'} exhausted, switching...")
-                reset_llm()  # Reset để dùng model tiếp theo
-                continue
-            else:
-                # Lỗi khác - vẫn thử model khác
-                reset_llm()
-                continue
-
-    # Tất cả đều thất bại - dùng fast classification làm fallback
-    logger.warning("All LLM attempts failed, using fast classification fallback")
-    fast_result = _fast_classify_intent(last_user_msg) if last_user_msg else None
-    if fast_result:
-        if session_id and msg_hash:
-            await cache.set(session_id, msg_hash, fast_result)
-        return fast_result
-
-    elapsed_ms = (time.time() - start_time) * 1000
-    logger.error(f"All intent classification failed after {elapsed_ms:.0f}ms")
-    return {
-        "intent": Intent.GREETING,
-        "confidence": 0.0,
-        "entities": {},
-        "error": str(last_error),
+    context_payload = {
+        "today": now.date().isoformat(),
+        "current_time": now.strftime("%H:%M"),
+        "timezone": "Asia/Ho_Chi_Minh",
+        "phase": state.get("phase", "IDLE"),
+        "active_search_criteria": state.get("search_criteria", {}),
+        "soft_preferences": state.get("soft_preferences", []),
+        "household_context": state.get("household_context", []),
+        "selected_property_id": state.get("current_property_id"),
+        "property_count_in_memory": len(state.get("selected_properties", [])),
+        "slot_count_in_memory": len(state.get("selected_slots", [])),
+        "active_request_id": state.get("active_request_id"),
+        "active_request_code": state.get("active_request_code"),
+        "pending_action": state.get("pending_action"),
+        "customer_authenticated": state.get("customer_authenticated", False),
+        "memory_summary": state.get("memory_summary", ""),
+        "recent_conversation": recent_turns,
+        "user_message": query,
     }
 
-
-async def supervisor_node(state: AgentState) -> dict:
-    """Supervisor node - classifies intent and routes to appropriate agent.
-
-    This is the main entry point for the multi-agent system.
-
-    Args:
-        state: Current agent state
-
-    Returns:
-        Updated state with routing information
-    """
-    messages = state.get("messages", [])
-    current_agent = state.get("current_agent", AgentType.SUPERVISOR)
-    session_id = state.get("session_id")
-
-    logger.info(f"[SUPERVISOR] Starting. current_agent={current_agent}, messages_count={len(messages)}")
-
-    # If already routed, don't re-classify
-    if current_agent != AgentType.SUPERVISOR:
-        logger.info(f"[SUPERVISOR] Already routed to {current_agent}, skipping classification")
-        return {"current_agent": current_agent}
+    understanding: SupervisorUnderstanding | None = None
+    ai_model = "gpt-4o-mini"
 
     try:
-        # Classify intent (có cache)
-        classification = await classify_intent(messages, session_id=session_id)
-        intent = classification.get("intent", Intent.FALLBACK)
-        confidence = classification.get("confidence", 0.0)
-        entities = classification.get("entities", {})
+        llm = get_llm()
+        structured_llm = llm._create_chat_model().with_structured_output(
+            SupervisorUnderstanding,
+            method="json_schema",
+            strict=True,
+        )
+        sys_msg = SystemMessage(content=SUPERVISOR_SYSTEM_PROMPT)
+        human_msg = HumanMessage(content=json.dumps(context_payload, ensure_ascii=False))
 
-        logger.info(f"Classified intent: {intent} (confidence: {confidence})")
-
-        # Update state with classification
-        updates = {
-            "intent": intent,
-            "confidence": confidence,
-            "metadata": {
-                **state.get("metadata", {}),
-                "entities": entities,
-                "classification": classification,
-            },
-        }
-
-        # Route based on intent
-        if intent == Intent.SEARCH_PROPERTY:
-            updates["current_agent"] = AgentType.INVENTORY
-        elif intent == Intent.BOOK_APPOINTMENT:
-            updates["current_agent"] = AgentType.BOOKING
-        elif intent == Intent.CANCEL_BOOKING:
-            updates["current_agent"] = AgentType.BOOKING
-        elif intent == Intent.RESCHEDULE:
-            updates["current_agent"] = AgentType.BOOKING
-        elif intent == Intent.CHECK_STATUS:
-            updates["current_agent"] = AgentType.RESPOND  # Can handle directly
-            updates["next_action"] = "check_booking_status"
-        elif intent == Intent.GET_INFO:
-            # Route tới INVENTORY khi có property_id cụ thể HOẶC có keyword/tên căn
-            if entities.get("property_id") or entities.get("keyword"):
-                updates["current_agent"] = AgentType.INVENTORY
-            else:
-                updates["current_agent"] = AgentType.RESPOND
-                updates["next_action"] = "ask_property_id"
-        elif intent == Intent.GENERAL_QA:
-            # Câu hỏi tổng quát — KHÔNG search DB, route thẳng tới respond
-            updates["current_agent"] = AgentType.RESPOND
-            updates["next_action"] = "general_qa"
-        elif intent == Intent.GREETING:
-            updates["current_agent"] = AgentType.RESPOND
-            updates["next_action"] = "greet"
-        else:
-            # FALLBACK - respond with clarification
-            updates["current_agent"] = AgentType.RESPOND
-            updates["next_action"] = "clarify"
-
-        return updates
-
+        result = await structured_llm.ainvoke([sys_msg, human_msg])
+        if isinstance(result, SupervisorUnderstanding):
+            understanding = result
     except Exception as e:
-        logger.error(f"Error in supervisor: {e}")
-        return {
-            "current_agent": AgentType.RESPOND,
-            "error": str(e),
-            "error_recovery_suggestion": "Xin lỗi, tôi không hiểu ý bạn. Bạn có thể diễn đạt lại được không?",
-        }
+        logger.warning(f"Structured supervisor understanding failed: {e}. Falling back to heuristic.")
+
+    # Fallback heuristic if LLM failed
+    if understanding is None:
+        norm_query = normalize_text(query)
+        inferred_intent = Intent.FALLBACK
+        if is_affirmative(query):
+            inferred_intent = Intent.CONFIRM
+        elif is_negative(query):
+            inferred_intent = Intent.DENY
+        elif re.search(r"\b(chao|xin chao|hello|hi)\b", norm_query):
+            inferred_intent = Intent.GREETING
+        elif re.search(r"\b(cam on|thanks|thank you)\b", norm_query):
+            inferred_intent = Intent.THANKS
+        elif re.search(r"\b(tam biet|bye)\b", norm_query):
+            inferred_intent = Intent.GOODBYE
+        elif re.search(r"\b(huy|huy lich)\b", norm_query):
+            inferred_intent = Intent.CANCEL_BOOKING
+        elif re.search(r"\b(doi lich|doi ngay|chuyen lich|doi gio)\b", norm_query):
+            inferred_intent = Intent.RESCHEDULE
+        elif re.search(r"\b(kiem tra lich|trang thai|lich cua toi)\b", norm_query) or booking_code:
+            inferred_intent = Intent.CHECK_STATUS
+        elif re.search(r"\b(dat lich|xem nha|hen xem)\b", norm_query):
+            inferred_intent = Intent.BOOK_APPOINTMENT
+        elif re.search(r"\b(so sanh)\b", norm_query):
+            inferred_intent = Intent.COMPARE_PROPERTIES
+        elif det_criteria or re.search(r"\b(tim|can ho|chung cu|nha|biet thu|dat nen)\b", norm_query):
+            inferred_intent = Intent.SEARCH_PROPERTY
+
+        understanding = SupervisorUnderstanding(
+            intent=inferred_intent,
+            confidence=0.8,
+            booking_code=booking_code,
+            criteria=ExtractedCriteria(
+                region=det_criteria.get("region"),
+                limit=det_criteria.get("limit"),
+                ward=None,
+                district=det_criteria.get("district"),
+                province=det_criteria.get("province"),
+                property_kind=det_criteria.get("property_kind"),
+                min_price=det_criteria.get("min_price"),
+                max_price=det_criteria.get("max_price"),
+                min_bedrooms=det_criteria.get("min_bedrooms"),
+                max_bedrooms=det_criteria.get("max_bedrooms"),
+                min_area=det_criteria.get("min_area"),
+            ),
+        )
+
+    # Reconcile deterministic explicit criteria with LLM criteria
+    merged_criteria = dict(state.get("search_criteria", {}))
+    norm_query = normalize_text(query)
+    is_resume_signal = bool(re.search(
+        r"\b(nhu cau cu|so thich da luu|tiep tuc tim|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu|tiep tuc hanh trinh|tiep tuc tim kiem)\b",
+        norm_query,
+    )) or bool(state.get("is_resume_search"))
+    starts_new_search_signal = (
+        not is_resume_signal
+        and bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", norm_query))
+        and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", norm_query))
+    )
+    llm_dict = understanding.criteria.model_dump(exclude_none=True)
+    if is_resume_signal:
+        understanding.is_new_search = False
+        understanding.intent = Intent.SEARCH_PROPERTY
+    elif understanding.is_new_search or starts_new_search_signal:
+        merged_criteria = {}
+        understanding.is_new_search = True
+        if "location" not in det_groups:
+            llm_dict.pop("region", None)
+            llm_dict.pop("district", None)
+            llm_dict.pop("province", None)
+            llm_dict.pop("area_or_ward", None)
+            llm_dict.pop("ward", None)
+        if "budget" not in det_groups:
+            llm_dict.pop("min_price", None)
+            llm_dict.pop("max_price", None)
+        if "property_kind" not in det_criteria:
+            llm_dict.pop("property_kind", None)
+
+    # Apply deterministic parser overrides for location / budget / kind if explicit
+    if "location" in det_groups:
+        merged_criteria.pop("region", None)
+        merged_criteria.pop("district", None)
+        merged_criteria.pop("province", None)
+        merged_criteria.pop("area_or_ward", None)
+        merged_criteria.pop("ward", None)
+        if "region" in det_criteria:
+            merged_criteria["region"] = det_criteria["region"]
+        if "district" in det_criteria:
+            merged_criteria["district"] = det_criteria["district"]
+        if "province" in det_criteria:
+            merged_criteria["province"] = det_criteria["province"]
+    elif "region" in llm_dict or "district" in llm_dict or "province" in llm_dict:
+        if "region" in llm_dict:
+            merged_criteria.pop("district", None)
+            merged_criteria.pop("province", None)
+            merged_criteria["region"] = llm_dict["region"]
+        if "district" in llm_dict:
+            merged_criteria["district"] = llm_dict["district"]
+        if "province" in llm_dict:
+            merged_criteria["province"] = llm_dict["province"]
+
+    if "quantity" in det_groups:
+        merged_criteria.pop("limit", None)
+        if "limit" in det_criteria:
+            merged_criteria["limit"] = det_criteria["limit"]
+    elif "limit" in llm_dict:
+        merged_criteria["limit"] = llm_dict["limit"]
+    elif understanding.is_new_search:
+        merged_criteria.pop("limit", None)
+
+    area_val = llm_dict.get("area_or_ward") or llm_dict.get("ward")
+    if area_val:
+        norm_area = normalize_text(area_val)
+        norm_dist = normalize_text(merged_criteria.get("district") or "")
+        norm_prov = normalize_text(merged_criteria.get("province") or "")
+        norm_reg = normalize_text(merged_criteria.get("region") or "")
+        if norm_area not in (norm_dist, norm_prov, norm_reg, "ha noi", "ho chi minh", "da nang", "mien bac", "mien trung", "mien nam"):
+            merged_criteria["area_or_ward"] = area_val
+            merged_criteria["ward"] = area_val
+        else:
+            merged_criteria.pop("area_or_ward", None)
+            merged_criteria.pop("ward", None)
+    elif understanding.is_new_search or "location" in det_groups:
+        merged_criteria.pop("area_or_ward", None)
+        merged_criteria.pop("ward", None)
+
+    if "budget" in det_groups:
+        merged_criteria.pop("min_price", None)
+        merged_criteria.pop("max_price", None)
+        if "min_price" in det_criteria:
+            merged_criteria["min_price"] = det_criteria["min_price"]
+        if "max_price" in det_criteria:
+            merged_criteria["max_price"] = det_criteria["max_price"]
+    elif "min_price" in llm_dict or "max_price" in llm_dict:
+        if "min_price" in llm_dict:
+            merged_criteria["min_price"] = llm_dict["min_price"]
+        if "max_price" in llm_dict:
+            merged_criteria["max_price"] = llm_dict["max_price"]
+
+    if "property_kind" in det_criteria:
+        merged_criteria["property_kind"] = det_criteria["property_kind"]
+    elif "property_kind" in llm_dict:
+        merged_criteria["property_kind"] = llm_dict["property_kind"]
+
+    for field in ("min_bedrooms", "max_bedrooms", "min_bathrooms", "min_area"):
+        if field in det_criteria:
+            merged_criteria[field] = det_criteria[field]
+        elif field in llm_dict:
+            merged_criteria[field] = llm_dict[field]
+
+    # Target date / hour resolution
+    target_date = parse_requested_date(query)
+    if not target_date and understanding.requested_date:
+        try:
+            target_date = datetime.strptime(understanding.requested_date, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = None
+
+    target_hour = parse_requested_hour(query) or understanding.requested_hour
+
+    # Ordinal & Property Name resolution
+    prop_count = len(state.get("selected_properties", []))
+    slot_count = len(state.get("selected_slots", []))
+    ordinal = extract_ordinal(query, maximum=max(prop_count, slot_count, 10))
+    if ordinal is None and understanding.property_ordinal:
+        ordinal = understanding.property_ordinal - 1
+
+    matched_prop_id = None
+    if ordinal is None and state.get("phase") != "AWAITING_SLOT":
+        search_pool = state.get("selected_properties") or state.get("search_results") or []
+        matched_idx, matched_prop = match_property_by_title(query, search_pool)
+        if matched_prop:
+            ordinal = matched_idx
+            matched_prop_id = str(matched_prop["id"])
+
+    # Soft preferences & household context accumulation
+    soft_prefs = list(state.get("soft_preferences", []))
+    for item in understanding.soft_preferences:
+        if item and item not in soft_prefs:
+            soft_prefs.append(item)
+
+    household_ctx = list(state.get("household_context", []))
+    for item in understanding.household_context:
+        if item and item not in household_ctx:
+            household_ctx.append(item)
+
+    # Route determination
+    intent = understanding.intent
+
+    # Promote compound intent (selecting a property AND requesting booking)
+    norm_query = normalize_text(query)
+    if (
+        re.search(r"\b(dat lich|xem nha|hen xem|tham quan|xem vao|dat ngay)\b", norm_query)
+        or (target_date and "xem" in norm_query)
+    ) and intent not in (Intent.CANCEL_BOOKING, Intent.RESCHEDULE, Intent.CHECK_STATUS):
+        intent = Intent.BOOK_APPOINTMENT
+    elif state.get("current_property_id") and intent != Intent.BOOK_APPOINTMENT:
+        if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
+            intent = Intent.PROPERTY_DETAILS
+    elif re.search(r"\b(tiep tuc hanh trinh|nhu cau cu|so thich da luu|tiep tuc tim kiem)\b", norm_query):
+        intent = Intent.SEARCH_PROPERTY
+    elif re.search(r"\b(thay doi nhu cau|doi nhu cau|nhu cau moi|xoa tieu chi|muon thay doi)\b", norm_query):
+        intent = Intent.SEARCH_PROPERTY
+        merged_criteria = {}
+
+    current_agent = AgentType.RESPOND
+
+    if intent in (Intent.SEARCH_PROPERTY, Intent.SELECT_PROPERTY, Intent.PROPERTY_DETAILS, Intent.COMPARE_PROPERTIES):
+        current_agent = AgentType.INVENTORY
+    elif intent in (
+        Intent.BOOK_APPOINTMENT,
+        Intent.SELECT_SLOT,
+        Intent.CHECK_STATUS,
+        Intent.CANCEL_BOOKING,
+        Intent.RESCHEDULE,
+    ):
+        current_agent = AgentType.BOOKING
+    elif intent in (Intent.CONFIRM, Intent.DENY):
+        phase = state.get("phase")
+        if phase in ("AWAITING_CANCEL_CONFIRMATION", "AWAITING_AUTH", "AWAITING_SLOT", "AWAITING_DATE"):
+            current_agent = AgentType.BOOKING
+        elif intent == Intent.CONFIRM and (state.get("current_property_id") or state.get("selected_properties") or matched_prop_id):
+            current_agent = AgentType.BOOKING
+            intent = Intent.BOOK_APPOINTMENT
+        else:
+            current_agent = AgentType.RESPOND
+    else:
+        current_agent = AgentType.RESPOND
+
+    # If currently in AWAITING_SLOT and customer provides ordinal -> route to BOOKING
+    if state.get("phase") == "AWAITING_SLOT" and (ordinal is not None or intent == Intent.SELECT_SLOT):
+        current_agent = AgentType.BOOKING
+        intent = Intent.SELECT_SLOT
+
+    latency_ms = round((time.perf_counter() - started) * 1000)
+
+    # Construct state updates
+    updates: dict[str, Any] = {
+        "current_agent": current_agent,
+        "intent": intent,
+        "confidence": understanding.confidence,
+        "direct_response": understanding.direct_response,
+        "search_criteria": merged_criteria,
+        "soft_preferences": soft_prefs,
+        "household_context": household_ctx,
+        "commute_landmark": understanding.commute_landmark or state.get("commute_landmark"),
+        "max_commute_minutes": understanding.max_commute_minutes or state.get("max_commute_minutes"),
+        "ai_model": ai_model,
+        "ai_latency_ms": state.get("ai_latency_ms", 0) + latency_ms,
+    }
+
+    if target_date:
+        updates["requested_date"] = target_date.isoformat()
+    if target_hour is not None:
+        updates["requested_hour"] = target_hour
+    if booking_code:
+        updates["active_request_code"] = booking_code
+
+    # Direct UUID property extraction from query (e.g. "Đặt lịch xem căn <id>")
+    uuid_match = re.search(r"\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b", query, re.IGNORECASE)
+    if uuid_match:
+        updates["current_property_id"] = uuid_match.group(1).lower()
+    elif matched_prop_id:
+        updates["current_property_id"] = matched_prop_id
+        updates["selected_property_index"] = ordinal
+    elif ordinal is not None:
+        if state.get("phase") == "AWAITING_SLOT":
+            updates["selected_slot_index"] = ordinal
+        else:
+            updates["selected_property_index"] = ordinal
+            props = state.get("selected_properties", [])
+            if 0 <= ordinal < len(props):
+                updates["current_property_id"] = str(props[ordinal].get("id"))
+
+    return updates
 
 
 def route_from_supervisor(state: AgentState) -> str:
-    """Determine next node based on supervisor routing.
-
-    The routing is based on current_agent (which supervisor sets BEFORE this is called):
-    - SUPERVISOR: Initial entry, should go to specialized agent based on intent
-    - INVENTORY: Inventory agent should run next
-    - BOOKING: Booking agent should run next
-    - RESPOND/ASSIGNMENT/HITL: Should go to respond
-
-    Args:
-        state: Current agent state
-
-    Returns:
-        Next node name
-    """
-    current_agent = state.get("current_agent", AgentType.SUPERVISOR)
-
-    # If awaiting human decision, go to HITL
-    if state.get("awaiting_human"):
-        return AgentType.HITL
-
-    # Route based on current_agent set by supervisor
-    agent_to_node = {
-        AgentType.INVENTORY: "inventory",
-        AgentType.BOOKING: "booking",
-        AgentType.ASSIGNMENT: "respond",
-        AgentType.HITL: "respond",
-        AgentType.RESPOND: "respond",
-    }
-
-    # If agent is SUPERVISOR, route based on intent
-    if current_agent == AgentType.SUPERVISOR:
-        intent = state.get("intent", "GREETING")
-        intent_routes = {
-            "SEARCH_PROPERTY": "inventory",
-            "GET_INFO": "inventory",
-            "BOOK_APPOINTMENT": "booking",
-            "CANCEL_BOOKING": "booking",
-            "RESCHEDULE": "booking",
-            "GET_BOOKING_STATUS": "respond",
-            "GET_MY_BOOKINGS": "respond",
-            "CLARIFY": "respond",
-            "GREETING": "respond",
-            "SMALLTALK": "respond",
-            "ESCALATE": "hitl",
-        }
-        return intent_routes.get(intent, "respond")
-
-    return agent_to_node.get(current_agent, "respond")
-
-
-# Backward-compatible alias for IntentCache (avoid circular import in some contexts)
-from src.services.memory import IntentCache  # noqa: E402
+    """Routing function from supervisor to workers."""
+    return state.get("current_agent", AgentType.RESPOND)

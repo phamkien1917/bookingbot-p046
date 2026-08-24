@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any -- Leaflet and its routing plugin are loaded dynamically from their browser bundles. */
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FaArrowLeft, FaClock, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
 import ProtectedPage from "@/components/ProtectedPage";
@@ -16,9 +18,25 @@ interface CalendarAppointment {
   property: { id: string; title: string; address: string; latitude: number | null; longitude: number | null } | null;
 }
 
+interface OptimizedRoute {
+  appointment_ids: string[];
+  total_distance_km: number;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] as string);
+}
+
 function MapComponent({ appointments }: { appointments: CalendarAppointment[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    // Dynamically load leaflet css and js
     if (!document.getElementById("leaflet-css")) {
       const link = document.createElement("link");
       link.id = "leaflet-css";
@@ -33,7 +51,7 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
       link.href = "https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css";
       document.head.appendChild(link);
     }
-    
+
     let isCancelled = false;
     let map: any = null;
     let routingControl: any = null;
@@ -57,55 +75,54 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
         document.head.appendChild(script);
       } else {
         if (!document.getElementById("routing-js")) {
-            const rScript = document.createElement("script");
-            rScript.id = "routing-js";
-            rScript.src = "https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js";
-            rScript.onload = initMap;
-            document.head.appendChild(rScript);
+          const rScript = document.createElement("script");
+          rScript.id = "routing-js";
+          rScript.src = "https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js";
+          rScript.onload = initMap;
+          document.head.appendChild(rScript);
         } else {
-            setTimeout(initMap, 50);
+          setTimeout(initMap, 50);
         }
       }
     }
 
     function initMap() {
-      if (isCancelled) return;
-      
+      if (isCancelled || !containerRef.current) return;
+
       const L = (window as any).L;
       if (!L || !L.Routing) {
         setTimeout(initMap, 50);
         return;
       }
-      
-      const container = document.getElementById("route-map");
-      if (!container) return;
-      
-      // Clean up previous map if it exists
-      if ((container as any)._leaflet_id) {
-          (container as any).outerHTML = '<div id="route-map" class="w-full h-full rounded-[1.5rem] border border-black/5 bg-[#f7f5ef] z-0 shadow-inner min-h-[400px]"></div>';
-      }
-      
-      const validPoints = appointments
-        .filter(a => a.property?.latitude && a.property?.longitude)
-        .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
 
-      // Center around HCMC or first point
-      const center = validPoints.length > 0 
+      if (map) {
+        map.remove();
+        map = null;
+      }
+
+      const validPoints = appointments.filter(
+        (appointment) => appointment.property?.latitude != null && appointment.property?.longitude != null,
+      );
+
+      const center = validPoints.length > 0
         ? [validPoints[0].property!.latitude, validPoints[0].property!.longitude]
         : [10.762622, 106.660172];
-        
-      map = L.map('route-map').setView(center, 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+
+      map = L.map(containerRef.current).setView(center, 13);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 19,
+        subdomains: "abcd",
       }).addTo(map);
 
+      setTimeout(() => { if (map && !isCancelled) map.invalidateSize(); }, 150);
       setTimeout(() => { if (map && !isCancelled) map.invalidateSize(); }, 500);
 
       if (validPoints.length === 0) return;
 
-      const waypoints = validPoints.map(p => L.latLng(p.property!.latitude, p.property!.longitude));
-      
-      const groupedPoints: Record<string, { apts: CalendarAppointment[], indices: number[] }> = {};
+      const waypoints = validPoints.map((p) => L.latLng(p.property!.latitude, p.property!.longitude));
+
+      const groupedPoints: Record<string, { apts: CalendarAppointment[]; indices: number[] }> = {};
       validPoints.forEach((apt, i) => {
         const key = `${apt.property!.latitude},${apt.property!.longitude}`;
         if (!groupedPoints[key]) groupedPoints[key] = { apts: [], indices: [] };
@@ -113,23 +130,25 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
         groupedPoints[key].indices.push(i + 1);
       });
 
-      Object.values(groupedPoints).forEach(group => {
-        const label = group.indices.join(', ');
+      Object.values(groupedPoints).forEach((group) => {
+        const label = group.indices.join(", ");
         const width = 24 + (group.indices.length - 1) * 8;
         const iconHtml = `<div style="background:var(--forest);color:white;width:${width}px;height:24px;border-radius:12px;text-align:center;line-height:24px;font-weight:bold;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);font-size:11px;">${label}</div>`;
         const customIcon = L.divIcon({
           html: iconHtml,
-          className: '',
+          className: "",
           iconSize: [width, 24],
-          iconAnchor: [width / 2, 12]
+          iconAnchor: [width / 2, 12],
         });
 
-        const popupContent = group.apts.map(apt => {
-          const timeString = new Date(apt.starts_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'});
-          return `<b>${apt.property!.title}</b><br/>${timeString} - ${apt.status}`;
-        }).join('<hr style="margin:8px 0; border-color:#eee;" />');
+        const popupContent = group.apts
+          .map((apt) => {
+            const timeString = new Date(apt.starts_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+            return `<b>${escapeHtml(apt.property!.title)}</b><br/>${timeString} - ${escapeHtml(apt.status)}`;
+          })
+          .join('<hr style="margin:8px 0; border-color:#eee;" />');
 
-        L.marker([group.apts[0].property!.latitude, group.apts[0].property!.longitude], {icon: customIcon})
+        L.marker([group.apts[0].property!.latitude, group.apts[0].property!.longitude], { icon: customIcon })
           .addTo(map)
           .bindPopup(popupContent);
       });
@@ -138,16 +157,16 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
         routingControl = L.Routing.control({
           waypoints: waypoints,
           lineOptions: {
-            styles: [{color: 'var(--coral)', weight: 4, opacity: 0.8}],
+            styles: [{ color: "var(--coral)", weight: 4, opacity: 0.8 }],
             extendToWaypoints: true,
-            missingRouteTolerance: 10
+            missingRouteTolerance: 10,
           },
           show: false,
           addWaypoints: false,
           draggableWaypoints: false,
           fitSelectedRoutes: true,
           showAlternatives: false,
-          createMarker: function() { return null; }
+          createMarker: function () { return null; },
         }).addTo(map);
       } else if (waypoints.length === 1) {
         map.setView(waypoints[0], 15);
@@ -159,28 +178,32 @@ function MapComponent({ appointments }: { appointments: CalendarAppointment[] })
     return () => {
       isCancelled = true;
       if (routingControl && map) {
-        map.removeControl(routingControl);
+        try { map.removeControl(routingControl); } catch { /* ignore */ }
       }
       if (map) {
-        map.remove();
+        try { map.remove(); } catch { /* ignore */ }
       }
     };
   }, [appointments]);
 
-  return <div id="route-map" className="w-full h-full rounded-[1.5rem] border border-black/5 bg-[#f7f5ef] z-0 shadow-inner min-h-[400px]"></div>;
+  return <div ref={containerRef} id="route-map" className="w-full h-full rounded-[1.5rem] border border-black/5 bg-[#f7f5ef] z-0 shadow-inner min-h-[400px] overflow-hidden"></div>;
 }
 
 export default function RouteMapPage() {
   const [allAppointments, setAllAppointments] = useState<CalendarAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [optimizing, setOptimizing] = useState(false);
   const [error, setError] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [optimizedOrder, setOptimizedOrder] = useState<string[]>([]);
+  const [optimizedDistance, setOptimizedDistance] = useState<number | null>(null);
   
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch<CalendarAppointment[]>("/sale/schedule");
       setAllAppointments(res);
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi tải dữ liệu");
     } finally {
@@ -190,6 +213,20 @@ export default function RouteMapPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const handleOptimize = async () => {
+    setOptimizing(true);
+    setError("");
+    try {
+      const result = await apiFetch<OptimizedRoute>(`/sale/optimize-route?date=${selectedDate}`, { method: "POST" });
+      setOptimizedOrder(result.appointment_ids);
+      setOptimizedDistance(result.total_distance_km);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lỗi tối ưu lộ trình");
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
   const filteredAppointments = allAppointments.filter(a => {
     if (a.status === 'NO_SHOW' || a.status === 'CANCELLED') return false;
     const localDate = new Date(a.starts_at);
@@ -198,7 +235,15 @@ export default function RouteMapPage() {
                      String(localDate.getDate()).padStart(2, '0');
     return localStr === selectedDate;
   });
-  const sortedPoints = [...filteredAppointments].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  const orderIndex = new Map(optimizedOrder.map((id, index) => [id, index]));
+  const sortedPoints = [...filteredAppointments].sort((a, b) => {
+    const aIndex = orderIndex.get(a.id);
+    const bIndex = orderIndex.get(b.id);
+    if (aIndex != null && bIndex != null) return aIndex - bIndex;
+    if (aIndex != null) return -1;
+    if (bIndex != null) return 1;
+    return new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+  });
 
   return (
     <ProtectedPage roles={["SALE"]}>
@@ -211,14 +256,30 @@ export default function RouteMapPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold">Lộ trình</h1>
-                <p className="text-sm text-[var(--muted)] mt-1">{sortedPoints.length} điểm đến được tối ưu</p>
+                <p className="text-sm text-[var(--muted)] mt-1">
+                  {sortedPoints.length} điểm đến được phân công
+                  {optimizedDistance != null ? ` · ${optimizedDistance.toFixed(1)} km theo lộ trình đề xuất` : ""}
+                </p>
               </div>
-              <input 
-                type="date" 
-                className="text-sm border border-gray-300 rounded-xl px-4 py-2 bg-white font-semibold text-[var(--ink)] outline-none focus:border-[var(--forest)] focus:ring-2 focus:ring-[var(--forest)]/20 shadow-sm"
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-              />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleOptimize}
+                  disabled={optimizing || sortedPoints.length < 2}
+                  className="text-sm font-bold bg-[var(--forest)] text-white px-4 py-2 rounded-xl disabled:opacity-50"
+                >
+                  {optimizing ? "Đang tối ưu..." : "Tối ưu lộ trình"}
+                </button>
+                <input 
+                  type="date" 
+                  className="text-sm border border-gray-300 rounded-xl px-4 py-2 bg-white font-semibold text-[var(--ink)] outline-none focus:border-[var(--forest)] focus:ring-2 focus:ring-[var(--forest)]/20 shadow-sm"
+                  value={selectedDate}
+                  onChange={e => {
+                    setSelectedDate(e.target.value);
+                    setOptimizedOrder([]);
+                    setOptimizedDistance(null);
+                  }}
+                />
+              </div>
             </div>
           </div>
           
@@ -254,7 +315,7 @@ export default function RouteMapPage() {
             </div>
             
             <div className="flex-1 min-h-[400px] h-full relative">
-              <MapComponent appointments={filteredAppointments} />
+              <MapComponent appointments={sortedPoints} />
             </div>
           </div>
           

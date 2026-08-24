@@ -1,4 +1,3 @@
-from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +10,7 @@ from src.database import get_session
 from src.database.models import (
     Appointment,
     AppointmentStatus,
+    SaleProfile,
     User,
     UserRole,
 )
@@ -20,6 +20,8 @@ from src.services.booking_service import (
     list_sale_requests,
     reject_sale_request,
 )
+from src.services.route_optimizer import optimize_daily_route
+from src.utils.time import utcnow
 
 router = APIRouter(prefix="/sale", tags=["sale"])
 
@@ -81,6 +83,39 @@ async def sale_schedule(
     ]
 
 
+@router.get("/sale-profiles/me")
+async def get_my_sale_profile(
+    user: User = Depends(require_roles(UserRole.SALE)),
+    db: AsyncSession = Depends(get_session),
+):
+    stmt = select(SaleProfile).where(SaleProfile.user_id == user.id)
+    profile = (await db.execute(stmt)).scalar_one_or_none()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Sale profile not found")
+    return profile
+
+
+@router.post("/optimize-route")
+async def optimize_route(
+    date: str,
+    user: User = Depends(require_roles(UserRole.SALE)),
+    db: AsyncSession = Depends(get_session),
+):
+    """Optimize the appointment route for a specific date using TSP."""
+    try:
+        optimized, total_distance_km = await optimize_daily_route(db, user.id, date)
+        return {
+            "message": "Route optimized successfully",
+            "count": len(optimized),
+            "appointment_ids": [str(appointment.id) for appointment in optimized],
+            "total_distance_km": round(total_distance_km, 2),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/requests/{booking_id}/accept")
 async def accept_request(
     booking_id: UUID,
@@ -117,6 +152,7 @@ async def _update_appointment_status(
     new_status: AppointmentStatus,
     *,
     check_in: bool = False,
+    complete: bool = False,
 ):
     """Helper to update an appointment's status, verifying sale ownership."""
     appointment = await db.get(Appointment, appointment_id)
@@ -125,13 +161,16 @@ async def _update_appointment_status(
     if appointment.sale_user_id != sale_user_id:
         raise HTTPException(status_code=403, detail="Lịch hẹn không thuộc về bạn")
     if check_in:
-        appointment.checked_in_at = datetime.utcnow()
+        appointment.checked_in_at = utcnow()
+    if complete:
+        appointment.checked_out_at = utcnow()
     appointment.status = new_status
     await db.commit()
     return {
         "id": str(appointment.id),
-        "status": new_status.value,
+        "status": new_status.value if hasattr(new_status, "value") else new_status,
         "checked_in_at": appointment.checked_in_at.isoformat() if appointment.checked_in_at else None,
+        "checked_out_at": appointment.checked_out_at.isoformat() if appointment.checked_out_at else None,
     }
 
 
@@ -163,13 +202,7 @@ async def complete_appointment(
     user: User = Depends(require_roles(UserRole.SALE)),
     db: AsyncSession = Depends(get_session),
 ):
-    appointment = await db.get(Appointment, appointment_id)
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Không tìm thấy lịch hẹn")
-    if appointment.sale_user_id != user.id:
-        raise HTTPException(status_code=403, detail="Lịch hẹn không thuộc về bạn")
-    appointment.status = AppointmentStatus.COMPLETED
-    appointment.checked_out_at = datetime.utcnow()
-    await db.commit()
-    return {"id": str(appointment.id), "status": "COMPLETED"}
+    return await _update_appointment_status(
+        db, appointment_id, user.id, AppointmentStatus.COMPLETED, complete=True
+    )
 

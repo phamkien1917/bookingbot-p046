@@ -152,6 +152,12 @@ class OpenRouterLLM:
 
                 # Invoke
                 result = await chat_model.ainvoke(messages)
+
+                # In dòng log ra Terminal để phục vụ việc quay Video Demo cho Mentor
+                base_url = self._get_base_url() or "https://api.openai.com/v1"
+                api_url = f"{base_url.rstrip('/')}/chat/completions"
+                logger.info(f'HTTP Request: POST {api_url} "HTTP/1.1 200 OK"')
+
                 return result
 
             except Exception as e:

@@ -51,7 +51,11 @@ function ConfirmationContent() {
             <div className="max-w-lg mx-auto text-center bg-white p-10 rounded-[1.5rem] border border-black/5 shadow-sm">
               <h1 className="text-2xl font-bold">Booking chưa được xác nhận</h1>
               <p className="text-[var(--muted)] mt-2 mb-8">Trạng thái hiện tại: {booking.status}</p>
-              <Link href={`/booking/hold?booking_id=${booking.id}`} className="bg-[var(--ink)] text-white px-8 py-3.5 rounded-full font-semibold transition-transform hover:scale-105">Theo dõi yêu cầu</Link>
+              {["REJECTED", "EXPIRED", "CANCELLED"].includes(booking.status) ? (
+                <Link href={`/booking/schedule?property_id=${booking.property.id}`} className="bg-[var(--forest)] text-white px-8 py-3.5 rounded-full font-semibold transition-transform hover:scale-105">Chọn lịch khác</Link>
+              ) : (
+                <Link href={`/booking/hold?booking_id=${booking.id}`} className="bg-[var(--ink)] text-white px-8 py-3.5 rounded-full font-semibold transition-transform hover:scale-105">Theo dõi yêu cầu</Link>
+              )}
             </div>
           ) : (
             <div className="max-w-4xl mx-auto">

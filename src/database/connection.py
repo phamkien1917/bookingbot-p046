@@ -42,9 +42,23 @@ def _get_database_url() -> str:
 
     # Convert sync drivers to async
     if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+asyncpg://")
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     elif url.startswith("sqlite://"):
-        return url.replace("sqlite://", "sqlite+aiosqlite://")
+        url = url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+
+    # Neon / Supabase compatibility with asyncpg:
+    # asyncpg does not accept `sslmode=require`, it expects `ssl=require`
+    if "sslmode=require" in url:
+        url = url.replace("sslmode=require", "ssl=require")
+    elif "sslmode=prefer" in url:
+        url = url.replace("sslmode=prefer", "ssl=prefer")
+
+    # Strip channel_binding if present (unsupported by asyncpg)
+    if "channel_binding=" in url:
+        import re
+        url = re.sub(r"[?&]channel_binding=[^&]+", "", url)
+        if "?" not in url and "&" in url:
+            url = url.replace("&", "?", 1)
 
     return url
 
@@ -68,11 +82,18 @@ def _create_engine() -> AsyncEngine:
     else:
         poolclass = None  # Default AsyncAdaptedQueuePool
 
+    connect_args = {}
+    # If using Neon / Supabase with asyncpg, ensure ssl is handled properly
+    if "asyncpg" in url and ("neon.tech" in url or "supabase" in url):
+        if "ssl=" not in url:
+            connect_args["ssl"] = True
+
     engine = create_async_engine(
         url,
         echo=settings.app_env == "development",
         poolclass=poolclass,
         pool_pre_ping=True,
+        connect_args=connect_args,
     )
 
     logger.info(f"Database engine created: {url.split('@')[-1] if '@' in url else url}")
@@ -114,7 +135,7 @@ def async_engine() -> AsyncEngine:
 
 
 # Session factory
-_async_session_factory: AsyncSession | None = None
+_async_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:

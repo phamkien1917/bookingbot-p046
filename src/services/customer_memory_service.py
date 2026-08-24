@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.models import CustomerPreference
+from src.utils.time import utcnow
 
 SEARCH_MEMORY_KEYS = {
-    "district", "province", "property_kind", "min_price", "max_price",
+    "region", "district", "province", "property_kind", "min_price", "max_price",
     "min_bedrooms", "min_bathrooms", "min_area",
 }
 
@@ -62,7 +62,7 @@ async def _upsert(
         row.preference_value = payload
         row.confidence = confidence
         row.source = source
-        row.last_confirmed_at = datetime.now(UTC)
+        row.last_confirmed_at = utcnow()
     else:
         db.add(CustomerPreference(
             customer_user_id=customer_uuid,
@@ -70,7 +70,7 @@ async def _upsert(
             preference_value=payload,
             confidence=confidence,
             source=source,
-            last_confirmed_at=datetime.now(UTC),
+            last_confirmed_at=utcnow(),
         ))
 
 
@@ -79,16 +79,17 @@ async def remember_search_criteria(
     customer_id: str,
     criteria: dict | None,
 ) -> None:
-    """Persist only stable, non-empty search criteria."""
+    """Synchronize durable preferences with the active search criteria."""
     if not criteria:
         return
     for key in SEARCH_MEMORY_KEYS:
-        if key in criteria and criteria.get(key) is None:
+        value = criteria.get(key)
+        if value is None or value == "":
             await forget_customer_memory(db, customer_id, key)
             continue
-        value = criteria.get(key)
-        if value is not None and value != "":
-            await _upsert(db, customer_id, key, value, confidence=0.92)
+        await _upsert(db, customer_id, key, value, confidence=0.92)
+
+
 
 
 async def remember_feedback(db: AsyncSession, customer_id: str, message: str) -> bool:
@@ -137,8 +138,13 @@ def memory_summary(memory: dict) -> str:
     if bedrooms:
         parts.append(f"{bedrooms} phòng ngủ+")
     if memory.get("min_area"):
-        parts.append(f"từ {memory['min_area']:g} m²")
+        try:
+            parts.append(f"từ {float(memory['min_area']):g} m²")
+        except (ValueError, TypeError):
+            parts.append(f"từ {memory['min_area']} m²")
     notes = memory.get("feedback_notes")
     if isinstance(notes, list) and notes:
-        parts.append(notes[-1])
+        last_note = str(notes[-1]).strip()
+        if not any(kw in last_note.lower() for kw in ["thay đổi nhu cầu", "tiếp tục", "tìm kiếm"]):
+            parts.append(last_note)
     return " · ".join(parts)

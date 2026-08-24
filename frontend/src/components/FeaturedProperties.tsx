@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -6,6 +5,7 @@ import { FaMapMarkerAlt, FaBed, FaBath, FaRulerCombined, FaArrowRight, FaSpinner
 import { apiFetch } from "@/lib/api";
 import type { Property } from "@/lib/types";
 import { roleHome, useAuth } from "@/components/AuthProvider";
+import PropertyImage from "@/components/PropertyImage";
 
 export default function FeaturedProperties() {
   const { user } = useAuth();
@@ -58,7 +58,7 @@ export default function FeaturedProperties() {
                 {/* Image Container */}
                 <div className="relative h-64 overflow-hidden bg-slate-200 shrink-0">
                   {prop.media && prop.media.length > 0 ? (
-                    <img 
+                    <PropertyImage
                       src={prop.media[0].url} 
                       alt={prop.title} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

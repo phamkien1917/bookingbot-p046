@@ -1,6 +1,6 @@
-// Same-origin by default. Next.js proxies this path to FastAPI, which keeps the
-// HttpOnly session cookie stable across local, preview and production hosts.
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+// Browser traffic always uses the same origin. Next.js proxies this path to the
+// backend, avoiding CORS/third-party-cookie failures in production.
+export const API_BASE = "/api/v1";
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -9,14 +9,18 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, options: RequestInit & { signal?: AbortSignal } = {}): Promise<T> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("nera_auth_token") : null;
+  const headers: Record<string, string> = {
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers as Record<string, string>),
+  };
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
-    headers: {
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
-    },
+    headers,
   });
   if (!response.ok) {
     let message = `Yêu cầu thất bại (${response.status})`;

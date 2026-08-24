@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -9,6 +8,7 @@ import {
 } from "react-icons/fa";
 import Header from "@/components/Header";
 import ProtectedPage from "@/components/ProtectedPage";
+import PropertyImage from "@/components/PropertyImage";
 import { useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
@@ -146,7 +146,7 @@ function CompareContent() {
                     </button>
                     <div className="h-36 bg-stone-100">
                       {(p.image || p.media?.[0]?.url)
-                        ? <img src={p.image || p.media[0].url} alt={p.title} className="h-full w-full object-cover" />
+                        ? <PropertyImage src={p.image || p.media[0].url} alt={p.title} className="h-full w-full object-cover" />
                         : <div className="grid h-full place-items-center text-4xl">🏠</div>}
                     </div>
                     <div className="p-4">
@@ -166,10 +166,6 @@ function CompareContent() {
             {/* Comparison rows */}
             <div className="mt-3 rounded-[1.5rem] border border-black/5 bg-white shadow-sm overflow-hidden">
               {COMPARE_ROWS.map((row, ri) => {
-                const values = visible.map(p => {
-                  const raw = p[row.key as keyof Property];
-                  return typeof raw === "number" ? raw : NaN;
-                });
                 const minIdx = row.key === "list_price" ? bestIndex(visible, "list_price" as keyof Property, false) : -1;
                 const maxIdx = row.key === "area_sqm" ? bestIndex(visible, "area_sqm" as keyof Property, true) : -1;
 
@@ -246,7 +242,7 @@ function CompareContent() {
               </div>
               {decisionMade && (
                 <div className="mt-5 rounded-xl bg-[#f0f5f1] p-4 text-center">
-                  <p className="text-sm font-semibold text-[var(--forest)]">✓ Nera đã ghi nhận: ưu tiên "{decisionMade}"</p>
+                  <p className="text-sm font-semibold text-[var(--forest)]">✓ Nera đã ghi nhận: ưu tiên “{decisionMade}”</p>
                   <p className="text-xs text-[var(--muted)] mt-1">Thông tin này sẽ được dùng cho gợi ý tiếp theo.</p>
                   <Link href={`/chat?prompt=${encodeURIComponent(`Với ưu tiên ${decisionMade}, căn nào trong danh sách cân nhắc của tôi phù hợp nhất?`)}`}
                     className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--forest)] px-5 py-2.5 text-sm font-semibold text-white">

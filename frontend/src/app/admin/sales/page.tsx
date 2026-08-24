@@ -50,7 +50,7 @@ export default function AdminSalesPage() {
         body: JSON.stringify({ is_accepting_tours: !item.is_accepting_tours })
       });
       await load();
-    } catch (err) {
+    } catch {
       alert("Lỗi khi cập nhật trạng thái nhận khách");
     }
   };

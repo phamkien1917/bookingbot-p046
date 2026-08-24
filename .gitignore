@@ -58,3 +58,8 @@ out/
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/archive/
+
+scratch/
+
+# Demo & presentation notes
+DEMO_SCRIPT*

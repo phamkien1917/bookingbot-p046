@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -23,8 +23,10 @@ from src.database.models import (
     UserRole,
     UserStatus,
 )
+from src.schemas.admin import PropertyCreate, PropertyUpdate, SaleProfileUpdate
 from src.schemas.booking import UserStatusUpdate
 from src.services.booking_service import list_all_bookings
+from src.utils.time import utcnow
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -104,70 +106,58 @@ async def admin_analytics(
     db: AsyncSession = Depends(get_session),
 ):
     """Return analytics data for admin dashboard charts."""
-    today = datetime.utcnow().date()
+    from sqlalchemy import case
+    today = utcnow().astimezone(ZoneInfo("Asia/Ho_Chi_Minh")).date()
+    start_date = today - timedelta(days=28)  # 4 weeks ago
 
-    # --- Daily bookings (last 7 days) ---
+    # --- Batch Daily & Weekly bookings ---
+    # We can fetch the last 28 days of data in one query, then group in memory
+    req_stmt = select(
+        cast(TourRequest.created_at, Date).label("day"),
+        func.count(TourRequest.id).label("total"),
+        func.count(case((TourRequest.status == RequestStatus.BOOKED, 1))).label("confirmed"),
+        func.count(case((TourRequest.status.in_([RequestStatus.CANCELLED, RequestStatus.REJECTED]), 1))).label("cancelled")
+    ).where(
+        cast(TourRequest.created_at, Date) >= start_date,
+        cast(TourRequest.created_at, Date) <= today
+    ).group_by(cast(TourRequest.created_at, Date))
+    req_result = await db.execute(req_stmt)
+    req_stats = {row.day: {"total": row.total, "confirmed": row.confirmed, "cancelled": row.cancelled} for row in req_result.all()}
+
+    # No-shows
+    apt_stmt = select(
+        cast(Appointment.starts_at, Date).label("day"),
+        func.count(Appointment.id).label("no_show")
+    ).where(
+        cast(Appointment.starts_at, Date) >= start_date,
+        cast(Appointment.starts_at, Date) <= today,
+        Appointment.status == AppointmentStatus.NO_SHOW
+    ).group_by(cast(Appointment.starts_at, Date))
+    apt_result = await db.execute(apt_stmt)
+    apt_stats = {row.day: row.no_show for row in apt_result.all()}
+
     daily = []
     for offset in range(6, -1, -1):
         day = today - timedelta(days=offset)
-        base = select(func.count(TourRequest.id)).where(
-            cast(TourRequest.created_at, Date) == day,
-        )
-        total = await db.scalar(base) or 0
-        confirmed = await db.scalar(
-            base.where(TourRequest.status == RequestStatus.BOOKED)
-        ) or 0
-        cancelled = await db.scalar(
-            base.where(TourRequest.status.in_([RequestStatus.CANCELLED, RequestStatus.REJECTED]))
-        ) or 0
-        no_show_count = await db.scalar(
-            select(func.count(Appointment.id)).where(
-                cast(Appointment.starts_at, Date) == day,
-                Appointment.status == AppointmentStatus.NO_SHOW,
-            )
-        ) or 0
+        r = req_stats.get(day, {"total": 0, "confirmed": 0, "cancelled": 0})
+        no_show_count = apt_stats.get(day, 0)
         daily.append({
             "date": day.isoformat(),
-            "total": total,
-            "confirmed": confirmed,
-            "cancelled": cancelled,
+            "total": r["total"],
+            "confirmed": r["confirmed"],
+            "cancelled": r["cancelled"],
             "no_show": no_show_count,
         })
 
-    # --- Status distribution ---
-    dist = {}
-    for status_val in ["BOOKED", "WAITING_APPROVAL", "CANCELLED", "REJECTED", "EXPIRED"]:
-        dist[status_val.lower()] = await db.scalar(
-            select(func.count(TourRequest.id)).where(
-                TourRequest.status == RequestStatus(status_val)
-            )
-        ) or 0
-    no_shows_total = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.status == AppointmentStatus.NO_SHOW
-        )
-    ) or 0
-    dist["no_show"] = no_shows_total
-
-    # --- Weekly conversion (last 4 weeks) ---
     weekly = []
     for week_offset in range(3, -1, -1):
         week_end = today - timedelta(days=week_offset * 7)
         week_start = week_end - timedelta(days=7)
-        week_total = await db.scalar(
-            select(func.count(TourRequest.id)).where(
-                cast(TourRequest.created_at, Date) >= week_start,
-                cast(TourRequest.created_at, Date) < week_end,
-            )
-        ) or 0
-        week_confirmed = await db.scalar(
-            select(func.count(TourRequest.id)).where(
-                cast(TourRequest.created_at, Date) >= week_start,
-                cast(TourRequest.created_at, Date) < week_end,
-                TourRequest.status == RequestStatus.BOOKED,
-            )
-        ) or 0
+
+        week_total = sum(req_stats.get(week_start + timedelta(days=i), {}).get("total", 0) for i in range(7))
+        week_confirmed = sum(req_stats.get(week_start + timedelta(days=i), {}).get("confirmed", 0) for i in range(7))
         rate = round(week_confirmed / week_total * 100, 1) if week_total else 0.0
+
         weekly.append({
             "week_label": f"{week_start.strftime('%d/%m')} – {(week_end - timedelta(days=1)).strftime('%d/%m')}",
             "total": week_total,
@@ -175,47 +165,30 @@ async def admin_analytics(
             "rate": rate,
         })
 
+    # --- Status distribution ---
+    # Single query for all request statuses
+    dist_stmt = select(
+        TourRequest.status,
+        func.count(TourRequest.id)
+    ).group_by(TourRequest.status)
+    dist_result = await db.execute(dist_stmt)
+
+    dist = {k.lower(): 0 for k in ["BOOKED", "WAITING_APPROVAL", "CANCELLED", "REJECTED", "EXPIRED"]}
+    for status_val, count in dist_result.all():
+        key = status_val.value.lower() if hasattr(status_val, 'value') else str(status_val).lower()
+        if key in dist:
+            dist[key] = count
+
+    no_shows_total = await db.scalar(
+        select(func.count(Appointment.id)).where(Appointment.status == AppointmentStatus.NO_SHOW)
+    ) or 0
+    dist["no_show"] = no_shows_total
+
     return {
         "daily_bookings": daily,
         "status_distribution": dist,
         "weekly_conversion": weekly,
     }
-
-
-
-class PropertyCreate(BaseModel):
-    title: str
-    property_kind: str
-    area_sqm: float
-    list_price: float | None = None
-    address_line: str
-    province: str
-    district: str | None = None
-    ward: str | None = None
-    bedrooms: int | None = None
-    bathrooms: int | None = None
-    status: str = "AVAILABLE"
-    description: str | None = None
-
-class PropertyUpdate(BaseModel):
-    title: str | None = None
-    property_kind: str | None = None
-    area_sqm: float | None = None
-    list_price: float | None = None
-    address_line: str | None = None
-    province: str | None = None
-    district: str | None = None
-    ward: str | None = None
-    bedrooms: int | None = None
-    bathrooms: int | None = None
-    status: str | None = None
-    description: str | None = None
-
-class SaleProfileUpdate(BaseModel):
-    job_title: str | None = None
-    branch_name: str | None = None
-    max_daily_tours: int | None = None
-    is_accepting_tours: bool | None = None
 
 
 @router.get("/properties")

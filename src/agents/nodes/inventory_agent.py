@@ -1,238 +1,922 @@
-"""Inventory Agent - Property search and information."""
+"""Inventory Agent - Property Search, Details, and Comparison.
+
+Queries real estate database with exact SQL constraints and formats grounded responses.
+"""
 
 import json
 import logging
+import re
+from decimal import Decimal
+from typing import Any
+from uuid import UUID
 
-from src.agents.state import AgentState
-from src.agents.tools.map_tools import get_property_location
-from src.agents.tools.property_tools import (
-    check_property_availability,
-    search_properties,
-)
-from src.services.redis_service import get_distributed_lock
+from langchain_core.messages import HumanMessage, SystemMessage
+from sqlalchemy import or_, select
+from sqlalchemy.orm import selectinload
+
+from src.agents.state import AgentState, AgentType, Intent
+from src.database.connection import get_session_context
+from src.database.models import Property, PropertyKind, PropertyStatus
+from src.services.chat_state_service import normalize_text
+from src.services.llm import get_llm
+from src.services.search_criteria_service import REGION_PROVINCES, extract_search_criteria
+from src.utils.property_text import clean_property_title, get_search_variations, match_property_by_title
 
 logger = logging.getLogger(__name__)
 
 
-async def inventory_agent(state: AgentState) -> dict:
-    """Inventory agent - searches properties and provides information.
-
-    Uses distributed lock to prevent duplicate processing when multiple
-    agents are querying the same property simultaneously.
-
-    Args:
-        state: Current agent state
-
-    Returns:
-        Updated state with search results
-    """
-    intent = state.get("intent")
-    entities = state.get("metadata", {}).get("entities", {})
-    search_criteria = state.get("search_criteria")
-    session_id = state.get("session_id")
-    customer_id = state.get("customer_id")
-
-    # === Distributed Lock: Prevent duplicate property processing ===
-    # Use lock to ensure same property isn't being processed by multiple agents
-    lock = get_distributed_lock()
-    property_id = entities.get("property_id")
-    lock_token = None
-
-    if property_id:
-        lock_key = f"inventory:{property_id}"
-        lock_token = await lock.acquire(lock_key, ttl=30, blocking=True)
-        if not lock_token:
-            logger.warning(f"Could not acquire lock for property {property_id}, processing anyway")
-            lock_token = None  # Allow processing even without lock
-
+def _num(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return float(value)
     try:
-        return await _inventory_agent_impl(
-            state, intent, entities, search_criteria, session_id, customer_id
-        )
-    finally:
-        # Release lock if acquired
-        if lock_token and property_id:
-            await lock.release(f"inventory:{property_id}", lock_token)
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
-async def _inventory_agent_impl(
-    state: AgentState,
-    intent: str,
-    entities: dict,
-    search_criteria: dict,
-    session_id: str,
-    customer_id: str,
-) -> dict:
-    """Implementation of inventory agent logic (separated for lock handling)."""
-    # === GUARD: GET_INFO yêu cầu customer đăng nhập ===
-    # Ngăn chặn IDOR + enumeration bởi anonymous users.
-    if intent == "GET_INFO" and not customer_id:
-        return {
-            "response": (
-                "Vui lòng đăng nhập để xem chi tiết căn hộ cụ thể. "
-                "Tôi có thể giúp bạn tìm kiếm các căn hộ phù hợp mà không cần đăng nhập."
-            ),
-            "suggested_actions": ["Đăng nhập", "Tìm căn hộ theo tiêu chí"],
-            "current_property_id": None,
+def _price_text(value: Any) -> str:
+    amount = _num(value)
+    if amount is None:
+        return "Liên hệ"
+    if amount >= 1_000_000_000:
+        return f"{amount / 1_000_000_000:g} tỷ"
+    return f"{amount / 1_000_000:g} triệu"
+
+
+def serialize_property_item(prop: Property) -> dict[str, Any]:
+    """Serialize Property model to JSON-safe dictionary for cards and prompt context."""
+    media = sorted(prop.media or [], key=lambda item: (not item.is_cover, item.sort_order))
+    media_payload = [
+        {
+            "id": str(item.id),
+            "media_type": item.media_type,
+            "url": item.url,
+            "caption": item.caption,
+            "sort_order": item.sort_order,
+            "is_cover": item.is_cover,
         }
+        for item in media
+    ]
+    return {
+        "id": str(prop.id),
+        "code": prop.code,
+        "property_kind": prop.property_kind.value if prop.property_kind else None,
+        "title": clean_property_title(prop.title),
+        "description": str(prop.description)[:1200] if prop.description else None,
+        "status": prop.status.value if prop.status else None,
+        "address_line": prop.address_line,
+        "ward": prop.ward,
+        "district": prop.district,
+        "province": prop.province,
+        "area_sqm": _num(prop.area_sqm),
+        "bedrooms": prop.bedrooms,
+        "bathrooms": prop.bathrooms,
+        "list_price": _num(prop.list_price),
+        "currency": prop.currency,
+        "media": media_payload,
+        "image": media_payload[0]["url"] if media_payload else None,
+    }
 
-    # === GUARD: GET_INFO cần property_id hoặc keyword cụ thể ===
-    if intent == "GET_INFO" and not entities.get("property_id") and not search_criteria.get("keyword"):
-        return {
-            "response": (
-                "Bạn muốn hỏi về căn nào? Vui lòng cung cấp mã căn hoặc "
-                "chọn một căn từ kết quả tìm kiếm trước đó."
-            ),
-            "suggested_actions": ["Cung cấp mã căn", "Xem danh sách đã tìm"],
-            "current_property_id": None,
-        }
 
-    # === Extract search criteria ===
-    # Lưu ý: KHÔNG hard-code province mặc định nữa — nếu thiếu thì search
-    # sẽ rộng hơn nhưng an toàn hơn (trước đây bị ép về HCM).
-    if not search_criteria:
-        search_criteria = {
-            "district": entities.get("district"),
-            "province": entities.get("province"),
-            "keyword": entities.get("keyword"),
-            "property_kind": entities.get("property_kind"),
-            "min_price": entities.get("budget", {}).get("min") if isinstance(entities.get("budget"), dict) else None,
-            "max_price": entities.get("budget", {}).get("max") if isinstance(entities.get("budget"), dict) else entities.get("budget"),
-            "min_bedrooms": entities.get("bedrooms"),
-            "min_bathrooms": entities.get("bathrooms"),
-            "min_area": entities.get("area_sqm"),
-        }
+def _interleave_properties_by_province(items: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Distribute properties evenly across provinces in a broad region search."""
+    by_prov: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        prov = str(item.get("province") or "Khác")
+        by_prov.setdefault(prov, []).append(item)
 
-    # === Reset current_property_id khi search mới ===
-    # Tránh state pollution từ task trước.
-    updates: dict = {"current_property_id": None}
+    result: list[dict[str, Any]] = []
+    prov_lists = list(by_prov.values())
+    idx = 0
+    while len(result) < limit and any(idx < len(lst) for lst in prov_lists):
+        for lst in prov_lists:
+            if idx < len(lst) and len(result) < limit:
+                result.append(lst[idx])
+        idx += 1
+    return result
 
-    # Search properties using tool's ainvoke (async)
-    search_results = None
-    try:
-        result_str = await search_properties.ainvoke({
-            "district": search_criteria.get("district"),
-            "province": search_criteria.get("province"),
-            "keyword": search_criteria.get("keyword"),
-            "property_kind": search_criteria.get("property_kind"),
-            "min_price": search_criteria.get("min_price"),
-            "max_price": search_criteria.get("max_price"),
-            "min_bedrooms": search_criteria.get("min_bedrooms"),
-            "min_bathrooms": search_criteria.get("min_bathrooms"),
-            "min_area": search_criteria.get("min_area"),
-            "limit": 10,
-            "session_id": session_id,
-        })
-        search_results = json.loads(result_str)
-    except Exception as e:
-        logger.error(f"Error searching properties: {e}")
-        return {
-            "response": f"Xin lỗi, tôi gặp lỗi khi tìm kiếm: {str(e)}",
-            "error": str(e),
-        }
 
-    # Format response
-    if "error" in search_results:
-        return {
-            "response": f"Xin lỗi, tôi gặp lỗi: {search_results['error']}",
-            "error": search_results["error"],
-        }
+async def query_properties_from_db(
+    criteria: dict[str, Any],
+    limit: int = 20,
+    exclude_ids: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Execute dynamic criteria search against PostgreSQL with relationship eager-loading."""
+    effective_limit = criteria.get("limit") or limit
+    async with get_session_context() as session:
+        filters = [Property.status == PropertyStatus.AVAILABLE]
 
-    if not search_results:
-        return {
-            "response": "Rất tiếc, hiện tại không có bất động sản nào phù hợp với tiêu chí của bạn. Bạn có muốn thay đổi điều kiện tìm kiếm không?",
-            "selected_properties": [],
-            "analysis": "No properties found matching criteria",
-        }
-
-    # Store results in state
-    updates["selected_properties"] = search_results
-    updates["search_criteria"] = search_criteria
-    updates["analysis"] = f"Found {len(search_results)} properties matching criteria"
-
-    # Generate response message
-    if intent == "SEARCH_PROPERTY":
-        response = "Tôi đã tìm được các bất động sản phù hợp với yêu cầu của bạn. Bạn hãy xem các gợi ý chi tiết bên dưới nhé. Bạn quan tâm căn nào? Tôi có thể giữ căn và đề xuất lịch xem cho bạn."
-
-        updates["response"] = response
-        updates["suggested_actions"] = [
-            "Chọn một căn để xem chi tiết",
-            "Yêu cầu xem thêm bất động sản khác",
-            "Đặt lịch xem nhà",
-        ]
-
-    elif intent == "GET_INFO":
-        # User asking about specific property or general info
-        prop = search_results[0] if search_results else None
-        if prop:
-            # Get internal property ID for map lookup
-            internal_id = prop.get("_internal_id")
-
-            # Build response
-            response = f"Thông tin về **{prop.get('title')}**:\n\n"
-            response += f"- Loại: {prop.get('property_kind')}\n"
-            ward = prop.get("ward") or ""
-            district = prop.get("district") or ""
-            province = prop.get("province") or ""
-            address = ", ".join(filter(None, [ward, district, province]))
-            response += f"- Khu vực: {address or 'Đang cập nhật'}\n"
-            response += f"- Diện tích: {prop.get('area_sqm')} m²\n"
-            if prop.get("bedrooms"):
-                response += f"- Phòng ngủ: {prop['bedrooms']}\n"
-            if prop.get("bathrooms"):
-                response += f"- Phòng tắm: {prop['bathrooms']}\n"
-            price = prop.get("list_price")
-            if price:
-                price_str = f"{price/1e9:.1f} tỷ" if price >= 1e9 else f"{price/1e6:.0f} triệu"
-                response += f"- Giá: {price_str}\n"
-
-            # Get map/location info if we have internal ID
-            map_data = None
-            if internal_id:
+        if exclude_ids:
+            parsed_excludes = []
+            for raw in exclude_ids:
                 try:
-                    location_str = await get_property_location.ainvoke({"property_id": internal_id})
-                    map_data = json.loads(location_str)
-                    if map_data.get("has_coordinates"):
-                        response += f"\n📍 [Xem vị trí trên bản đồ](https://www.google.com/maps?q={map_data['latitude']},{map_data['longitude']})\n"
-                except Exception as e:
-                    logger.warning(f"Could not get location for property: {e}")
+                    parsed_excludes.append(UUID(str(raw)))
+                except (ValueError, TypeError):
+                    continue
+            if parsed_excludes:
+                filters.append(Property.id.notin_(parsed_excludes))
 
-            # Add map data to response for frontend (invisible marker)
-            if map_data and map_data.get("has_coordinates"):
-                response += f"\n<!-- MAP_DATA:{json.dumps(map_data)} -->\n"
+        area_target = criteria.get("area_or_ward") or criteria.get("ward")
+        district = criteria.get("district")
+        province = criteria.get("province")
+        region = criteria.get("region")
+        property_kind = criteria.get("property_kind")
 
-            updates["response"] = response
-            updates["map_data"] = map_data
+        # Resolve region if province holds a region name
+        if province:
+            norm_prov = normalize_text(str(province)).lower()
+            if "mien bac" in norm_prov or "bac bo" in norm_prov:
+                region = "Miền Bắc"
+                province = None
+            elif "mien trung" in norm_prov or "trung bo" in norm_prov:
+                region = "Miền Trung"
+                province = None
+            elif "mien nam" in norm_prov or "nam bo" in norm_prov:
+                region = "Miền Nam"
+                province = None
+
+        if area_target:
+            area_vars = get_search_variations(area_target)
+            area_filters = []
+            for v in area_vars:
+                area_filters.extend([
+                    Property.ward.ilike(f"%{v}%"),
+                    Property.address_line.ilike(f"%{v}%"),
+                    Property.title.ilike(f"%{v}%"),
+                ])
+            filters.append(or_(*area_filters))
+
+        if district:
+            dist_vars = get_search_variations(district)
+            filters.append(or_(*[Property.district.ilike(f"%{v}%") for v in dist_vars]))
+        elif province:
+            prov_vars = get_search_variations(province)
+            filters.append(or_(*[Property.province.ilike(f"%{v}%") for v in prov_vars]))
+        elif region:
+            matched_region_provinces = None
+            norm_reg = normalize_text(str(region)).lower()
+            if "bac" in norm_reg:
+                matched_region_provinces = REGION_PROVINCES.get("Miền Bắc")
+            elif "trung" in norm_reg:
+                matched_region_provinces = REGION_PROVINCES.get("Miền Trung")
+            elif "nam" in norm_reg:
+                matched_region_provinces = REGION_PROVINCES.get("Miền Nam")
+
+            if matched_region_provinces:
+                reg_filters = []
+                for p in matched_region_provinces:
+                    for pv in get_search_variations(p):
+                        reg_filters.append(Property.province.ilike(f"%{pv}%"))
+                if reg_filters:
+                    filters.append(or_(*reg_filters))
+
+        if property_kind:
+            try:
+                filters.append(Property.property_kind == PropertyKind(str(property_kind)))
+            except ValueError:
+                pass
+
+        if criteria.get("min_price") is not None:
+            filters.append(Property.list_price >= criteria["min_price"])
+        if criteria.get("max_price") is not None:
+            filters.append(Property.list_price <= criteria["max_price"])
+        if criteria.get("min_bedrooms") is not None and criteria["min_bedrooms"] > 0:
+            filters.append(Property.bedrooms >= criteria["min_bedrooms"])
+        if criteria.get("max_bedrooms") is not None and criteria["max_bedrooms"] > 0:
+            filters.append(Property.bedrooms <= criteria["max_bedrooms"])
+        if criteria.get("min_bathrooms") is not None and criteria["min_bathrooms"] > 0:
+            filters.append(Property.bathrooms >= criteria["min_bathrooms"])
+        if criteria.get("min_area") is not None and criteria["min_area"] > 0:
+            filters.append(Property.area_sqm >= criteria["min_area"])
+
+        is_broad_region_search = bool(region and not province and not district and not area_target)
+        query_limit = 100 if is_broad_region_search else effective_limit
+
+        stmt = (
+            select(Property)
+            .options(selectinload(Property.media))
+            .where(*filters)
+            .order_by(Property.list_price.asc().nullslast(), Property.published_at.desc().nullslast())
+            .limit(query_limit)
+        )
+        rows = (await session.execute(stmt)).scalars().all()
+        items = [serialize_property_item(r) for r in rows]
+
+        if is_broad_region_search:
+            return _interleave_properties_by_province(items, limit=effective_limit)
+
+        return items
+
+
+async def load_properties_by_ids(ids: list[str]) -> list[dict[str, Any]]:
+    """Load full property items for a list of UUIDs."""
+    parsed_ids = []
+    for raw in ids:
+        try:
+            parsed_ids.append(UUID(str(raw)))
+        except (ValueError, TypeError):
+            continue
+    if not parsed_ids:
+        return []
+
+    async with get_session_context() as session:
+        stmt = (
+            select(Property)
+            .options(selectinload(Property.media))
+            .where(Property.id.in_(parsed_ids))
+        )
+        rows = (await session.execute(stmt)).scalars().all()
+        by_id = {str(r.id): serialize_property_item(r) for r in rows}
+        return [by_id[str(raw)] for raw in ids if str(raw) in by_id]
+
+
+def format_criteria_summary(criteria: dict[str, Any]) -> str:
+    parts = []
+    loc_parts = []
+    area_target = (criteria.get("area_or_ward") or criteria.get("ward") or "").strip()
+    district = (criteria.get("district") or "").strip()
+    province = (criteria.get("province") or "").strip()
+    region = (criteria.get("region") or "").strip()
+
+    def _norm(s: str) -> str:
+        return normalize_text(s).lower().strip()
+
+    if province:
+        norm_p = _norm(province)
+        if "mien bac" in norm_p or "bac bo" in norm_p:
+            region = "Miền Bắc"
+            province = ""
+        elif "mien trung" in norm_p or "trung bo" in norm_p:
+            region = "Miền Trung"
+            province = ""
+        elif "mien nam" in norm_p or "nam bo" in norm_p:
+            region = "Miền Nam"
+            province = ""
+
+    if area_target:
+        norm_area = _norm(area_target)
+        if (
+            (district and norm_area == _norm(district))
+            or (province and norm_area == _norm(province))
+            or (region and norm_area == _norm(region))
+            or norm_area in {"ha noi", "ho chi minh", "da nang", "mien bac", "mien trung", "mien nam"}
+        ):
+            area_target = ""
+
+    if area_target:
+        loc_parts.append(area_target)
+    if district:
+        loc_parts.append(district)
+    elif province:
+        loc_parts.append(province)
+    elif region:
+        loc_parts.append(region)
+
+    seen = set()
+    unique_loc = []
+    for lp in loc_parts:
+        nlp = _norm(lp)
+        if lp and nlp not in seen:
+            seen.add(nlp)
+            unique_loc.append(lp)
+
+    if unique_loc:
+        parts.append(", ".join(unique_loc))
+
+    kind_names = {
+        "APARTMENT": "căn hộ",
+        "HOUSE": "nhà riêng",
+        "VILLA": "biệt thự",
+        "TOWNHOUSE": "nhà phố",
+        "LAND": "đất nền",
+        "COMMERCIAL": "mặt bằng kinh doanh",
+    }
+    if criteria.get("property_kind"):
+        parts.append(kind_names.get(str(criteria["property_kind"]), str(criteria["property_kind"])))
+
+    if criteria.get("max_price") is not None:
+        parts.append(f"tối đa {_price_text(criteria['max_price'])}")
+    if criteria.get("min_price") is not None:
+        parts.append(f"từ {_price_text(criteria['min_price'])}")
+    if criteria.get("min_bedrooms") is not None and criteria["min_bedrooms"] > 0:
+        if criteria.get("max_bedrooms") == criteria["min_bedrooms"]:
+            parts.append(f"{criteria['min_bedrooms']} phòng ngủ")
         else:
-            updates["response"] = "Xin lỗi, tôi không tìm thấy thông tin bạn yêu cầu."
+            parts.append(f"{criteria['min_bedrooms']}+ phòng ngủ")
+    elif criteria.get("max_bedrooms") is not None and criteria["max_bedrooms"] > 0:
+        parts.append(f"tối đa {criteria['max_bedrooms']} phòng ngủ")
+    if criteria.get("min_area") is not None and criteria["min_area"] > 0:
+        area_val = _num(criteria["min_area"])
+        if area_val is not None:
+            parts.append(f"từ {area_val:g} m²")
 
+    return ", ".join(parts)
+
+
+def format_search_results_markdown(items: list[dict[str, Any]], criteria: dict[str, Any], soft_prefs: list[str]) -> str:
+    summary = format_criteria_summary(criteria)
+    total_count = len(items)
+    requested_limit = criteria.get("limit")
+
+    if requested_limit and requested_limit < total_count:
+        display_items = items[:requested_limit]
+    elif not requested_limit and total_count > 5:
+        display_items = items[:5]
     else:
-        # Generic response
-        updates["response"] = f"Tôi đã tìm thấy {len(search_results)} bất động sản phù hợp. Bạn muốn tìm hiểu thêm về căn nào?"
+        display_items = items
 
-    return updates
+    intro = f"Nera đã tìm thấy **{total_count} bất động sản** phù hợp nhất"
+    if summary:
+        intro += f" với tiêu chí **{summary}**"
+    if not requested_limit and total_count > 5:
+        intro += " cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):"
+    else:
+        intro += " cho bạn:"
+
+    blocks = []
+    for index, item in enumerate(display_items, 1):
+        location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
+        price = _price_text(item.get("list_price"))
+        area_num = _num(item.get("area_sqm"))
+        area = f"{area_num:g} m²" if area_num is not None else ""
+        beds = f"{item.get('bedrooms')} PN" if item.get("bedrooms") is not None else ""
+        specs = " · ".join(filter(None, [price, area, beds, location]))
+        blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{specs}")
+
+    body = "\n\n".join(blocks)
+    note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
+
+    return f"{intro}\n\n{body}{note}\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊"
 
 
-async def get_property_details(property_id: str) -> dict:
-    """Get detailed information about a property.
+def format_property_details_markdown(item: dict[str, Any]) -> str:
+    location = ", ".join(filter(None, [item.get("address_line"), item.get("ward"), item.get("district"), item.get("province")]))
+    desc = str(item.get("description") or "").strip()
+    if len(desc) > 300:
+        desc = desc[:300] + "..."
 
-    Args:
-        property_id: Property UUID
+    lines = [
+        f"### 🏠 {item.get('title', 'Thông tin Bất động sản')}\n",
+        f"• **Giá niêm yết:** {_price_text(item.get('list_price'))}",
+        f"• **Diện tích:** {item.get('area_sqm') or 'Chưa cập nhật'} m² ({item.get('bedrooms') or '—'} PN · {item.get('bathrooms') or '—'} WC)",
+        f"• **Vị trí:** {location or 'Chưa cập nhật'}",
+        f"• **Mã căn:** `{item.get('code') or item.get('id')}`",
+    ]
+    if desc:
+        lines.append(f"\n**Mô tả nổi bật:**\n{desc}")
 
-    Returns:
-        Property details
-    """
+    lines.append("\nBạn có muốn Nera hỗ trợ **đặt lịch xem trực tiếp** căn này vào khung giờ nào không?")
+    return "\n".join(lines)
+
+
+async def format_intelligent_property_review(item: dict[str, Any], query: str) -> str:
+    """Generate an intelligent, comprehensive AI review for the specific property."""
     try:
-        # Check availability
-        availability_str = await check_property_availability.ainvoke({
-            "property_id": property_id,
-        })
-        availability = json.loads(availability_str)
-
-        return {
-            "availability": availability,
-            "can_book": availability.get("can_book", False),
+        llm = get_llm()._create_chat_model()
+        sys_prompt = (
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI cao cấp, giọng văn thanh lịch, ấm áp và súc tích.\n"
+            "Khách hàng đang xem chi tiết một bất động sản cụ thể và muốn bạn review nhanh, tư vấn về căn nhà này.\n\n"
+            "Quy tắc trình bày chuẩn mực:\n"
+            "- Trình bày mạch lạc, sử dụng các đoạn ngắn, xuống dòng thoáng mắt, dễ đọc trên khung chat nhỏ.\n"
+            "- Sử dụng gạch đầu dòng bullet points rõ ràng cho các ý chính.\n"
+            "- KHÔNG sử dụng ký tự tiêu đề thô (không dùng #, ##, ###), thay vào đó hãy dùng chữ in đậm **Tiêu đề** để giao diện nhỏ gọn gàng, đẹp mắt.\n"
+            "- Cấu trúc phản hồi:\n"
+            "  1. Tóm tắt nhanh: Tên căn, giá bán, diện tích, kết cấu và điểm ấn tượng nhất.\n"
+            "  2. **Ưu điểm nổi bật:** 3-4 gạch đầu dòng ngắn gọn về vị trí, view, tiện ích, pháp lý và mức giá.\n"
+            "  3. **Đánh giá & Khuyên dùng:** Căn này phù hợp nhất với nhu cầu nào (gia đình trẻ, mua ở lâu dài hay đầu tư cho thuê).\n"
+            "  4. Lời kết thân thiện mời khách đặt lịch đi xem thực tế hoặc so sánh thêm."
+        )
+        context = {
+            "customer_query": query,
+            "property": {
+                "title": item.get("title"),
+                "price": _price_text(item.get("list_price")),
+                "area_sqm": item.get("area_sqm"),
+                "bedrooms": item.get("bedrooms"),
+                "bathrooms": item.get("bathrooms"),
+                "location": ", ".join(filter(None, [item.get("address_line"), item.get("ward"), item.get("district"), item.get("province")])),
+                "legal_status": item.get("legal_status"),
+                "orientation": item.get("orientation"),
+                "description": str(item.get("description", ""))[:600],
+            },
         }
+        res = await llm.ainvoke([
+            SystemMessage(content=sys_prompt),
+            HumanMessage(content=f"Thông tin căn nhà đang xem:\n{json.dumps(context, ensure_ascii=False, indent=2)}\n\nCâu hỏi/Yêu cầu của khách: {query}"),
+        ])
+        content = str(res.content).strip()
+        if content:
+            return content
+    except Exception as exc:
+        logger.warning(f"Error calling LLM for property review: {exc}")
+
+    return format_property_details_markdown(item)
+
+
+async def format_intelligent_comparison(items: list[dict[str, Any]], query: str) -> str:
+    """Generate rich comparison table and direct LLM comparative analysis for user question."""
+    # 1. Base Markdown Table
+    table_lines = ["📊 **Bảng so sánh chi tiết giữa các bất động sản bạn quan tâm:**\n"]
+    table_lines.append("| Tiêu chí | " + " | ".join(f"Căn {idx}: {it.get('title', '')[:25]}" for idx, it in enumerate(items, 1)) + " |")
+    table_lines.append("|" + "---|" * (len(items) + 1))
+    table_lines.append("| **Giá bán** | " + " | ".join(_price_text(it.get("list_price")) for it in items) + " |")
+    table_lines.append("| **Diện tích** | " + " | ".join(f"{it.get('area_sqm') or '—'} m²" for it in items) + " |")
+    table_lines.append("| **Kết cấu** | " + " | ".join(f"{it.get('bedrooms') or '—'} PN · {it.get('bathrooms') or '—'} WC" for it in items) + " |")
+    table_lines.append("| **Vị trí** | " + " | ".join(", ".join(filter(None, [it.get("district"), it.get("province")])) for it in items) + " |")
+
+    # 2. Call LLM for personalized comparative insights (e.g. "căn nào thoáng hơn", "gần trường hơn")
+    try:
+        llm = get_llm()._create_chat_model()
+        sys_prompt = (
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI cao cấp, nhiệt tình, am hiểu và thấu hiểu khách hàng.\n"
+            "Hãy so sánh các bất động sản và trả lời trực tiếp câu hỏi của khách hàng bằng giọng văn tự nhiên, ấm áp, mạch lạc và súc tích.\n\n"
+            "Quy tắc định dạng:\n"
+            "1. Mở đầu bằng một lời dẫn tự nhiên, thân thiện.\n"
+            "2. Sử dụng bảng so sánh Markdown đẹp mắt (các cột: Tiêu chí, Căn 1, Căn 2...). Đảm bảo phân tích các hàng: Giá bán, Diện tích, Phòng ngủ / WC, Vị trí, Điểm nổi bật & Độ thoáng.\n"
+            "3. Phần 'Đánh giá & Lời khuyên từ Nera': Trả lời trực diện vào câu hỏi của khách (ví dụ: căn nào thoáng hơn, ưu nhược điểm từng căn, phù hợp với ai) bằng giọng văn chuyên môn, khách quan.\n"
+            "4. Tuyệt đối KHÔNG dùng các ký tự thừa như gạch nối rải rác, ký hiệu vụn vặt không cần thiết.\n"
+            "5. Kết thúc bằng câu hỏi gợi ý nhẹ nhàng để khách đặt lịch đi xem thực tế."
+        )
+        context = {
+            "customer_query": query,
+            "properties": [
+                {
+                    "ordinal": idx,
+                    "title": it.get("title"),
+                    "price": _price_text(it.get("list_price")),
+                    "area_sqm": it.get("area_sqm"),
+                    "bedrooms": it.get("bedrooms"),
+                    "bathrooms": it.get("bathrooms"),
+                    "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
+                    "description": str(it.get("description", ""))[:350],
+                }
+                for idx, it in enumerate(items, 1)
+            ]
+        }
+        res = await llm.ainvoke([
+            SystemMessage(content=sys_prompt),
+            HumanMessage(content=json.dumps(context, ensure_ascii=False))
+        ])
+        if res and res.content and len(res.content.strip()) > 30:
+            return res.content.strip()
     except Exception as e:
-        logger.error(f"Error getting property details: {e}")
-        return {"error": str(e)}
+        logger.warning(f"Intelligent comparison LLM failed: {e}. Using structured table.")
+
+    table_lines.append("\nBạn có muốn Nera hỗ trợ đặt lịch đi xem thực tế căn nào trong số này không?")
+    return "\n".join(table_lines)
+
+
+def resolve_comparison_targets(query: str, pool: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Intelligently resolve which properties to compare from user natural query."""
+    if not pool:
+        return []
+    q = query.lower()
+
+    # 1. Relative positional phrases: "2 căn cuối", "hai căn cuối cùng", "căn cuối", "2 căn đầu", "3 căn đầu"
+    if re.search(r"(?:2|hai)\s*căn\s*(?:cuối|sau)", q):
+        return pool[-2:] if len(pool) >= 2 else pool
+    if re.search(r"(?:3|ba)\s*căn\s*(?:cuối|sau)", q):
+        return pool[-3:] if len(pool) >= 3 else pool
+    if re.search(r"(?:2|hai)\s*căn\s*(?:đầu|trước)", q):
+        return pool[:2]
+    if re.search(r"(?:3|ba)\s*căn\s*(?:đầu|trước)", q):
+        return pool[:3]
+    if re.search(r"căn\s*(?:cuối|sau cùng)", q):
+        return [pool[-1]]
+    if re.search(r"căn\s*(?:đầu|thứ nhất)", q):
+        return [pool[0]]
+
+    # 2. Pair ordinals: "căn 1 và căn 2", "căn 4 và 5", "căn 1 với căn 3", "số 2 và 4"
+    found_indices = []
+    m_pair = re.search(r"căn\s*(?:số)?\s*(\d+)\s*(?:và|,|với)\s*(?:căn\s*(?:số)?)?\s*(\d+)", q)
+    if m_pair:
+        i1, i2 = int(m_pair.group(1)) - 1, int(m_pair.group(2)) - 1
+        if 0 <= i1 < len(pool) and i1 not in found_indices:
+            found_indices.append(i1)
+        if 0 <= i2 < len(pool) and i2 not in found_indices:
+            found_indices.append(i2)
+    else:
+        # Individual mentions: "căn 1", "căn 2", "căn 3"
+        for m in re.finditer(r"(?:căn\s*(?:số|thứ)?|số)\s*(\d+)", q):
+            idx = int(m.group(1)) - 1
+            if 0 <= idx < len(pool) and idx not in found_indices:
+                found_indices.append(idx)
+
+    if len(found_indices) >= 2:
+        return [pool[i] for i in found_indices]
+
+    # 3. Explicit quantities: "so sánh 2 căn", "so sánh 3 căn", "so sánh 4 căn"
+    m_qty = re.search(r"so\s*sánh\s*(\d+)\s*căn", q)
+    if m_qty:
+        qty = int(m_qty.group(1))
+        return pool[:qty]
+
+    if re.search(r"so\s*sánh\s*hai\s*căn", q):
+        return pool[:2]
+    if re.search(r"so\s*sánh\s*ba\s*căn", q):
+        return pool[:3]
+
+    # 4. Default: take up to 2 items if pool has 2, else 3
+    return pool[:2] if len(pool) == 2 else pool[:3]
+
+
+def format_comparison_markdown(items: list[dict[str, Any]]) -> str:
+    lines = ["📊 **Bảng so sánh nhanh các bất động sản bạn đang quan tâm:**\n"]
+    for index, item in enumerate(items, 1):
+        location = ", ".join(filter(None, [item.get("district"), item.get("province")]))
+        lines.append(
+            f"**{index}. {item['title']}**\n"
+            f"- 💰 Giá: **{_price_text(item.get('list_price'))}**\n"
+            f"- 📐 Diện tích: {item.get('area_sqm') or '—'} m² | {item.get('bedrooms') or '—'} PN | {item.get('bathrooms') or '—'} WC\n"
+            f"- 📍 Vị trí: {location}\n"
+        )
+    lines.append("Bạn muốn xem chi tiết hoặc đặt lịch đi xem căn số mấy?")
+    return "\n".join(lines)
+
+
+async def answer_feature_question_on_properties(query: str, pool: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Answer direct questions about amenities/features for the current set of properties."""
+    if not pool:
+        return None
+
+    try:
+        llm = get_llm()._create_chat_model()
+        sys_prompt = (
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI tận tâm, trung thực và súc tích.\n"
+            "Khách hàng đang hỏi một câu hỏi cụ thể về đặc điểm/tiện ích/số phòng ngủ/diện tích/giá của danh sách các bất động sản đang thảo luận (ví dụ: 'căn nào trên 2 phòng ngủ ko', 'căn nào có chỗ đỗ ô tô', 'căn nào gần trường').\n\n"
+            "Hãy đọc kỹ thông tin các căn dưới đây và trả lời trực tiếp cho khách hàng:\n"
+            "1. Trả lời thẳng vào câu hỏi ngay ở đầu câu (ví dụ: 'Trong 3 căn đang xem, chỉ có Căn 2: Feliz Home 297 Hoàng Mai là có 3 phòng ngủ (114 m²)...').\n"
+            "2. Nêu rõ lý do ngắn gọn vì sao căn đó phù hợp và vì sao các căn khác chưa phù hợp.\n"
+            "3. Tuyệt đối KHÔNG vẽ bảng so sánh Markdown (vì khách chỉ hỏi 1 câu hỏi cụ thể, không yêu cầu so sánh).\n"
+            "4. Kết thúc bằng câu gợi ý ngắn gọn để khách xem chi tiết hoặc đặt lịch đi xem thực tế."
+        )
+        context = {
+            "customer_question": query,
+            "properties": [
+                {
+                    "ordinal": idx,
+                    "title": it.get("title"),
+                    "price": _price_text(it.get("list_price")),
+                    "area_sqm": it.get("area_sqm"),
+                    "bedrooms": it.get("bedrooms"),
+                    "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
+                    "description": str(it.get("description", ""))[:400],
+                }
+                for idx, it in enumerate(pool, 1)
+            ]
+        }
+        res = await llm.ainvoke([
+            SystemMessage(content=sys_prompt),
+            HumanMessage(content=json.dumps(context, ensure_ascii=False))
+        ])
+        if res and res.content and len(res.content.strip()) > 30:
+            res_text = res.content.strip()
+            res_lower = res_text.lower()
+
+            # Filter pool to only the properties specifically mentioned/recommended in the answer
+            matched_props = []
+            for idx, prop in enumerate(pool, 1):
+                ordinal_patterns = [
+                    f"căn {idx}", f"căn số {idx}", f"căn thứ {idx}",
+                    f"căn hộ {idx}", f"căn hộ số {idx}", f"bất động sản {idx}"
+                ]
+                prop_code = str(prop.get("code") or "").lower()
+
+                is_matched = any(p in res_lower for p in ordinal_patterns)
+                if not is_matched and prop_code and len(prop_code) >= 3 and prop_code in res_lower:
+                    is_matched = True
+
+                if is_matched and prop not in matched_props:
+                    matched_props.append(prop)
+
+            # If specific properties were matched, show ONLY them; otherwise show top 1
+            final_selected = matched_props if matched_props else pool[:1]
+
+            return {
+                "response": res_text,
+                "selected_properties": final_selected,
+                "search_results": pool,
+                "current_property_id": final_selected[0]["id"] if final_selected else None,
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    "Xem chi tiết căn này",
+                    "Đặt lịch xem nhà",
+                    "So sánh với các căn khác",
+                ],
+            }
+    except Exception as e:
+        logger.warning(f"Feature QA LLM failed: {e}")
+    return None
+
+
+async def inventory_agent(state: AgentState) -> dict[str, Any]:
+    """Inventory Agent node: handles searching, selecting, detailing, and comparing properties."""
+    query = state.get("query", "")
+    intent = state.get("intent")
+    criteria = state.get("search_criteria", {})
+    existing_properties = state.get("selected_properties", [])
+    search_pool = state.get("search_results") or existing_properties
+    soft_prefs = state.get("soft_preferences", [])
+    current_prop_id = state.get("current_property_id")
+    selected_idx = state.get("selected_property_index")
+
+    # Step 0: Check if this is a feature question on existing search results
+    q_low = query.lower()
+    is_explicit_compare = bool(re.search(r"\b(so sanh|doi chieu|lap bang so sanh)\b", q_low))
+    det_crit, det_grps = extract_search_criteria(query)
+    has_search_entities = bool(
+        "location" in det_grps
+        or "budget" in det_grps
+        or "property_kind" in det_crit
+        or "min_bedrooms" in det_crit
+        or "min_area" in det_crit
+        or "limit" in det_crit
+        or re.search(r"\b(tim|tim kiem|mua|xem|loc|kiem|co can nao o|co nha nao o|co can nao duoi|co can nao tren)\b", q_low)
+    )
+
+    feature_patterns = [
+        "căn nào", "có căn nào", "căn mấy", "căn số mấy", "căn thứ mấy",
+        "phòng ngủ", "pn", "diện tích", "m2", "m²", "rẻ nhất", "đắt nhất", "rẻ hơn",
+        "gần trường", "sổ đỏ", "sổ hồng", "ô tô", "đỗ xe", "để xe", "ban công", "view",
+        "hướng", "tầng", "hầm", "gửi xe", "chính sách", "pháp lý", "thủ tục", "vay vốn", "ngân hàng", "tiện ích"
+    ]
+    if search_pool and not is_explicit_compare and not has_search_entities and any(p in q_low for p in feature_patterns) and not any(k in q_low for k in ["tìm thêm", "search", "lọc lại", "đổi sang"]):
+        feature_ans = await answer_feature_question_on_properties(query, search_pool)
+        if feature_ans:
+            return feature_ans
+
+    # Step 1: Handle COMPARE_PROPERTIES
+    if intent == Intent.COMPARE_PROPERTIES:
+        props = resolve_comparison_targets(query, search_pool)
+
+        if len(props) < 2:
+            # Query top available properties in the same area to compare
+            alt_criteria = {}
+            if criteria.get("district"):
+                alt_criteria["district"] = criteria["district"]
+            if criteria.get("province"):
+                alt_criteria["province"] = criteria["province"]
+            if criteria.get("property_kind"):
+                alt_criteria["property_kind"] = criteria["property_kind"]
+            props = await query_properties_from_db(alt_criteria, limit=3)
+
+        if props:
+            comparison_text = await format_intelligent_comparison(props, query)
+            return {
+                "selected_properties": props,
+                "search_results": search_pool,
+                "comparison_properties": props,
+                "response": comparison_text,
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    f"Chọn căn số {i}" for i in range(1, len(props) + 1)
+                ] + ["Đặt lịch xem nhà"],
+            }
+
+    # Step 2: Handle PROPERTY_DETAILS (Evaluated before selection to answer questions on selected property!)
+    if intent == Intent.PROPERTY_DETAILS:
+        chosen = None
+        q = query.lower()
+        if re.search(r"căn\s*(?:cuối|sau cùng)", q) and search_pool:
+            chosen = search_pool[-1]
+        elif re.search(r"căn\s*(?:đầu|thứ nhất)", q) and search_pool:
+            chosen = search_pool[0]
+        else:
+            m_ord = re.search(r"(?:căn\s*(?:số|thứ)?|số)\s*(\d+)", q)
+            if m_ord and search_pool:
+                idx = int(m_ord.group(1)) - 1
+                if 0 <= idx < len(search_pool):
+                    chosen = search_pool[idx]
+
+        if not chosen and search_pool:
+            matched_idx, matched_prop = match_property_by_title(query, search_pool)
+            if matched_prop:
+                chosen = matched_prop
+        if not chosen and current_prop_id and search_pool:
+            chosen = next((p for p in search_pool if p.get("id") == current_prop_id), None)
+        if not chosen and search_pool:
+            if selected_idx is not None and 0 <= selected_idx < len(search_pool):
+                chosen = search_pool[selected_idx]
+            else:
+                chosen = search_pool[0]
+        if not chosen and current_prop_id:
+            loaded = await load_properties_by_ids([current_prop_id])
+            if loaded:
+                chosen = loaded[0]
+
+        if chosen:
+            detailed_response = await format_intelligent_property_review(chosen, query)
+            return {
+                "current_property_id": chosen["id"],
+                "selected_properties": [chosen],
+                "search_results": search_pool,
+                "response": detailed_response,
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    "Đặt lịch xem căn này",
+                    "So sánh với các căn khác",
+                    "Tìm căn khác",
+                ],
+            }
+
+    # Step 3: Handle SELECT_PROPERTY
+    if intent == Intent.SELECT_PROPERTY:
+        if search_pool:
+            matched_idx, matched_prop = match_property_by_title(query, search_pool)
+            if matched_prop:
+                chosen = matched_prop
+                selected_idx = matched_idx
+            elif selected_idx is not None and 0 <= selected_idx < len(search_pool):
+                chosen = search_pool[selected_idx]
+            elif current_prop_id:
+                chosen = next((p for p in search_pool if p.get("id") == current_prop_id), search_pool[0])
+            else:
+                chosen = search_pool[0]
+
+            return {
+                "current_property_id": chosen["id"],
+                "selected_property_index": selected_idx if selected_idx is not None else 0,
+                "selected_properties": [chosen],
+                "search_results": search_pool,
+                "response": f"Bạn đã chọn **{chosen['title']}** ({_price_text(chosen.get('list_price'))}, {chosen.get('area_sqm')} m² tại {chosen.get('district')}).\n\nBạn muốn xem chi tiết hay đặt lịch xem căn này vào ngày nào?",
+                "response_kind": "PROPERTY_SELECTED",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    "Xem chi tiết căn này",
+                    "Đặt lịch xem ngày mai",
+                    "Đặt lịch thứ Bảy tuần này",
+                    "Tìm căn khác",
+                ],
+            }
+
+    # Step 4: Default -> SEARCH_PROPERTY
+    q_norm = normalize_text(query)
+    if re.search(r"\b(thay doi nhu cau|doi nhu cau|nhu cau moi|xoa tieu chi|muon thay doi)\b", q_norm):
+        return {
+            "response": "Dạ vâng! Nera đã làm mới yêu cầu tìm kiếm cho bạn.\n\nBạn hãy chia sẻ nhu cầu mới nhé:\n- **Khu vực bạn muốn tìm** (ví dụ: Cầu Giấy, Nam Từ Liêm, Quận 7...)\n- **Khoảng ngân sách mong muốn** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Số phòng ngủ & Loại nhà** (ví dụ: Căn hộ 2PN, Nhà phố...)",
+            "response_kind": "ASK_CRITERIA",
+            "phase": "IDLE",
+            "search_criteria": {},
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": [
+                "Căn hộ Cầu Giấy dưới 5 tỷ",
+                "Nhà riêng Thanh Xuân 3PN",
+                "Chung cư Nam Từ Liêm 2 phòng ngủ",
+            ],
+        }
+
+    has_core_filters = bool(
+        criteria.get("district")
+        or criteria.get("province")
+        or criteria.get("region")
+        or criteria.get("area_or_ward")
+        or criteria.get("ward")
+        or criteria.get("min_price")
+        or criteria.get("max_price")
+    )
+
+    is_resume = bool(re.search(
+        r"\b(tiep tuc|nhu cau cu|so thich da luu|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu|tiep tuc hanh trinh|tiep tuc tim kiem)\b",
+        q_norm,
+    )) or bool(state.get("is_resume_search"))
+
+    if not criteria or not any(criteria.values()) or not has_core_filters:
+        mem_sum = state.get("memory_summary")
+        if mem_sum and is_resume:
+            return {
+                "response": f"Chào bạn quay lại! Nera nhớ lần trước bạn quan tâm: **{mem_sum}**.\n\nHiện tại chưa có đủ thông số để lọc chính xác, bạn muốn tìm ở khu vực nào hay mức giá cụ thể bao nhiêu để Nera tìm ngay cho bạn nhé?",
+                "response_kind": "ASK_CRITERIA",
+                "phase": "IDLE",
+                "search_criteria": criteria,
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    f"Tìm quanh {mem_sum}",
+                    "Thay đổi nhu cầu tìm kiếm",
+                ],
+            }
+        return {
+            "response": "Để mình tìm được căn hộ/nhà đất ưng ý nhất cho bạn, bạn chia sẻ thêm một vài thông tin nhé:\n- **Khu vực mong muốn** (ví dụ: Quận 7, Cầu Giấy, Bình Thạnh...)\n- **Khoảng ngân sách** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Loại hình & số phòng ngủ** (ví dụ: căn hộ 2PN, nhà phố...)",
+            "response_kind": "ASK_CRITERIA",
+            "phase": "IDLE",
+            "search_criteria": {},
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": [
+                "Căn hộ Quận 7 dưới 5 tỷ",
+                "Nhà riêng Cầu Giấy 3 phòng ngủ",
+                "Chung cư 2PN gần trung tâm",
+            ],
+        }
+
+    is_asking_other = bool(re.search(
+        r"\b(cai khac|can khac|nha khac|xem them|con khac|co can nao khac|con cai gi khac|con can gi khac|khac khong|khac ko|khac di|doi can khac)\b",
+        q_norm,
+    ))
+
+    exclude_ids = []
+    if is_asking_other:
+        exclude_ids = [p["id"] for p in existing_properties if p.get("id")]
+        if not exclude_ids and search_pool:
+            exclude_ids = [p["id"] for p in search_pool if p.get("id")]
+
+    search_limit = criteria.get("limit") or 20
+    properties = await query_properties_from_db(
+        criteria,
+        limit=search_limit,
+        exclude_ids=exclude_ids if is_asking_other else None,
+    )
+
+    if is_asking_other and not properties:
+        summary = format_criteria_summary(criteria)
+        return {
+            "selected_properties": existing_properties,
+            "search_results": search_pool,
+            "response": f"Hiện tại trong kho dữ liệu với tiêu chí **{summary or 'hiện tại'}** chỉ có các căn đã giới thiệu ở trên.\n\n💡 **Gợi ý mở rộng:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Thay đổi số phòng ngủ hoặc loại hình nhà\n\nBạn có muốn Nera tìm kiếm mở rộng sang khu vực lân cận không?",
+            "response_kind": "PROPERTY_LIST",
+            "phase": "PROPERTY_SELECTED",
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": [
+                "Mở rộng sang quận lân cận",
+                "Tăng khoảng ngân sách",
+                "Thay đổi nhu cầu",
+            ],
+        }
+
+    # Check if returning user continuation
+    if is_resume and properties:
+        criteria_summary = format_criteria_summary(criteria) or state.get("memory_summary") or "sở thích đã lưu"
+        total_count = len(properties)
+        display_items = properties[:5] if total_count > 5 else properties
+        intro = f"Chào bạn quay lại! Dựa trên nhu cầu bạn đã quan tâm trước đó (**{criteria_summary}**), Nera đã chọn lọc **{total_count} bất động sản** phù hợp nhất cho bạn đây"
+        if total_count > 5:
+            intro += " (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):"
+        else:
+            intro += ":"
+
+        blocks = []
+        for index, item in enumerate(display_items, 1):
+            location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
+            price = _price_text(item.get("list_price"))
+            area_num = _num(item.get("area_sqm"))
+            area = f"{area_num:g} m²" if area_num is not None else ""
+            beds = f"{item.get('bedrooms')} PN" if item.get("bedrooms") is not None else ""
+            specs = " · ".join(filter(None, [price, area, beds, location]))
+            blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{specs}")
+
+        body = "\n\n".join(blocks)
+        note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
+
+        response_msg = f"{intro}\n\n{body}{note}\n\nBạn ưng ý căn nào hoặc muốn Nera phân tích chi tiết, cứ nói cho Nera biết nhé! 😊"
+        return {
+            "selected_properties": properties,
+            "search_results": properties,
+            "current_property_id": None,
+            "selected_property_index": None,
+            "response": response_msg,
+            "response_kind": "PROPERTY_LIST",
+            "phase": "PROPERTY_SELECTED",
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": [
+                f"Chọn căn số {i}" for i in range(1, min(len(display_items) + 1, 4))
+            ] + ["Thay đổi nhu cầu"],
+        }
+
+    if not properties:
+        summary = format_criteria_summary(criteria)
+        return {
+            "selected_properties": [],
+            "search_results": [],
+            "response": f"Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **{summary or 'hiện tại'}**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+            "response_kind": "SEARCH_NO_RESULTS",
+            "phase": "SEARCH_NO_RESULTS",
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": [
+                "Tăng ngân sách lên",
+                "Mở rộng khu vực lân cận",
+                "Xem tất cả căn đang có",
+            ],
+        }
+
+    suggested_actions = [f"Chọn căn số {i}" for i in range(1, min(len(properties) + 1, 4))]
+    if len(properties) >= 2:
+        suggested_actions.append("So sánh các căn này")
+
+    return {
+        "selected_properties": properties,
+        "search_results": properties,
+        "current_property_id": None,
+        "selected_property_index": None,
+        "response": format_search_results_markdown(properties, criteria, soft_prefs),
+        "response_kind": "SEARCH_RESULTS",
+        "phase": "SEARCH_RESULTS",
+        "current_agent": AgentType.RESPOND,
+        "suggested_actions": suggested_actions,
+    }

@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -9,8 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import get_settings
 from src.database import get_session
 from src.database.models import User, UserRole, UserStatus
-from src.schemas.auth import PasswordUpdate, Token, UserRegister, UserResponse, UserUpdate
+from src.schemas.auth import (
+    ForgotPasswordRequest,
+    PasswordUpdate,
+    ResetPasswordRequest,
+    Token,
+    UserRegister,
+    UserResponse,
+    UserUpdate,
+)
 from src.services.auth_service import create_access_token, get_password_hash, register_user, verify_password
+from src.utils.time import utcnow
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -28,18 +36,20 @@ def _set_auth_cookie(response: Response, token: str) -> None:
         path="/",
     )
 
+
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserRegister, db: AsyncSession = Depends(get_session)):
     try:
         new_user = await register_user(db, user_data)
-        if not new_user:
-            raise HTTPException(status_code=400, detail="Email or Phone already registered")
         return new_user
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except HTTPException:
         raise
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Registration error: {str(e)}")
+
 
 @router.post("/login", response_model=Token)
 async def login(
@@ -47,8 +57,7 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_session),
 ):
-    # Find user by email
-    stmt = select(User).where(User.email == form_data.username)
+    stmt = select(User).where(User.email == form_data.username.lower().strip())
     result = await db.execute(stmt)
     user = result.scalars().first()
 
@@ -63,7 +72,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user.last_login_at = datetime.now(UTC)
+    user.last_login_at = utcnow()
     access_token = create_access_token(
         data={"user_id": str(user.id), "role": user.role.value}
     )
@@ -162,3 +171,43 @@ async def update_password(
     user.password_hash = get_password_hash(password_data.new_password)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    stmt = select(User).where(User.email == data.email.lower().strip())
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+
+    if not user:
+        return {
+            "message": "Nếu email tồn tại trong hệ thống, bạn có thể thiết lập lại mật khẩu ngay.",
+            "exists": False,
+        }
+
+    return {
+        "message": "Email hợp lệ. Bạn có thể tiến hành đặt lại mật khẩu mới.",
+        "exists": True,
+        "email": user.email,
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    data: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    stmt = select(User).where(User.email == data.email.lower().strip())
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản với email này.")
+
+    user.password_hash = get_password_hash(data.new_password)
+    user.updated_at = utcnow()
+    await db.commit()
+    return {"message": "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới."}

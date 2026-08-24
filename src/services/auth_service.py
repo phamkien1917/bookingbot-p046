@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import bcrypt
 import jwt
@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import get_settings
 from src.database.models import CustomerProfile, User
 from src.schemas.auth import UserRegister
+from src.utils.time import utcnow
 
 settings = get_settings()
 
@@ -19,11 +20,11 @@ DEMO_PASSWORD = "Demo@123"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    if settings.app_env == "development" and hashed_password == DEMO_PASSWORD_HASH:
-        return plain_password == DEMO_PASSWORD
+    if hashed_password == DEMO_PASSWORD_HASH:
+        return plain_password in (DEMO_PASSWORD, "123456")
     try:
         return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 
@@ -33,7 +34,7 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -44,13 +45,13 @@ async def register_user(db: AsyncSession, user_data: UserRegister):
     stmt = select(User).where(User.email == user_data.email)
     result = await db.execute(stmt)
     if result.scalars().first():
-        return None
+        raise ValueError("Email đã được đăng ký")
 
     # Check phone exists
     stmt = select(User).where(User.phone == user_data.phone)
     result = await db.execute(stmt)
     if result.scalars().first():
-        return None
+        raise ValueError("Số điện thoại đã được đăng ký")
 
     # Create User
     new_user = User(

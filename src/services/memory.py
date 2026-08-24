@@ -87,10 +87,11 @@ class ShortTermMemory:
             ttl: Reset TTL after append
         """
         session = await self.get_session(session_id)
-        messages = session["messages"] if session else []
+        messages = session["messages"] if session and "messages" in session else []
+        metadata = session.get("metadata", {}) if session else {}
         messages.append({"role": role, "content": content, "timestamp": "now"})
 
-        await self.save_session(session_id, messages, ttl=ttl)
+        await self.save_session(session_id, messages, metadata=metadata, ttl=ttl)
 
     async def extend_session(self, session_id: str, ttl: int = SESSION_TTL) -> bool:
         """Extend session TTL.
@@ -162,10 +163,11 @@ class LongTermMemory:
 
         async with get_session_context() as session:
             import uuid
-            from datetime import datetime
 
             # Check if preference exists
             from sqlalchemy import select
+
+            from src.utils.time import utcnow
             stmt = select(CustomerPreference).where(
                 CustomerPreference.customer_user_id == UUID(customer_id),
                 CustomerPreference.preference_key == key,
@@ -178,7 +180,7 @@ class LongTermMemory:
                 existing.preference_value = {"value": value}
                 existing.confidence = confidence
                 existing.source = source
-                existing.last_confirmed_at = datetime.utcnow()
+                existing.last_confirmed_at = utcnow()
                 pref = existing
             else:
                 # Create new
@@ -189,7 +191,7 @@ class LongTermMemory:
                     preference_value={"value": value},
                     confidence=confidence,
                     source=source,
-                    last_confirmed_at=datetime.utcnow(),
+                    last_confirmed_at=utcnow(),
                 )
                 session.add(pref)
 

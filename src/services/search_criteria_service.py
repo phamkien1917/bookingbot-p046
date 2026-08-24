@@ -7,6 +7,93 @@ which is maintained independently by another team member.
 import re
 import unicodedata
 
+DISTRICT_NAMES = {
+    # Hà Nội
+    "ba dinh": "Quận Ba Đình",
+    "hoan kiem": "Quận Hoàn Kiếm",
+    "tay ho": "Quận Tây Hồ",
+    "long bien": "Quận Long Biên",
+    "cau giay": "Quận Cầu Giấy",
+    "dong da": "Quận Đống Đa",
+    "hai ba trung": "Quận Hai Bà Trưng",
+    "hoang mai": "Quận Hoàng Mai",
+    "thanh xuan": "Quận Thanh Xuân",
+    "nam tu liem": "Quận Nam Từ Liêm",
+    "bac tu liem": "Quận Bắc Từ Liêm",
+    "ha dong": "Quận Hà Đông",
+    "gia lam": "Huyện Gia Lâm",
+    "dong anh": "Huyện Đông Anh",
+    "thanh tri": "Huyện Thanh Trì",
+    "dan phuong": "Huyện Đan Phượng",
+    "hoai duc": "Huyện Hoài Đức",
+    "thuong tin": "Huyện Thường Tín",
+    "me linh": "Huyện Mê Linh",
+    "soc son": "Huyện Sóc Sơn",
+    "son tay": "Thị xã Sơn Tây",
+
+    # TP. Hồ Chí Minh
+    "binh thanh": "Quận Bình Thạnh",
+    "go vap": "Quận Gò Vấp",
+    "tan binh": "Quận Tân Bình",
+    "tan phu": "Quận Tân Phú",
+    "phu nhuan": "Quận Phú Nhuận",
+    "binh tan": "Quận Bình Tân",
+    "thu duc": "Thành phố Thủ Đức",
+    "binh chanh": "Huyện Bình Chánh",
+    "can gio": "Huyện Cần Giờ",
+    "hoc mon": "Huyện Hóc Môn",
+    "cu chi": "Huyện Củ Chi",
+    "nha be": "Huyện Nhà Bè",
+
+    # Đà Nẵng
+    "hai chau": "Quận Hải Châu",
+    "son tra": "Quận Sơn Trà",
+    "ngu hanh son": "Quận Ngũ Hành Sơn",
+    "lien chieu": "Quận Liên Chiểu",
+    "cam le": "Quận Cẩm Lệ",
+    "thanh khe": "Quận Thanh Khê",
+    "hoa vang": "Huyện Hòa Vang",
+
+    # Khánh Hòa / Quảng Ninh / Bình Dương / Bắc Ninh / Hưng Yên / Long An
+    "nha trang": "Thành phố Nha Trang",
+    "ha long": "Thành phố Hạ Long",
+    "thuan an": "Thành phố Thuận An",
+    "di an": "Thành phố Dĩ An",
+    "thu dau mot": "Thành phố Thủ Dầu Một",
+    "tu son": "Thành phố Từ Sơn",
+    "van giang": "Huyện Văn Giang",
+    "ben luc": "Huyện Bến Lức",
+    "duc hoa": "Huyện Đức Hòa",
+    "thanh hoa": "Thành phố Thanh Hóa",
+}
+
+REGION_PROVINCES: dict[str, list[str]] = {
+    "Miền Bắc": [
+        "Hà Nội", "Hải Phòng", "Quảng Ninh", "Bắc Ninh", "Hưng Yên", "Bắc Giang",
+        "Vĩnh Phúc", "Hải Dương", "Nam Định", "Thái Bình", "Ninh Bình", "Hà Nam",
+        "Thái Nguyên", "Phú Thọ", "Lạng Sơn", "Tuyên Quang", "Yên Bái", "Lào Cai",
+        "Sơn La", "Hòa Bình", "Điện Biên", "Lai Châu", "Cao Bằng", "Bắc Kạn", "Hà Giang",
+    ],
+    "Miền Trung": [
+        "Đà Nẵng", "Khánh Hòa", "Thanh Hóa", "Nghệ An", "Hà Tĩnh", "Quảng Bình",
+        "Quảng Trị", "Thừa Thiên Huế", "Quảng Nam", "Quảng Ngãi", "Bình Định",
+        "Phú Yên", "Ninh Thuận", "Bình Thuận", "Kon Tum", "Gia Lai", "Đắk Lắk",
+        "Đắk Nông", "Lâm Đồng",
+    ],
+    "Miền Nam": [
+        "Hồ Chí Minh", "Bình Dương", "Đồng Nai", "Long An", "Bà Rịa - Vũng Tàu",
+        "Tây Ninh", "Bình Phước", "Cần Thơ", "Tiền Giang", "Bến Tre", "Trà Vinh",
+        "Vĩnh Long", "Đồng Tháp", "An Giang", "Kiên Giang", "Hậu Giang", "Sóc Trăng",
+        "Bạc Liêu", "Cà Mau",
+    ],
+}
+
+
+_WORD_NUMS = {
+    "mot": 1, "hai": 2, "ba": 3, "bon": 4, "nam": 5,
+    "sau": 6, "bay": 7, "tam": 8, "chin": 9, "muoi": 10,
+}
+
 
 def _normalize(value: str) -> str:
     normalized = unicodedata.normalize("NFD", value.lower())
@@ -26,6 +113,29 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     criteria: dict = {}
     groups: set[str] = set()
 
+    # Requested quantity / limit detection
+    num_qty = re.search(
+        r"\b(?:tim|goi y|cho|lay|chon|xem|can|muon|top)?\s*(\d+)\s*(?:can ho|can nha|can|nha|bat dong san|bds|biet thu|villa|lo dat)\b(?!\s*(?:phong|pn|ngu|tang|ty|ti|trieu|tr|m2|m|met|tieng|gio|thang|nam))",
+        text,
+    )
+    word_qty = re.search(
+        r"\b(?:tim|goi y|cho|lay|chon|xem|can|muon)?\s*(mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)\s*(?:can ho|can nha|can|nha|bat dong san|bds|biet thu|villa|lo dat)\b(?!\s*(?:phong|pn|ngu|tang|ty|ti|trieu|tr|m2|m|met|tieng|gio|thang|nam))",
+        text,
+    )
+    top_qty = re.search(r"\btop\s*(\d+)\b", text)
+
+    if num_qty:
+        qty_val = int(num_qty.group(1))
+        if 1 <= qty_val <= 50:
+            criteria["limit"] = qty_val
+            groups.add("quantity")
+    elif word_qty:
+        criteria["limit"] = _WORD_NUMS[word_qty.group(1)]
+        groups.add("quantity")
+    elif top_qty:
+        criteria["limit"] = int(top_qty.group(1))
+        groups.add("quantity")
+
     price_range = re.search(
         r"(?:tu|khoang)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\s*(?:den|-|toi)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
         text,
@@ -37,21 +147,55 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         groups.add("budget")
     else:
         minimum = re.search(r"(?:tren|tu|toi thieu|it nhat|>=)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)", text)
-        maximum = re.search(r"(?:duoi|toi da|nhieu nhat|<=)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)", text)
+        maximum = re.search(
+            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|tam|len)\s*"
+            r"(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
+            text,
+        )
         if minimum:
-            criteria.update(min_price=_vnd_amount(*minimum.groups()), max_price=None)
+            criteria["min_price"] = _vnd_amount(*minimum.groups())
             groups.add("budget")
         elif maximum:
-            criteria.update(min_price=None, max_price=_vnd_amount(*maximum.groups()))
+            criteria["max_price"] = _vnd_amount(*maximum.groups())
             groups.add("budget")
 
     bedrooms = re.search(r"(\d+)\s*(?:phong ngu|pn|ngu)", text)
     if bedrooms:
-        criteria["min_bedrooms"] = int(bedrooms.group(1))
+        bed_count = int(bedrooms.group(1))
+        is_exact = bool(re.search(r"\b(chi|chi lay|dung|chinh xac|loai|can)\b", text))
+        is_min_explicit = bool(re.search(
+            r"(?:tu|it nhat|toi thieu|tren|>=)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)"
+            r"|" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)\s*(?:tro len|\+)",
+            text,
+        ))
+        is_max_explicit = bool(re.search(
+            r"(?:duoi|toi da|nhieu nhat|khong qua|<=)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)",
+            text,
+        ))
+        if is_max_explicit:
+            criteria["max_bedrooms"] = bed_count
+        elif is_min_explicit:
+            criteria["min_bedrooms"] = bed_count
+        elif is_exact or bed_count == 1:
+            criteria["min_bedrooms"] = bed_count
+            criteria["max_bedrooms"] = bed_count
+        else:
+            criteria["min_bedrooms"] = bed_count
 
     area = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:m2|met vuong)", text)
     if area:
         criteria["min_area"] = float(area.group(1).replace(",", "."))
+
+    # Region detection
+    if re.search(r"\b(mien bac|phia bac|bac bo)\b", text):
+        criteria["region"] = "Miền Bắc"
+        groups.add("location")
+    elif re.search(r"\b(mien trung|phia trung|trung bo)\b", text):
+        criteria["region"] = "Miền Trung"
+        groups.add("location")
+    elif re.search(r"\b(mien nam|phia nam|nam bo)\b", text):
+        criteria["region"] = "Miền Nam"
+        groups.add("location")
 
     if re.search(r"ha\s*noi", text):
         criteria["province"] = "Hà Nội"
@@ -59,21 +203,59 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     elif re.search(r"ho\s*chi\s*minh|tphcm|sai\s*gon", text):
         criteria["province"] = "Hồ Chí Minh"
         groups.add("location")
+    elif re.search(r"da\s*nang", text):
+        criteria["province"] = "Đà Nẵng"
+        groups.add("location")
+    elif re.search(r"khanh\s*hoa|nha\s*trang", text):
+        criteria["province"] = "Khánh Hòa"
+        groups.add("location")
+    elif re.search(r"quang\s*ninh|ha\s*long", text):
+        criteria["province"] = "Quảng Ninh"
+        groups.add("location")
+    elif re.search(r"binh\s*duong", text):
+        criteria["province"] = "Bình Dương"
+        groups.add("location")
+    elif re.search(r"bac\s*ninh", text):
+        criteria["province"] = "Bắc Ninh"
+        groups.add("location")
+    elif re.search(r"hung\s*yen", text):
+        criteria["province"] = "Hưng Yên"
+        groups.add("location")
+    elif re.search(r"long\s*an", text):
+        criteria["province"] = "Long An"
+        groups.add("location")
+    elif re.search(r"thanh\s*hoa", text):
+        criteria["province"] = "Thanh Hóa"
+        groups.add("location")
 
-    district = re.search(
-        r"\bquan\s+(\d+|ba dinh|hoan kiem|tay ho|long bien|cau giay|dong da|hai ba trung|hoang mai|thanh xuan|nam tu liem|bac tu liem|ha dong|go vap|binh thanh|tan binh|phu nhuan|thu duc)\b",
-        text,
+    named_districts = "|".join(
+        re.escape(name) for name in sorted(DISTRICT_NAMES, key=len, reverse=True)
     )
+    district = re.search(rf"\b(?:quan|huyen|thanh pho|tp\.?|tx\.?)\s+({named_districts})\b|\b({named_districts})\b", text)
+    numbered_district = re.search(r"\b(?:quan|q\.?)\s*(\d+)\b", text)
     if district:
-        criteria["district"] = f"Quận {district.group(1).title()}"
+        dist_name = district.group(1) or district.group(2)
+        criteria["district"] = DISTRICT_NAMES[dist_name]
+        groups.add("location")
+    elif numbered_district:
+        criteria["district"] = f"Quận {numbered_district.group(1)}"
         groups.add("location")
 
     if re.search(r"\b(can ho|chung cu|ccmn)\b", text):
         criteria["property_kind"] = "APARTMENT"
     elif re.search(r"\b(biet thu|villa)\b", text):
         criteria["property_kind"] = "VILLA"
-    elif re.search(r"\b(dat|dat nen)\b", text):
+    elif (
+        re.search(r"\bđất(?:\s+nền)?\b", message.lower())
+        or re.search(r"\b(dat nen|lo dat|mua dat|tim dat|can dat)\b", text)
+    ):
         criteria["property_kind"] = "LAND"
+    elif re.search(r"\b(nha pho|lien ke|townhouse)\b", text):
+        criteria["property_kind"] = "TOWNHOUSE"
+    elif re.search(r"\b(shophouse|mat bang|thuong mai)\b", text):
+        criteria["property_kind"] = "COMMERCIAL"
+    elif re.search(r"\b(nha rieng|nha nguyen can)\b", text):
+        criteria["property_kind"] = "HOUSE"
 
     return criteria, groups
 
@@ -81,20 +263,33 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
 def build_search_criteria(message: str, memory: dict | None) -> dict:
     """Merge memory with the current request, with explicit input winning."""
     allowed = {
-        "district", "province", "property_kind", "min_price", "max_price",
-        "min_bedrooms", "min_bathrooms", "min_area",
+        "limit", "region", "area_or_ward", "ward", "district", "province", "property_kind", "min_price", "max_price",
+        "min_bedrooms", "max_bedrooms", "min_bathrooms", "min_area",
     }
-    merged = {
+    current, groups = extract_search_criteria(message)
+    text = _normalize(message)
+    starts_new_search = (
+        bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", text))
+        and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", text))
+    )
+    merged = {} if starts_new_search else {
         key: value
         for key, value in (memory or {}).items()
         if key in allowed and value not in (None, "")
     }
-    current, groups = extract_search_criteria(message)
 
+    if "quantity" in groups:
+        merged.pop("limit", None)
     if "budget" in groups:
         merged.pop("min_price", None)
         merged.pop("max_price", None)
+    if "min_bedrooms" in current or "max_bedrooms" in current:
+        merged.pop("min_bedrooms", None)
+        merged.pop("max_bedrooms", None)
     if "location" in groups:
+        merged.pop("region", None)
+        merged.pop("area_or_ward", None)
+        merged.pop("ward", None)
         merged.pop("district", None)
         merged.pop("province", None)
 
