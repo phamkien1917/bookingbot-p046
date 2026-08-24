@@ -146,18 +146,20 @@ async def chat(
         # Only merge customer memory into active search_criteria if user explicitly asks to resume
         norm_query = normalize_text(request.message)
         resume_signal = bool(re.search(
-            r"\b(nhu cau cu|so thich da luu|tiep tuc tim|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu)\b",
+            r"\b(nhu cau cu|so thich da luu|tiep tuc tim|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu|tiep tuc hanh trinh|tiep tuc tim kiem)\b",
             norm_query
         ))
-        if resume_signal and not agent_state.get("search_criteria") and customer_memory:
-            agent_state["search_criteria"] = {
-                key: value
-                for key, value in customer_memory.items()
-                if key in {
-                    "district", "province", "property_kind", "min_price", "max_price",
-                    "min_bedrooms", "min_bathrooms", "min_area",
+        if resume_signal:
+            agent_state["is_resume_search"] = True
+            if not agent_state.get("search_criteria") and customer_memory:
+                agent_state["search_criteria"] = {
+                    key: value
+                    for key, value in customer_memory.items()
+                    if key in {
+                        "region", "district", "province", "property_kind", "min_price", "max_price",
+                        "min_bedrooms", "min_bathrooms", "min_area", "area_or_ward", "ward",
+                    }
                 }
-            }
 
         if request.property_id:
             agent_state["current_property_id"] = str(request.property_id)

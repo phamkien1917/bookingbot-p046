@@ -777,7 +777,25 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         or criteria.get("max_price")
     )
 
+    is_resume = bool(re.search(
+        r"\b(tiep tuc|nhu cau cu|so thich da luu|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu|tiep tuc hanh trinh|tiep tuc tim kiem)\b",
+        q_norm,
+    )) or bool(state.get("is_resume_search"))
+
     if not criteria or not any(criteria.values()) or not has_core_filters:
+        mem_sum = state.get("memory_summary")
+        if mem_sum and is_resume:
+            return {
+                "response": f"Chào bạn quay lại! Nera nhớ lần trước bạn quan tâm: **{mem_sum}**.\n\nHiện tại chưa có đủ thông số để lọc chính xác, bạn muốn tìm ở khu vực nào hay mức giá cụ thể bao nhiêu để Nera tìm ngay cho bạn nhé?",
+                "response_kind": "ASK_CRITERIA",
+                "phase": "IDLE",
+                "search_criteria": criteria,
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    f"Tìm quanh {mem_sum}",
+                    "Thay đổi nhu cầu tìm kiếm",
+                ],
+            }
         return {
             "response": "Để mình tìm được căn hộ/nhà đất ưng ý nhất cho bạn, bạn chia sẻ thêm một vài thông tin nhé:\n- **Khu vực mong muốn** (ví dụ: Quận 7, Cầu Giấy, Bình Thạnh...)\n- **Khoảng ngân sách** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Loại hình & số phòng ngủ** (ví dụ: căn hộ 2PN, nhà phố...)",
             "response_kind": "ASK_CRITERIA",
@@ -826,25 +844,30 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         }
 
     # Check if returning user continuation
-    if re.search(r"\b(tiep tuc|nhu cau cu|so thich da luu)\b", q_norm) and properties:
-        criteria_parts = []
-        if criteria.get("district"):
-            criteria_parts.append(str(criteria["district"]))
-        if criteria.get("max_price"):
-            val = criteria["max_price"]
-            criteria_parts.append(f"dưới {val/1e9:.1f} tỷ" if val >= 1e9 else f"dưới {val/1e6:.0f} triệu")
-        criteria_summary = " · ".join(criteria_parts) or "sở thích đã lưu"
+    if is_resume and properties:
+        criteria_summary = format_criteria_summary(criteria) or state.get("memory_summary") or "sở thích đã lưu"
+        total_count = len(properties)
+        display_items = properties[:5] if total_count > 5 else properties
+        intro = f"Chào bạn quay lại! Dựa trên nhu cầu bạn đã quan tâm trước đó (**{criteria_summary}**), Nera đã chọn lọc **{total_count} bất động sản** phù hợp nhất cho bạn đây"
+        if total_count > 5:
+            intro += " (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):"
+        else:
+            intro += ":"
 
-        response_msg = f"Chào bạn quay lại! Dựa trên nhu cầu bạn đã quan tâm trước đó (**{criteria_summary}**), Nera đã chọn lọc **{len(properties)} bất động sản** phù hợp nhất cho bạn đây:\n\n"
-        for i, prop in enumerate(properties, 1):
-            price_str = _price_text(prop.get("list_price"))
-            loc = ", ".join(filter(None, [prop.get("district"), prop.get("province")]))
-            beds = f"{prop.get('bedrooms')} PN" if prop.get("bedrooms") else ""
-            area = f"{prop.get('area_sqm')} m²" if prop.get("area_sqm") else ""
-            specs = " · ".join(filter(None, [price_str, area, beds, loc]))
-            response_msg += f"**{i}. {prop.get('title')}**\n{specs}\n\n"
+        blocks = []
+        for index, item in enumerate(display_items, 1):
+            location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
+            price = _price_text(item.get("list_price"))
+            area_num = _num(item.get("area_sqm"))
+            area = f"{area_num:g} m²" if area_num is not None else ""
+            beds = f"{item.get('bedrooms')} PN" if item.get("bedrooms") is not None else ""
+            specs = " · ".join(filter(None, [price, area, beds, location]))
+            blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{specs}")
 
-        response_msg += "Bạn ưng ý căn số mấy, hoặc muốn Nera phân tích sâu hơn về căn nào?"
+        body = "\n\n".join(blocks)
+        note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
+
+        response_msg = f"{intro}\n\n{body}{note}\n\nBạn ưng ý căn nào hoặc muốn Nera phân tích chi tiết, cứ nói cho Nera biết nhé! 😊"
         return {
             "selected_properties": properties,
             "search_results": properties,
@@ -855,7 +878,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             "phase": "PROPERTY_SELECTED",
             "current_agent": AgentType.RESPOND,
             "suggested_actions": [
-                f"Chọn căn số {i}" for i in range(1, min(len(properties) + 1, 4))
+                f"Chọn căn số {i}" for i in range(1, min(len(display_items) + 1, 4))
             ] + ["Thay đổi nhu cầu"],
         }
 

@@ -119,6 +119,7 @@ LƯU Ý QUAN TRỌNG:
 - Ngày xem nhà: quy đổi các từ "hôm nay", "ngày mai", "thứ Bảy", "Chủ Nhật tuần sau" về định dạng YYYY-MM-DD dựa vào ngày hiện tại được cung cấp.
 - Giữ vững ngữ cảnh hội thoại nhiều lượt. Nếu khách nói "căn đó", "căn này", đó là tham chiếu đến căn đang được chọn hoặc căn vừa thảo luận.
 - Khi khách bắt đầu một nhu cầu mua/tìm mới chung chung (ví dụ: "t muốn mua 1 căn nhà ?", "tôi muốn mua nhà", "muốn tìm nhà", "cần mua nhà", "tìm nhà") mà KHÔNG nêu rõ địa điểm hay tầm giá trong câu hiện tại: BẮT BUỘC đặt is_new_search=true và ĐỂ TRỐNG TOÀN BỘ tiêu chí (criteria), KHÔNG tự ý copy tiêu chí cũ từ các lượt chat trước.
+- Khi khách yêu cầu tiếp tục tìm kiếm theo nhu cầu cũ/sở thích đã lưu (ví dụ: "Tiếp tục tìm kiếm với nhu cầu cũ của tôi", "tiếp tục hành trình", "tìm theo nhu cầu cũ", "sở thích đã lưu"): Intent PHẢI LÀ SEARCH_PROPERTY, đặt is_new_search=false và kế thừa active_search_criteria từ context.
 """
 
 
@@ -233,12 +234,21 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     # Reconcile deterministic explicit criteria with LLM criteria
     merged_criteria = dict(state.get("search_criteria", {}))
     norm_query = normalize_text(query)
+    is_resume_signal = bool(re.search(
+        r"\b(nhu cau cu|so thich da luu|tiep tuc tim|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu|tiep tuc hanh trinh|tiep tuc tim kiem)\b",
+        norm_query,
+    )) or bool(state.get("is_resume_search"))
     starts_new_search_signal = (
-        bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", norm_query))
+        not is_resume_signal
+        and bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", norm_query))
         and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", norm_query))
     )
     llm_dict = understanding.criteria.model_dump(exclude_none=True)
-    if understanding.is_new_search or starts_new_search_signal:
+    if is_resume_signal:
+        understanding.is_new_search = False
+        if understanding.intent in {Intent.GREETING, Intent.FALLBACK, Intent.ASK_CRITERIA}:
+            understanding.intent = Intent.SEARCH_PROPERTY
+    elif understanding.is_new_search or starts_new_search_signal:
         merged_criteria = {}
         understanding.is_new_search = True
         if "location" not in det_groups:
