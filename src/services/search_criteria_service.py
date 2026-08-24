@@ -250,9 +250,8 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
     current, groups = extract_search_criteria(message)
     text = _normalize(message)
     starts_new_search = (
-        bool(re.search(r"\b(tim|tim kiem|mua)\b", text))
-        and not bool(re.search(r"\btim them\b", text))
-        and bool(current)
+        bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", text))
+        and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", text))
     )
     merged = {} if starts_new_search else {
         key: value

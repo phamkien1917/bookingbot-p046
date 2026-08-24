@@ -19,7 +19,7 @@ from src.database.connection import get_session_context
 from src.database.models import Property, PropertyKind, PropertyStatus
 from src.services.chat_state_service import normalize_text
 from src.services.llm import get_llm
-from src.services.search_criteria_service import REGION_PROVINCES
+from src.services.search_criteria_service import REGION_PROVINCES, extract_search_criteria
 from src.utils.property_text import clean_property_title, get_search_variations
 
 logger = logging.getLogger(__name__)
@@ -98,11 +98,25 @@ def _interleave_properties_by_province(items: list[dict[str, Any]], limit: int) 
     return result
 
 
-async def query_properties_from_db(criteria: dict[str, Any], limit: int = 20) -> list[dict[str, Any]]:
+async def query_properties_from_db(
+    criteria: dict[str, Any],
+    limit: int = 20,
+    exclude_ids: list[str] | None = None,
+) -> list[dict[str, Any]]:
     """Execute dynamic criteria search against PostgreSQL with relationship eager-loading."""
     effective_limit = criteria.get("limit") or limit
     async with get_session_context() as session:
         filters = [Property.status == PropertyStatus.AVAILABLE]
+
+        if exclude_ids:
+            parsed_excludes = []
+            for raw in exclude_ids:
+                try:
+                    parsed_excludes.append(UUID(str(raw)))
+                except (ValueError, TypeError):
+                    continue
+            if parsed_excludes:
+                filters.append(Property.id.notin_(parsed_excludes))
 
         area_target = criteria.get("area_or_ward") or criteria.get("ward")
         district = criteria.get("district")
@@ -557,13 +571,15 @@ async def answer_feature_question_on_properties(query: str, pool: list[dict[str,
             # Filter pool to only the properties specifically mentioned/recommended in the answer
             matched_props = []
             for idx, prop in enumerate(pool, 1):
-                title = prop.get("title", "").lower()
-                ordinal_patterns = [f"căn {idx}", f"căn số {idx}", f"căn thứ {idx}"]
-                title_keywords = [w for w in title.split() if len(w) >= 3]
+                ordinal_patterns = [
+                    f"căn {idx}", f"căn số {idx}", f"căn thứ {idx}",
+                    f"căn hộ {idx}", f"căn hộ số {idx}", f"bất động sản {idx}"
+                ]
+                prop_code = str(prop.get("code") or "").lower()
 
                 is_matched = any(p in res_lower for p in ordinal_patterns)
-                if not is_matched and len(title_keywords) >= 2:
-                    is_matched = any(" ".join(title_keywords[i:i+2]) in res_lower for i in range(len(title_keywords) - 1))
+                if not is_matched and prop_code and len(prop_code) >= 3 and prop_code in res_lower:
+                    is_matched = True
 
                 if is_matched and prop not in matched_props:
                     matched_props.append(prop)
@@ -604,13 +620,24 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
     # Step 0: Check if this is a feature question on existing search results
     q_low = query.lower()
     is_explicit_compare = bool(re.search(r"\b(so sanh|doi chieu|lap bang so sanh)\b", q_low))
+    det_crit, det_grps = extract_search_criteria(query)
+    has_search_entities = bool(
+        "location" in det_grps
+        or "budget" in det_grps
+        or "property_kind" in det_crit
+        or "min_bedrooms" in det_crit
+        or "min_area" in det_crit
+        or "limit" in det_crit
+        or re.search(r"\b(tim|tim kiem|mua|xem|loc|kiem|co can nao o|co nha nao o|co can nao duoi|co can nao tren)\b", q_low)
+    )
+
     feature_patterns = [
         "căn nào", "có căn nào", "căn mấy", "căn số mấy", "căn thứ mấy",
         "phòng ngủ", "pn", "diện tích", "m2", "m²", "rẻ nhất", "đắt nhất", "rẻ hơn",
         "gần trường", "sổ đỏ", "sổ hồng", "ô tô", "đỗ xe", "để xe", "ban công", "view",
         "hướng", "tầng", "hầm", "gửi xe", "chính sách", "pháp lý", "thủ tục", "vay vốn", "ngân hàng", "tiện ích"
     ]
-    if search_pool and not is_explicit_compare and any(p in q_low for p in feature_patterns) and not any(k in q_low for k in ["tìm thêm", "search", "lọc lại", "đổi sang"]):
+    if search_pool and not is_explicit_compare and not has_search_entities and any(p in q_low for p in feature_patterns) and not any(k in q_low for k in ["tìm thêm", "search", "lọc lại", "đổi sang"]):
         feature_ans = await answer_feature_question_on_properties(query, search_pool)
         if feature_ans:
             return feature_ans
@@ -732,11 +759,22 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             ],
         }
 
-    if not criteria or not any(criteria.values()):
+    has_core_filters = bool(
+        criteria.get("district")
+        or criteria.get("province")
+        or criteria.get("region")
+        or criteria.get("area_or_ward")
+        or criteria.get("ward")
+        or criteria.get("min_price")
+        or criteria.get("max_price")
+    )
+
+    if not criteria or not any(criteria.values()) or not has_core_filters:
         return {
             "response": "Để mình tìm được căn hộ/nhà đất ưng ý nhất cho bạn, bạn chia sẻ thêm một vài thông tin nhé:\n- **Khu vực mong muốn** (ví dụ: Quận 7, Cầu Giấy, Bình Thạnh...)\n- **Khoảng ngân sách** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Loại hình & số phòng ngủ** (ví dụ: căn hộ 2PN, nhà phố...)",
             "response_kind": "ASK_CRITERIA",
             "phase": "IDLE",
+            "search_criteria": {},
             "current_agent": AgentType.RESPOND,
             "suggested_actions": [
                 "Căn hộ Quận 7 dưới 5 tỷ",
@@ -745,8 +783,39 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             ],
         }
 
+    is_asking_other = bool(re.search(
+        r"\b(cai khac|can khac|nha khac|xem them|con khac|co can nao khac|con cai gi khac|con can gi khac|khac khong|khac ko|khac di|doi can khac)\b",
+        q_norm,
+    ))
+
+    exclude_ids = []
+    if is_asking_other:
+        exclude_ids = [p["id"] for p in existing_properties if p.get("id")]
+        if not exclude_ids and search_pool:
+            exclude_ids = [p["id"] for p in search_pool if p.get("id")]
+
     search_limit = criteria.get("limit") or 20
-    properties = await query_properties_from_db(criteria, limit=search_limit)
+    properties = await query_properties_from_db(
+        criteria,
+        limit=search_limit,
+        exclude_ids=exclude_ids if is_asking_other else None,
+    )
+
+    if is_asking_other and not properties:
+        summary = format_criteria_summary(criteria)
+        return {
+            "selected_properties": existing_properties,
+            "search_results": search_pool,
+            "response": f"Hiện tại trong kho dữ liệu với tiêu chí **{summary or 'hiện tại'}** chỉ có các căn đã giới thiệu ở trên.\n\n💡 **Gợi ý mở rộng:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Thay đổi số phòng ngủ hoặc loại hình nhà\n\nBạn có muốn Nera tìm kiếm mở rộng sang khu vực lân cận không?",
+            "response_kind": "PROPERTY_LIST",
+            "phase": "PROPERTY_SELECTED",
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": [
+                "Mở rộng sang quận lân cận",
+                "Tăng khoảng ngân sách",
+                "Thay đổi nhu cầu",
+            ],
+        }
 
     # Check if returning user continuation
     if re.search(r"\b(tiep tuc|nhu cau cu|so thich da luu)\b", q_norm) and properties:

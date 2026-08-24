@@ -117,6 +117,7 @@ LƯU Ý QUAN TRỌNG:
 - Chuẩn hóa tiền Việt: "5 tỷ" -> 5000000000, "15 triệu" -> 15000000, "khoảng 3 đến 5 tỷ" -> min_price=3000000000, max_price=5000000000.
 - Ngày xem nhà: quy đổi các từ "hôm nay", "ngày mai", "thứ Bảy", "Chủ Nhật tuần sau" về định dạng YYYY-MM-DD dựa vào ngày hiện tại được cung cấp.
 - Giữ vững ngữ cảnh hội thoại nhiều lượt. Nếu khách nói "căn đó", "căn này", đó là tham chiếu đến căn đang được chọn hoặc căn vừa thảo luận.
+- Khi khách bắt đầu một nhu cầu mua/tìm mới chung chung (ví dụ: "t muốn mua 1 căn nhà ?", "tôi muốn mua nhà", "muốn tìm nhà", "cần mua nhà", "tìm nhà") mà KHÔNG nêu rõ địa điểm hay tầm giá trong câu hiện tại: BẮT BUỘC đặt is_new_search=true và ĐỂ TRỐNG TOÀN BỘ tiêu chí (criteria), KHÔNG tự ý copy tiêu chí cũ từ các lượt chat trước.
 """
 
 
@@ -230,10 +231,26 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     # Reconcile deterministic explicit criteria with LLM criteria
     merged_criteria = dict(state.get("search_criteria", {}))
-    if understanding.is_new_search:
-        merged_criteria = {}
-
+    norm_query = normalize_text(query)
+    starts_new_search_signal = (
+        bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", norm_query))
+        and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", norm_query))
+    )
     llm_dict = understanding.criteria.model_dump(exclude_none=True)
+    if understanding.is_new_search or starts_new_search_signal:
+        merged_criteria = {}
+        understanding.is_new_search = True
+        if "location" not in det_groups:
+            llm_dict.pop("region", None)
+            llm_dict.pop("district", None)
+            llm_dict.pop("province", None)
+            llm_dict.pop("area_or_ward", None)
+            llm_dict.pop("ward", None)
+        if "budget" not in det_groups:
+            llm_dict.pop("min_price", None)
+            llm_dict.pop("max_price", None)
+        if "property_kind" not in det_criteria:
+            llm_dict.pop("property_kind", None)
 
     # Apply deterministic parser overrides for location / budget / kind if explicit
     if "location" in det_groups:
