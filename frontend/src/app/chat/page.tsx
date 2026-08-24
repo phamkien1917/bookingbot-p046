@@ -510,8 +510,76 @@ function ChatContent() {
 
   const sessionLoadedOnMount = useRef(false);
 
+  const stopGenerating = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  }, []);
+
+  async function send(event?: FormEvent, quickText?: string, targetSessionId?: string) {
+    event?.preventDefault();
+    if (loading) return; // Prevent double submit while generating
+    const text = (quickText ?? input).trim();
+    if (!text) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const activeSessionId = targetSessionId || sessionId;
+
+    setInput(""); setError(""); setLoading(true);
+    setMessages(cur => [...cur, { role: "user", content: text }]);
+    try {
+      const res = await apiFetch<ChatResponse>("/chat", {
+        method: "POST",
+        headers: { "X-Session-ID": activeSessionId },
+        body: JSON.stringify({ message: text, property_id: propertyId || undefined }),
+        signal: controller.signal,
+      });
+      setSessionId(res.session_id || activeSessionId);
+      const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
+      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }]);
+      setInsights(res.insights ?? {});
+      if (res.memory_summary) setMemorySummary(res.memory_summary);
+      void loadSessions();
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) {
+        return; // User intentionally stopped/interrupted
+      }
+      setError(err instanceof Error ? err.message : "Nera chưa phản hồi được.");
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setLoading(false);
+      }
+    }
+  }
+
   useEffect(() => {
-    if (isNewParam || initialPrompt) {
+    if (initialPrompt) {
+      const nextSession = crypto.randomUUID();
+      window.sessionStorage.setItem("nera_chat_session_id", nextSession);
+      setSessionId(nextSession);
+      sessionLoadedOnMount.current = true;
+
+      // Clean query parameters from URL so subsequent reload does not re-send
+      const url = new URL(window.location.href);
+      url.searchParams.delete("prompt");
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+
+      void send(undefined, initialPrompt, nextSession);
+      return;
+    }
+
+    if (isNewParam) {
       const nextSession = crypto.randomUUID();
       window.sessionStorage.setItem("nera_chat_session_id", nextSession);
       setSessionId(nextSession);
@@ -519,9 +587,7 @@ function ChatContent() {
       sessionLoadedOnMount.current = true;
       const url = new URL(window.location.href);
       url.searchParams.delete("new");
-      if (!initialPrompt) {
-        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
-      }
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
       return;
     }
 
@@ -562,72 +628,6 @@ function ChatContent() {
       .then(p => setMessages([greeting, { role: "assistant", content: `Bạn đang quan tâm "${p.title}". Tôi đã mở căn này để mình cùng phân tích hoặc đặt lịch.`, properties: [p] }]))
       .catch(() => setError("Không tìm thấy bất động sản này."));
   }, [propertyId]);
-
-  const stopGenerating = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setLoading(false);
-  }, []);
-
-  async function send(event?: FormEvent, quickText?: string) {
-    event?.preventDefault();
-    if (loading) return; // Prevent double submit while generating
-    const text = (quickText ?? input).trim();
-    if (!text) return;
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    setInput(""); setError(""); setLoading(true);
-    setMessages(cur => [...cur, { role: "user", content: text }]);
-    try {
-      const res = await apiFetch<ChatResponse>("/chat", {
-        method: "POST",
-        headers: { "X-Session-ID": sessionId },
-        body: JSON.stringify({ message: text, property_id: propertyId || undefined }),
-        signal: controller.signal,
-      });
-      setSessionId(res.session_id || sessionId);
-      const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
-      setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }]);
-      setInsights(res.insights ?? {});
-      if (res.memory_summary) setMemorySummary(res.memory_summary);
-      void loadSessions();
-    } catch (err: unknown) {
-      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) {
-        return; // User intentionally stopped/interrupted
-      }
-      setError(err instanceof Error ? err.message : "Nera chưa phản hồi được.");
-    } finally {
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null;
-        setLoading(false);
-      }
-    }
-  }
-
-  useEffect(() => {
-    if (!initialPrompt || promptSent.current) return;
-    promptSent.current = true;
-    // Clean prompt parameter from URL so subsequent reload does not re-send
-    const url = new URL(window.location.href);
-    url.searchParams.delete("prompt");
-    url.searchParams.delete("new");
-    window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
-
-    const t = window.setTimeout(() => {
-      void send(undefined, initialPrompt);
-    }, 0);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPrompt]);
 
   async function loadSession(id: string) {
     try {
