@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { FaBed, FaBookmark, FaBrain, FaCheckCircle, FaChevronDown, FaChevronRight, FaExclamationCircle, FaMapMarkerAlt, FaRegBookmark, FaCalendarAlt, FaTimesCircle } from "react-icons/fa";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
-import { formatPropertyAddress } from "@/lib/propertyAddress";
+import { formatPropertyAddress, formatPropertyTitle } from "@/lib/propertyAddress";
 import PropertyImage from "@/components/PropertyImage";
 
 // Helper: match property features vs insights for "Vì sao?"
@@ -59,7 +59,7 @@ export default function PropertyCard({ property, insights, savedIds, onDetail, o
         </div>
         <div className="flex-1 p-5">
           <div className="flex flex-wrap justify-between gap-2">
-            <h2 className="max-w-sm font-semibold leading-6">{property.title}</h2>
+            <h2 className="max-w-sm font-semibold leading-6">{formatPropertyTitle(property.title)}</h2>
             <span className="font-semibold text-[var(--coral)]">{formatPropertyPrice(property.list_price)}</span>
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
@@ -116,4 +116,3 @@ export default function PropertyCard({ property, insights, savedIds, onDetail, o
     </article>
   );
 }
-

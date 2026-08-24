@@ -15,7 +15,7 @@ import PropertyImage from "@/components/PropertyImage";
 import { apiFetch } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
-import { formatPropertyAddress } from "@/lib/propertyAddress";
+import { formatPropertyAddress, formatPropertyTitle } from "@/lib/propertyAddress";
 
 interface ChatMessage { role: "user" | "assistant"; content: string; properties?: Property[]; quickReplies?: string[]; authRequired?: boolean; aiMode?: string; aiModel?: string | null; aiLatencyMs?: number }
 interface ChatResponse { response: string; session_id: string; properties: Property[]; insights: Record<string, unknown>; memory_summary?: string; auth_required?: boolean; ai_mode: string; ai_model?: string | null; ai_latency_ms: number }
@@ -227,7 +227,7 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
         </div>
         <div className="flex-1 p-5">
           <div className="flex flex-wrap justify-between gap-2">
-            <h2 className="max-w-sm font-semibold leading-6">{property.title}</h2>
+            <h2 className="max-w-sm font-semibold leading-6">{formatPropertyTitle(property.title)}</h2>
             <span className="font-semibold text-[var(--coral)]">{formatPropertyPrice(property.list_price)}</span>
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
@@ -397,7 +397,7 @@ function InsightsSidebar({ insights, memorySummary, savedProperties, latestMatch
                     ? <PropertyImage src={property.image || property.media[0].url} alt="" className="h-14 w-14 rounded-lg object-cover shrink-0" />
                     : <div className="grid h-14 w-14 place-items-center rounded-lg bg-stone-100 shrink-0">🏡</div>}
                   <span className="min-w-0">
-                    <strong className="line-clamp-2 text-xs leading-4">{property.title}</strong>
+                    <strong className="line-clamp-2 text-xs leading-4">{formatPropertyTitle(property.title)}</strong>
                     <small className="mt-1 block text-[var(--coral)]">{formatPropertyPrice(property.list_price)}</small>
                   </span>
                 </button>
@@ -418,7 +418,7 @@ function InsightsSidebar({ insights, memorySummary, savedProperties, latestMatch
             {savedProperties.slice(0, 3).map(p => (
               <Link href={`/properties/${p.id}`} key={p.id}
                 className="block truncate rounded-xl bg-[#fbfaf7] px-3 py-2.5 text-xs font-medium hover:bg-stone-100 mb-1">
-                {p.title}
+                {formatPropertyTitle(p.title)}
               </Link>
             ))}
           </section>
@@ -903,7 +903,7 @@ function ChatContent() {
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
           <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.7rem] bg-white p-6">
             <button onClick={() => setSelected(null)} className="absolute right-4 top-4 rounded-full bg-slate-100 p-2" aria-label="Đóng"><FaTimes /></button>
-            <h2 className="pr-10 text-2xl font-bold">{selected.title}</h2>
+            <h3 className="text-lg font-bold">{formatPropertyTitle(selected.title)}</h3>
             <p className="mt-2 font-bold text-[var(--coral)]">{formatPropertyPrice(selected.list_price)}</p>
             {(selected.image || selected.media?.[0]?.url) && (
               <PropertyImage src={selected.image || selected.media[0].url} alt={selected.title} className="mt-5 h-72 w-full rounded-xl object-cover" />

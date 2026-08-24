@@ -9,6 +9,7 @@ import { FaComments } from "react-icons/fa6";
 import { apiFetch } from "@/lib/api";
 import type { Property } from "@/lib/types";
 import { roleHome, useAuth } from "@/components/AuthProvider";
+import { formatPropertyTitle } from "@/lib/propertyAddress";
 import PropertyImage from "@/components/PropertyImage";
 
 export default function PropertyDetail() {
@@ -132,7 +133,7 @@ export default function PropertyDetail() {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Content */}
           <div className="flex-1">
-            <h1 className="text-4xl font-bold mb-3 tracking-tight">{property.title}</h1>
+            <h1 className="text-4xl font-bold mb-3 tracking-tight">{formatPropertyTitle(property.title)}</h1>
             <div className="flex items-center text-[var(--muted)] text-sm mb-6 bg-white w-fit px-4 py-2 rounded-xl border border-black/5 shadow-sm">
               <FaMapMarkerAlt className="mr-2 text-[var(--coral)]" /> {property.address_line || ""}, {property.ward || ""}, {property.district || ""}, {property.province || ""}
             </div>
