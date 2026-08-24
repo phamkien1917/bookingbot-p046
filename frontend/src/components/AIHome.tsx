@@ -88,7 +88,7 @@ export default function AIHome() {
   }, [user]);
 
   const firstName = useMemo(() => user?.full_name.trim().split(" ").at(-1), [user]);
-  function startConversation(value: string) { const prompt = value.trim(); if (prompt) router.push(`/chat?prompt=${encodeURIComponent(prompt)}`); }
+  function startConversation(value: string) { const prompt = value.trim(); if (prompt) router.push(`/chat?prompt=${encodeURIComponent(prompt)}&new=1`); }
   function submit(event: FormEvent) { event.preventDefault(); startConversation(input); }
   function moveProjects(direction: "left" | "right") {
     projectRailRef.current?.scrollBy({ left: direction === "right" ? 360 : -360, behavior: "smooth" });

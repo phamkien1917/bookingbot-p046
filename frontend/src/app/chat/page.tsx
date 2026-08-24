@@ -460,6 +460,7 @@ function ChatContent() {
   const searchParams = useSearchParams();
   const propertyId = searchParams.get("property_id");
   const initialPrompt = searchParams.get("prompt");
+  const isNewParam = searchParams.get("new") === "1";
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -510,10 +511,24 @@ function ChatContent() {
   const sessionLoadedOnMount = useRef(false);
 
   useEffect(() => {
+    if (isNewParam || initialPrompt) {
+      const nextSession = crypto.randomUUID();
+      window.sessionStorage.setItem("nera_chat_session_id", nextSession);
+      setSessionId(nextSession);
+      setMessages([greeting]);
+      sessionLoadedOnMount.current = true;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("new");
+      if (!initialPrompt) {
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      }
+      return;
+    }
+
     const stored = window.sessionStorage.getItem("nera_chat_session_id");
     if (stored) {
       setSessionId(stored);
-      if (user && !initialPrompt && !propertyId && !sessionLoadedOnMount.current) {
+      if (user && !propertyId && !sessionLoadedOnMount.current) {
         sessionLoadedOnMount.current = true;
         void apiFetch<SessionDetail>(`/session/${stored}`)
           .then(data => {
@@ -532,7 +547,7 @@ function ChatContent() {
           });
       }
     }
-  }, [user, initialPrompt, propertyId]);
+  }, [user, initialPrompt, propertyId, isNewParam]);
 
   useEffect(() => {
     window.sessionStorage.setItem("nera_chat_session_id", sessionId);
@@ -604,6 +619,7 @@ function ChatContent() {
     // Clean prompt parameter from URL so subsequent reload does not re-send
     const url = new URL(window.location.href);
     url.searchParams.delete("prompt");
+    url.searchParams.delete("new");
     window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
 
     const t = window.setTimeout(() => {
@@ -804,109 +820,114 @@ function ChatContent() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mx-auto max-w-3xl space-y-6">
             {messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={`animate-message-in ${message.role === "user" ? "flex justify-end" : "flex gap-3"}`}>
-                {message.role === "assistant" && (
-                  <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
-                )}
-                <div className="max-w-2xl w-full">
-                  <div className={`rounded-[1.35rem] px-5 py-3.5 text-[15px] leading-7 ${message.role === "user" ? "rounded-tr-md bg-[var(--ink)] text-white whitespace-pre-line" : "rounded-tl-md border border-black/5 bg-white shadow-sm"}`}>
-                    {message.role === "user" ? (
-                      message.content
-                    ) : (
-                      <div className="prose prose-sm max-w-none text-stone-800 leading-relaxed">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            table: ({ ...props }) => (
-                              <div className="my-4 overflow-x-auto rounded-2xl border border-stone-200/80 bg-white shadow-xs">
-                                <table className="w-full text-left text-[14px] border-collapse min-w-[480px]" {...props} />
-                              </div>
-                            ),
-                            thead: ({ ...props }) => <thead className="bg-[#eef4ee] text-[var(--forest)] font-bold border-b border-stone-200" {...props} />,
-                            tr: ({ ...props }) => <tr className="even:bg-stone-50/50 hover:bg-emerald-50/30 transition-colors" {...props} />,
-                            th: ({ ...props }) => <th className="py-3 px-4 font-bold text-[14px] text-[var(--forest)] border-r border-stone-200/70 last:border-r-0 whitespace-nowrap" {...props} />,
-                            td: ({ ...props }) => <td className="py-3 px-4 text-[14px] text-stone-700 border-t border-stone-200/60 border-r border-stone-200/60 last:border-r-0 align-top leading-6" {...props} />,
-                            p: ({ ...props }) => <p className="mb-3 last:mb-0 leading-relaxed text-[15px]" {...props} />,
-                            ul: ({ ...props }) => <ul className="my-2.5 list-disc pl-5 space-y-1.5" {...props} />,
-                            ol: ({ ...props }) => <ol className="my-2.5 list-decimal pl-5 space-y-1.5" {...props} />,
-                            li: ({ ...props }) => <li className="text-[15px] leading-relaxed" {...props} />,
-                            h1: ({ ...props }) => <h1 className="text-lg font-bold my-3 text-[var(--forest)]" {...props} />,
-                            h2: ({ ...props }) => <h2 className="text-base font-bold my-2.5 text-[var(--forest)]" {...props} />,
-                            h3: ({ ...props }) => <h3 className="text-[15px] font-bold my-2 text-[var(--forest)]" {...props} />,
-                            strong: ({ ...props }) => <strong className="font-semibold text-stone-900" {...props} />,
-                          }}
-                        >
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Quick reply chips */}
-                  {message.role === "assistant" && message.quickReplies && message.quickReplies.length > 0 && index === messages.length - 1 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {message.quickReplies.map(chip => (
-                        <button
-                          key={chip}
-                          disabled={loading}
-                          onClick={() => void send(undefined, chip)}
-                          className={`rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm ${
-                            loading ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
-                          }`}
-                        >
-                          {chip}
-                        </button>
-                      ))}
+              <div key={`${message.role}-${index}`} className="animate-message-in">
+                {message.role === "user" ? (
+                  <div className="flex justify-end">
+                    <div className="w-fit max-w-[80%] rounded-[1.35rem] rounded-tr-xs bg-[var(--ink)] px-5 py-3 text-[15px] leading-relaxed text-white shadow-xs whitespace-pre-line break-words">
+                      {message.content}
                     </div>
-                  )}
-
-                  {message.role === "assistant" && message.authRequired && index === messages.length - 1 && (
-                    <Link href="/login?next=/chat" className="mt-3 inline-flex rounded-full bg-[var(--forest)] px-5 py-2.5 text-xs font-semibold text-white">
-                      Đăng nhập để tiếp tục
-                    </Link>
-                  )}
-
-                  {/* Property cards */}
-                  {message.properties && message.properties.length > 0 && (() => {
-                    const isExpanded = expandedCards[index] ?? false;
-                    const totalCards = message.properties.length;
-                    const displayed = isExpanded ? message.properties : message.properties.slice(0, 5);
-                    const hasMore = totalCards > 5;
-
-                    return (
-                      <div className="space-y-3">
-                        {displayed.map((property, pi) => (
-                          <PropertyCard
-                            key={property.id}
-                            property={property}
-                            insights={insights}
-                            savedIds={savedIds}
-                            animDelay={pi * 60}
-                            onDetail={() => setSelected(property)}
-                            onSave={() => void save(property)}
-                            onBook={() => book(property)}
-                            onReject={() => setFeedbackProperty(property)}
-                          />
-                        ))}
-
-                        {hasMore && (
-                          <button
-                            type="button"
-                            onClick={() => setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))}
-                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--forest)]/20 bg-[#f4f8f4] hover:bg-[#e8f1e8] px-4 py-3.5 text-xs font-semibold text-[var(--forest)] shadow-xs transition-all hover:border-[var(--forest)]/40 active:scale-[0.99] cursor-pointer"
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs"><FaMagic /></span>
+                    <div className="w-fit max-w-[88%] min-w-0 space-y-3">
+                      <div className="w-fit max-w-full rounded-[1.35rem] rounded-tl-xs border border-black/5 bg-white px-5 py-3.5 text-[15px] leading-relaxed text-stone-800 shadow-xs">
+                        <div className="prose prose-sm max-w-none text-stone-800 leading-relaxed">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              table: ({ ...props }) => (
+                                <div className="my-4 overflow-x-auto rounded-2xl border border-stone-200/80 bg-white shadow-xs">
+                                  <table className="w-full text-left text-[14px] border-collapse min-w-[480px]" {...props} />
+                                </div>
+                              ),
+                              thead: ({ ...props }) => <thead className="bg-[#eef4ee] text-[var(--forest)] font-bold border-b border-stone-200" {...props} />,
+                              tr: ({ ...props }) => <tr className="even:bg-stone-50/50 hover:bg-emerald-50/30 transition-colors" {...props} />,
+                              th: ({ ...props }) => <th className="py-3 px-4 font-bold text-[14px] text-[var(--forest)] border-r border-stone-200/70 last:border-r-0 whitespace-nowrap" {...props} />,
+                              td: ({ ...props }) => <td className="py-3 px-4 text-[14px] text-stone-700 border-t border-stone-200/60 border-r border-stone-200/60 last:border-r-0 align-top leading-6" {...props} />,
+                              p: ({ ...props }) => <p className="mb-3 last:mb-0 leading-relaxed text-[15px]" {...props} />,
+                              ul: ({ ...props }) => <ul className="my-2.5 list-disc pl-5 space-y-1.5" {...props} />,
+                              ol: ({ ...props }) => <ol className="my-2.5 list-decimal pl-5 space-y-1.5" {...props} />,
+                              li: ({ ...props }) => <li className="text-[15px] leading-relaxed" {...props} />,
+                              h1: ({ ...props }) => <h1 className="text-lg font-bold my-3 text-[var(--forest)]" {...props} />,
+                              h2: ({ ...props }) => <h2 className="text-base font-bold my-2.5 text-[var(--forest)]" {...props} />,
+                              h3: ({ ...props }) => <h3 className="text-[15px] font-bold my-2 text-[var(--forest)]" {...props} />,
+                              strong: ({ ...props }) => <strong className="font-semibold text-stone-900" {...props} />,
+                            }}
                           >
-                            <span>
-                              {isExpanded
-                                ? "Thu gọn danh sách (chỉ hiện 5 căn đầu)"
-                                : `Xem tất cả ${totalCards} bất động sản (còn ${totalCards - 5} căn khác)`}
-                            </span>
-                            <FaChevronDown className={`transition-transform duration-200 text-xs ${isExpanded ? "rotate-180" : ""}`} />
-                          </button>
-                        )}
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
                       </div>
-                    );
-                  })()}
-                </div>
+
+                      {/* Quick reply chips */}
+                      {message.quickReplies && message.quickReplies.length > 0 && index === messages.length - 1 && (
+                        <div className="flex flex-wrap gap-2">
+                          {message.quickReplies.map(chip => (
+                            <button
+                              key={chip}
+                              disabled={loading}
+                              onClick={() => void send(undefined, chip)}
+                              className={`rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm ${
+                                loading ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                              }`}
+                            >
+                              {chip}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Auth required */}
+                      {message.authRequired && index === messages.length - 1 && (
+                        <Link href="/login?next=/chat" className="inline-flex rounded-full bg-[var(--forest)] px-5 py-2.5 text-xs font-semibold text-white">
+                          Đăng nhập để tiếp tục
+                        </Link>
+                      )}
+
+                      {/* Property cards */}
+                      {message.properties && message.properties.length > 0 && (() => {
+                        const isExpanded = expandedCards[index] ?? false;
+                        const totalCards = message.properties.length;
+                        const displayed = isExpanded ? message.properties : message.properties.slice(0, 5);
+                        const hasMore = totalCards > 5;
+
+                        return (
+                          <div className="space-y-3 pt-1">
+                            {displayed.map((property, pi) => (
+                              <PropertyCard
+                                key={property.id}
+                                property={property}
+                                insights={insights}
+                                savedIds={savedIds}
+                                animDelay={pi * 60}
+                                onDetail={() => setSelected(property)}
+                                onSave={() => void save(property)}
+                                onBook={() => book(property)}
+                                onReject={() => setFeedbackProperty(property)}
+                              />
+                            ))}
+
+                            {hasMore && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))}
+                                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--forest)]/20 bg-[#f4f8f4] hover:bg-[#e8f1e8] px-4 py-3.5 text-xs font-semibold text-[var(--forest)] shadow-xs transition-all hover:border-[var(--forest)]/40 active:scale-[0.99] cursor-pointer"
+                              >
+                                <span>
+                                  {isExpanded
+                                    ? "Thu gọn danh sách (chỉ hiện 5 căn đầu)"
+                                    : `Xem tất cả ${totalCards} bất động sản (còn ${totalCards - 5} căn khác)`}
+                                </span>
+                                <FaChevronDown className={`transition-transform duration-200 text-xs ${isExpanded ? "rotate-180" : ""}`} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
