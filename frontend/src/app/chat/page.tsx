@@ -473,6 +473,7 @@ function ChatContent() {
   const [savedProperties, setSavedProperties] = useState<Property[]>([]);
   const [memorySummary, setMemorySummary] = useState("");
   const [insights, setInsights] = useState<Record<string, unknown>>({});
+  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);
   const [renamingSession, setRenamingSession] = useState<SessionSummary | null>(null);
   const [deletingSession, setDeletingSession] = useState<SessionSummary | null>(null);
@@ -587,6 +588,7 @@ function ChatContent() {
       const data = await apiFetch<SessionDetail>(`/session/${id}`);
       setSessionId(id);
       setMessages(data.messages.map(m => ({ role: m.role.toLowerCase() === "user" ? "user" : "assistant", content: m.content, properties: m.properties, aiMode: m.ai_mode, aiModel: m.ai_model })));
+      setExpandedCards({});
       setError("");
     } catch { setError("Không tải được cuộc trò chuyện."); }
   }
@@ -594,7 +596,7 @@ function ChatContent() {
   function newChat() {
     const nextSession = crypto.randomUUID();
     window.sessionStorage.setItem("nera_chat_session_id", nextSession);
-    setSessionId(nextSession); setMessages([greeting]); setInput(""); setError(""); setInsights({}); router.replace("/chat");
+    setSessionId(nextSession); setMessages([greeting]); setInput(""); setError(""); setInsights({}); setExpandedCards({}); router.replace("/chat");
   }
 
   function beginRename(s: SessionSummary) { setSessionMenu(null); setRenamingSession(s); setSessionTitle(s.preview); }
@@ -825,19 +827,45 @@ function ChatContent() {
                   )}
 
                   {/* Property cards */}
-                  {message.properties?.map((property, pi) => (
-                    <PropertyCard
-                      key={property.id}
-                      property={property}
-                      insights={insights}
-                      savedIds={savedIds}
-                      animDelay={pi * 80}
-                      onDetail={() => setSelected(property)}
-                      onSave={() => void save(property)}
-                      onBook={() => book(property)}
-                      onReject={() => setFeedbackProperty(property)}
-                    />
-                  ))}
+                  {message.properties && message.properties.length > 0 && (() => {
+                    const isExpanded = expandedCards[index] ?? false;
+                    const totalCards = message.properties.length;
+                    const displayed = isExpanded ? message.properties : message.properties.slice(0, 5);
+                    const hasMore = totalCards > 5;
+
+                    return (
+                      <div className="space-y-3">
+                        {displayed.map((property, pi) => (
+                          <PropertyCard
+                            key={property.id}
+                            property={property}
+                            insights={insights}
+                            savedIds={savedIds}
+                            animDelay={pi * 60}
+                            onDetail={() => setSelected(property)}
+                            onSave={() => void save(property)}
+                            onBook={() => book(property)}
+                            onReject={() => setFeedbackProperty(property)}
+                          />
+                        ))}
+
+                        {hasMore && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))}
+                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--forest)]/20 bg-[#f4f8f4] hover:bg-[#e8f1e8] px-4 py-3.5 text-xs font-semibold text-[var(--forest)] shadow-xs transition-all hover:border-[var(--forest)]/40 active:scale-[0.99] cursor-pointer"
+                          >
+                            <span>
+                              {isExpanded
+                                ? "Thu gọn danh sách (chỉ hiện 5 căn đầu)"
+                                : `Xem tất cả ${totalCards} bất động sản (còn ${totalCards - 5} căn khác)`}
+                            </span>
+                            <FaChevronDown className={`transition-transform duration-200 text-xs ${isExpanded ? "rotate-180" : ""}`} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

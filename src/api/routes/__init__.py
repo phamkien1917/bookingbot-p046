@@ -50,6 +50,16 @@ logger = logging.getLogger(__name__)
 class RenameSessionRequest(BaseModel):
     title: str = Field(min_length=1, max_length=80)
 
+
+_PROPERTY_RELEVANT_KINDS = {
+    "SEARCH_RESULTS", "PROPERTY_SELECTED", "PROPERTY_ADVICE",
+    "PROPERTY_LIST", "COMPARISON",
+}
+_PROPERTY_RELEVANT_INTENTS = {
+    "SEARCH_PROPERTY", "SELECT_PROPERTY", "PROPERTY_DETAILS",
+    "COMPARE_PROPERTIES", "BOOK_APPOINTMENT",
+}
+
 router.include_router(auth_router)
 router.include_router(properties_router)
 router.include_router(favorites_router)
@@ -162,18 +172,8 @@ async def chat(
         raw_properties = final_state.get("selected_properties") or []
         response_kind = final_state.get("response_kind", "DIRECT")
         intent = final_state.get("intent")
-
-        PROPERTY_RELEVANT_KINDS = {
-            "SEARCH_RESULTS", "PROPERTY_SELECTED", "PROPERTY_ADVICE",
-            "PROPERTY_LIST", "COMPARISON",
-        }
-        PROPERTY_RELEVANT_INTENTS = {
-            "SEARCH_PROPERTY", "SELECT_PROPERTY", "PROPERTY_DETAILS",
-            "COMPARE_PROPERTIES", "BOOK_APPOINTMENT",
-        }
-
         # Strict relevancy check: only attach property cards when turn is genuinely about searching/viewing properties
-        if response_kind in PROPERTY_RELEVANT_KINDS or (intent in PROPERTY_RELEVANT_INTENTS and response_kind not in ("DIRECT", "ASK_CRITERIA", "SEARCH_NO_RESULTS")):
+        if response_kind in _PROPERTY_RELEVANT_KINDS or (intent in _PROPERTY_RELEVANT_INTENTS and response_kind not in ("DIRECT", "ASK_CRITERIA", "SEARCH_NO_RESULTS")):
             properties = raw_properties
         else:
             properties = []
@@ -191,7 +191,7 @@ async def chat(
             "household_context": final_state.get("household_context", []),
             "commute_landmark": final_state.get("commute_landmark"),
             "max_commute_minutes": final_state.get("max_commute_minutes"),
-            "property_refs": raw_properties if properties else (metadata.get("chat_state", {}).get("property_refs", []) if intent in PROPERTY_RELEVANT_INTENTS else []),
+            "property_refs": raw_properties if properties else (metadata.get("chat_state", {}).get("property_refs", []) if intent in _PROPERTY_RELEVANT_INTENTS else []),
             "selected_property_id": final_state.get("current_property_id"),
             "selected_property_index": final_state.get("selected_property_index"),
             "requested_date": final_state.get("requested_date"),

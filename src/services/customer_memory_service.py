@@ -12,7 +12,7 @@ from src.database.models import CustomerPreference
 from src.utils.time import utcnow
 
 SEARCH_MEMORY_KEYS = {
-    "district", "province", "property_kind", "min_price", "max_price",
+    "region", "district", "province", "property_kind", "min_price", "max_price",
     "min_bedrooms", "min_bathrooms", "min_area",
 }
 

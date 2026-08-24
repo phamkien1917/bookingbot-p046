@@ -32,6 +32,15 @@ Nguyên tắc phản hồi:
 4. Nếu người dùng hỏi các câu hỏi hoàn toàn ngoài lề (thời tiết, làm thơ, viết code...), hãy trả lời ngắn gọn, lịch sự và khéo léo kết nối lại về chủ đề nhà đất.
 """
 
+_CONVERSATIONAL_INTENTS = {
+    Intent.CONSULTATION_QA,
+    Intent.GREETING,
+    Intent.THANKS,
+    Intent.GOODBYE,
+    Intent.OUT_OF_SCOPE,
+    Intent.FALLBACK,
+}
+
 
 async def respond_node(state: AgentState) -> dict[str, Any]:
     """Respond node: ensures a natural, high-quality, persona-aligned response is generated."""
@@ -144,15 +153,6 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
     if state.get("max_commute_minutes"):
         insights["max_commute_minutes"] = state["max_commute_minutes"]
 
-    CONVERSATIONAL_INTENTS = {
-        Intent.CONSULTATION_QA,
-        Intent.GREETING,
-        Intent.THANKS,
-        Intent.GOODBYE,
-        Intent.OUT_OF_SCOPE,
-        Intent.FALLBACK,
-    }
-
     result: dict[str, Any] = {
         "response": final_response,
         "suggested_actions": suggested_actions,
@@ -161,7 +161,7 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
     }
 
     # Clear selected_properties if purely conversational to avoid leaking property cards
-    if intent in CONVERSATIONAL_INTENTS:
+    if intent in _CONVERSATIONAL_INTENTS:
         result["selected_properties"] = []
 
     return result

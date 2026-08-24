@@ -39,6 +39,16 @@ class ExtractedCriteria(BaseModel):
     ward: str | None = None
     district: str | None = None
     province: str | None = None
+    region: str | None = Field(
+        default=None,
+        description="Vùng miền nếu khách tìm theo vùng lớn: 'Miền Bắc', 'Miền Trung', hoặc 'Miền Nam'"
+    )
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description="Số lượng nhà/căn khách yêu cầu cụ thể (ví dụ: tìm 2 nhà -> limit=2, 3 căn -> limit=3)"
+    )
     property_kind: str | None = None
     min_price: int | None = None
     max_price: int | None = None
@@ -75,13 +85,15 @@ Nhiệm vụ của bạn:
 3. Trích xuất chính xác các thực thể khi khách thật sự có nhu cầu tìm BĐS (địa điểm, loại nhà, tầm giá VND, số phòng ngủ, ngày giờ, mã booking).
 4. Phân loại chuẩn xác vào các Intent sau:
 
-- SEARCH_PROPERTY: Khách THỰC SỰ muốn tìm BĐS mới hoặc tinh chỉnh tiêu chí (ví dụ: "tìm nhà 2 ngủ ở xa la hà đông", "tìm căn hộ ở Thảo Điền Quận 2", "tìm nhà ở Liên Chiểu Đà Nẵng", "tìm căn hộ 2PN dưới 5 tỷ", "lọc nhà có ban công", "xem thêm căn khác").
+- SEARCH_PROPERTY: Khách THỰC SỰ muốn tìm BĐS mới hoặc tinh chỉnh tiêu chí (ví dụ: "tìm nhà 2 ngủ ở xa la hà đông", "tìm 2 căn hộ ở Thảo Điền Quận 2", "gợi ý 3 nhà ở Liên Chiểu Đà Nẵng", "tìm căn hộ 2PN dưới 5 tỷ", "lọc nhà có ban công", "xem thêm căn khác", "nhà trên 10 tỷ ở miền bắc").
+  * SỐ LƯỢNG YÊU CẦU (limit): Nếu khách yêu cầu rõ số lượng nhà muốn tìm (ví dụ: "tìm 2 nhà", "gợi ý 3 căn", "lấy 1 căn", "top 3 căn"), trích xuất số lượng đó vào trường limit. Nếu khách không nói số lượng, để trống limit.
+  * VÙNG MIỀN (region): Khi khách tìm theo vùng miền lớn ("Miền Bắc", "Miền Trung", "Miền Nam"), BẮT BUỘC trích xuất vào trường region (giá trị: "Miền Bắc", "Miền Trung", "Miền Nam"). KHÔNG gán "Miền Bắc" vào province hay area_or_ward.
   * ĐỊA ĐIỂM CHI TIẾT (area_or_ward): Khi khách nhắc đến bất kỳ phường/xã, khu đô thị, dự án, tên đường hay địa danh cụ thể trên toàn quốc (ví dụ:
     - Hà Nội: Xa La, Văn Quán, Yên Hòa, Nam Trung Yên, Văn Khê, Mỗ Lao, Trung Kính, Linh Đàm, Times City, Dịch Vọng, Mễ Trì...
     - TP. HCM: Thảo Điền, An Phú, Tân Quy, Phú Mỹ Hưng, Bến Nghé, Bến Thành, Hiệp Bình Chánh, Vinhomes Central Park...
     - Đà Nẵng: Mỹ An, Khuê Mỹ, Phước Mỹ, An Hải Bắc, Hòa Cường, Hòa Khánh, Nam Hòa Xuân...
     - Các tỉnh khác: Bãi Cháy (Hạ Long), Vĩnh Hải (Nha Trang), Dĩ An (Bình Dương)...),
-    BẮT BUỘC trích xuất tên địa danh/phường đó vào trường area_or_ward (hoặc ward).
+    BẮT BUỘC trích xuất tên địa danh/phường đó vào trường area_or_ward (hoặc ward). KHÔNG đưa tên Tỉnh/Thành phố lớn (Hà Nội, TP.HCM...) vào area_or_ward.
   * QUẬN/HUYỆN/THÀNH PHỐ THUỘC TỈNH (district): Trích xuất vào trường district (ví dụ: "Quận Hà Đông", "Quận Cầu Giấy", "Quận 7", "Quận 2", "Quận Bình Thạnh", "Thành phố Thủ Đức", "Quận Liên Chiểu", "Quận Hải Châu", "Quận Sơn Trà", "Thành phố Nha Trang", "Thành phố Hạ Long"...).
   * TỈNH/THÀNH PHỐ (province): Trích xuất vào trường province (ví dụ: "Hà Nội", "Hồ Chí Minh", "Đà Nẵng", "Khánh Hòa", "Quảng Ninh", "Bình Dương", "Bắc Ninh"...).
 - SELECT_PROPERTY: Khách muốn chọn 1 căn cụ thể trong danh sách đã tìm (ví dụ: "chọn căn 1", "căn đầu tiên", "xem căn số 2", "căn Masteri").
@@ -203,6 +215,8 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             confidence=0.8,
             booking_code=booking_code,
             criteria=ExtractedCriteria(
+                region=det_criteria.get("region"),
+                limit=det_criteria.get("limit"),
                 ward=None,
                 district=det_criteria.get("district"),
                 province=det_criteria.get("province"),
@@ -219,28 +233,55 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     if understanding.is_new_search:
         merged_criteria = {}
 
-    # Apply deterministic parser overrides for location / budget / kind if explicit
     llm_dict = understanding.criteria.model_dump(exclude_none=True)
-    area_val = llm_dict.get("area_or_ward") or llm_dict.get("ward")
-    if area_val:
-        merged_criteria["area_or_ward"] = area_val
-        merged_criteria["ward"] = area_val
-    elif understanding.is_new_search:
-        merged_criteria.pop("area_or_ward", None)
-        merged_criteria.pop("ward", None)
 
+    # Apply deterministic parser overrides for location / budget / kind if explicit
     if "location" in det_groups:
+        merged_criteria.pop("region", None)
         merged_criteria.pop("district", None)
         merged_criteria.pop("province", None)
+        merged_criteria.pop("area_or_ward", None)
+        merged_criteria.pop("ward", None)
+        if "region" in det_criteria:
+            merged_criteria["region"] = det_criteria["region"]
         if "district" in det_criteria:
             merged_criteria["district"] = det_criteria["district"]
         if "province" in det_criteria:
             merged_criteria["province"] = det_criteria["province"]
-    elif "district" in llm_dict or "province" in llm_dict:
+    elif "region" in llm_dict or "district" in llm_dict or "province" in llm_dict:
+        if "region" in llm_dict:
+            merged_criteria.pop("district", None)
+            merged_criteria.pop("province", None)
+            merged_criteria["region"] = llm_dict["region"]
         if "district" in llm_dict:
             merged_criteria["district"] = llm_dict["district"]
         if "province" in llm_dict:
             merged_criteria["province"] = llm_dict["province"]
+
+    if "quantity" in det_groups:
+        merged_criteria.pop("limit", None)
+        if "limit" in det_criteria:
+            merged_criteria["limit"] = det_criteria["limit"]
+    elif "limit" in llm_dict:
+        merged_criteria["limit"] = llm_dict["limit"]
+    elif understanding.is_new_search:
+        merged_criteria.pop("limit", None)
+
+    area_val = llm_dict.get("area_or_ward") or llm_dict.get("ward")
+    if area_val:
+        norm_area = normalize_text(area_val)
+        norm_dist = normalize_text(merged_criteria.get("district") or "")
+        norm_prov = normalize_text(merged_criteria.get("province") or "")
+        norm_reg = normalize_text(merged_criteria.get("region") or "")
+        if norm_area not in (norm_dist, norm_prov, norm_reg, "ha noi", "ho chi minh", "da nang", "mien bac", "mien trung", "mien nam"):
+            merged_criteria["area_or_ward"] = area_val
+            merged_criteria["ward"] = area_val
+        else:
+            merged_criteria.pop("area_or_ward", None)
+            merged_criteria.pop("ward", None)
+    elif understanding.is_new_search or "location" in det_groups:
+        merged_criteria.pop("area_or_ward", None)
+        merged_criteria.pop("ward", None)
 
     if "budget" in det_groups:
         merged_criteria.pop("min_price", None)

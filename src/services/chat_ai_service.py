@@ -46,6 +46,7 @@ IntentName = Literal[
 
 
 class LLMSearchCriteria(BaseModel):
+    region: str | None = None
     district: str | None = None
     province: str | None = None
     property_kind: Literal["APARTMENT", "HOUSE", "VILLA", "TOWNHOUSE", "LAND", "COMMERCIAL"] | None = None
@@ -107,18 +108,19 @@ def reconcile_understanding(message: str, value: ChatUnderstanding) -> ChatUnder
     # high-confidence match (for example "Quan 7" -> "Quận 7"). The model is
     # still valuable for language the parser does not cover.
     for field_name in (
-        "district", "province", "min_price", "max_price",
+        "region", "district", "province", "min_price", "max_price",
         "min_bedrooms", "min_bathrooms", "min_area",
     ):
         if field_name in deterministic:
             setattr(criteria, field_name, deterministic[field_name])
 
     # Location is a compound filter. When the user explicitly names a known
-    # province/district, copy the whole deterministic location group, including
+    # region/province/district, copy the whole deterministic location group, including
     # absent values. Otherwise a model can turn "Ha Noi" into both province and
     # district, producing an impossible `province=Ha Noi AND district=Ha Noi`
     # query and hiding valid inventory.
     if "location" in explicit_groups:
+        criteria.region = deterministic.get("region")
         criteria.district = deterministic.get("district")
         criteria.province = deterministic.get("province")
 

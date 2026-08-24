@@ -19,6 +19,7 @@ from src.database.connection import get_session_context
 from src.database.models import Property, PropertyKind, PropertyStatus
 from src.services.chat_state_service import normalize_text
 from src.services.llm import get_llm
+from src.services.search_criteria_service import REGION_PROVINCES
 from src.utils.property_text import clean_property_title, get_search_variations
 
 logger = logging.getLogger(__name__)
@@ -79,15 +80,48 @@ def serialize_property_item(prop: Property) -> dict[str, Any]:
     }
 
 
-async def query_properties_from_db(criteria: dict[str, Any], limit: int = 5) -> list[dict[str, Any]]:
+def _interleave_properties_by_province(items: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Distribute properties evenly across provinces in a broad region search."""
+    by_prov: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        prov = str(item.get("province") or "Khác")
+        by_prov.setdefault(prov, []).append(item)
+
+    result: list[dict[str, Any]] = []
+    prov_lists = list(by_prov.values())
+    idx = 0
+    while len(result) < limit and any(idx < len(lst) for lst in prov_lists):
+        for lst in prov_lists:
+            if idx < len(lst) and len(result) < limit:
+                result.append(lst[idx])
+        idx += 1
+    return result
+
+
+async def query_properties_from_db(criteria: dict[str, Any], limit: int = 20) -> list[dict[str, Any]]:
     """Execute dynamic criteria search against PostgreSQL with relationship eager-loading."""
+    effective_limit = criteria.get("limit") or limit
     async with get_session_context() as session:
         filters = [Property.status == PropertyStatus.AVAILABLE]
 
         area_target = criteria.get("area_or_ward") or criteria.get("ward")
         district = criteria.get("district")
         province = criteria.get("province")
+        region = criteria.get("region")
         property_kind = criteria.get("property_kind")
+
+        # Resolve region if province holds a region name
+        if province:
+            norm_prov = normalize_text(str(province)).lower()
+            if "mien bac" in norm_prov or "bac bo" in norm_prov:
+                region = "Miền Bắc"
+                province = None
+            elif "mien trung" in norm_prov or "trung bo" in norm_prov:
+                region = "Miền Trung"
+                province = None
+            elif "mien nam" in norm_prov or "nam bo" in norm_prov:
+                region = "Miền Nam"
+                province = None
 
         if area_target:
             area_vars = get_search_variations(area_target)
@@ -103,9 +137,27 @@ async def query_properties_from_db(criteria: dict[str, Any], limit: int = 5) -> 
         if district:
             dist_vars = get_search_variations(district)
             filters.append(or_(*[Property.district.ilike(f"%{v}%") for v in dist_vars]))
-        if province:
+        elif province:
             prov_vars = get_search_variations(province)
             filters.append(or_(*[Property.province.ilike(f"%{v}%") for v in prov_vars]))
+        elif region:
+            matched_region_provinces = None
+            norm_reg = normalize_text(str(region)).lower()
+            if "bac" in norm_reg:
+                matched_region_provinces = REGION_PROVINCES.get("Miền Bắc")
+            elif "trung" in norm_reg:
+                matched_region_provinces = REGION_PROVINCES.get("Miền Trung")
+            elif "nam" in norm_reg:
+                matched_region_provinces = REGION_PROVINCES.get("Miền Nam")
+
+            if matched_region_provinces:
+                reg_filters = []
+                for p in matched_region_provinces:
+                    for pv in get_search_variations(p):
+                        reg_filters.append(Property.province.ilike(f"%{pv}%"))
+                if reg_filters:
+                    filters.append(or_(*reg_filters))
+
         if property_kind:
             try:
                 filters.append(Property.property_kind == PropertyKind(str(property_kind)))
@@ -123,15 +175,23 @@ async def query_properties_from_db(criteria: dict[str, Any], limit: int = 5) -> 
         if criteria.get("min_area") is not None and criteria["min_area"] > 0:
             filters.append(Property.area_sqm >= criteria["min_area"])
 
+        is_broad_region_search = bool(region and not province and not district and not area_target)
+        query_limit = 100 if is_broad_region_search else effective_limit
+
         stmt = (
             select(Property)
             .options(selectinload(Property.media))
             .where(*filters)
             .order_by(Property.list_price.asc().nullslast(), Property.published_at.desc().nullslast())
-            .limit(limit)
+            .limit(query_limit)
         )
         rows = (await session.execute(stmt)).scalars().all()
-        return [serialize_property_item(r) for r in rows]
+        items = [serialize_property_item(r) for r in rows]
+
+        if is_broad_region_search:
+            return _interleave_properties_by_province(items, limit=effective_limit)
+
+        return items
 
 
 async def load_properties_by_ids(ids: list[str]) -> list[dict[str, Any]]:
@@ -159,15 +219,55 @@ async def load_properties_by_ids(ids: list[str]) -> list[dict[str, Any]]:
 def format_criteria_summary(criteria: dict[str, Any]) -> str:
     parts = []
     loc_parts = []
-    area_target = criteria.get("area_or_ward") or criteria.get("ward")
+    area_target = (criteria.get("area_or_ward") or criteria.get("ward") or "").strip()
+    district = (criteria.get("district") or "").strip()
+    province = (criteria.get("province") or "").strip()
+    region = (criteria.get("region") or "").strip()
+
+    def _norm(s: str) -> str:
+        return normalize_text(s).lower().strip()
+
+    if province:
+        norm_p = _norm(province)
+        if "mien bac" in norm_p or "bac bo" in norm_p:
+            region = "Miền Bắc"
+            province = ""
+        elif "mien trung" in norm_p or "trung bo" in norm_p:
+            region = "Miền Trung"
+            province = ""
+        elif "mien nam" in norm_p or "nam bo" in norm_p:
+            region = "Miền Nam"
+            province = ""
+
     if area_target:
-        loc_parts.append(str(area_target).strip())
-    if criteria.get("district"):
-        loc_parts.append(str(criteria["district"]))
-    elif criteria.get("province"):
-        loc_parts.append(str(criteria["province"]))
-    if loc_parts:
-        parts.append(", ".join(loc_parts))
+        norm_area = _norm(area_target)
+        if (
+            (district and norm_area == _norm(district))
+            or (province and norm_area == _norm(province))
+            or (region and norm_area == _norm(region))
+            or norm_area in {"ha noi", "ho chi minh", "da nang", "mien bac", "mien trung", "mien nam"}
+        ):
+            area_target = ""
+
+    if area_target:
+        loc_parts.append(area_target)
+    if district:
+        loc_parts.append(district)
+    elif province:
+        loc_parts.append(province)
+    elif region:
+        loc_parts.append(region)
+
+    seen = set()
+    unique_loc = []
+    for lp in loc_parts:
+        nlp = _norm(lp)
+        if lp and nlp not in seen:
+            seen.add(nlp)
+            unique_loc.append(lp)
+
+    if unique_loc:
+        parts.append(", ".join(unique_loc))
 
     kind_names = {
         "APARTMENT": "căn hộ",
@@ -196,13 +296,26 @@ def format_criteria_summary(criteria: dict[str, Any]) -> str:
 
 def format_search_results_markdown(items: list[dict[str, Any]], criteria: dict[str, Any], soft_prefs: list[str]) -> str:
     summary = format_criteria_summary(criteria)
-    intro = f"Nera đã tìm thấy **{len(items)} bất động sản** phù hợp nhất"
+    total_count = len(items)
+    requested_limit = criteria.get("limit")
+
+    if requested_limit and requested_limit < total_count:
+        display_items = items[:requested_limit]
+    elif not requested_limit and total_count > 5:
+        display_items = items[:5]
+    else:
+        display_items = items
+
+    intro = f"Nera đã tìm thấy **{total_count} bất động sản** phù hợp nhất"
     if summary:
         intro += f" với tiêu chí **{summary}**"
-    intro += " cho bạn:\n"
+    if not requested_limit and total_count > 5:
+        intro += " cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):"
+    else:
+        intro += " cho bạn:"
 
     blocks = []
-    for index, item in enumerate(items, 1):
+    for index, item in enumerate(display_items, 1):
         location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
         price = _price_text(item.get("list_price"))
         area_num = _num(item.get("area_sqm"))
@@ -214,7 +327,7 @@ def format_search_results_markdown(items: list[dict[str, Any]], criteria: dict[s
     body = "\n\n".join(blocks)
     note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
 
-    return f"{intro}\n{body}{note}\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊"
+    return f"{intro}\n\n{body}{note}\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊"
 
 
 def format_property_details_markdown(item: dict[str, Any]) -> str:
@@ -632,7 +745,8 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             ],
         }
 
-    properties = await query_properties_from_db(criteria, limit=5)
+    search_limit = criteria.get("limit") or 20
+    properties = await query_properties_from_db(criteria, limit=search_limit)
 
     # Check if returning user continuation
     if re.search(r"\b(tiep tuc|nhu cau cu|so thich da luu)\b", q_norm) and properties:

@@ -67,6 +67,33 @@ DISTRICT_NAMES = {
     "thanh hoa": "Thành phố Thanh Hóa",
 }
 
+REGION_PROVINCES: dict[str, list[str]] = {
+    "Miền Bắc": [
+        "Hà Nội", "Hải Phòng", "Quảng Ninh", "Bắc Ninh", "Hưng Yên", "Bắc Giang",
+        "Vĩnh Phúc", "Hải Dương", "Nam Định", "Thái Bình", "Ninh Bình", "Hà Nam",
+        "Thái Nguyên", "Phú Thọ", "Lạng Sơn", "Tuyên Quang", "Yên Bái", "Lào Cai",
+        "Sơn La", "Hòa Bình", "Điện Biên", "Lai Châu", "Cao Bằng", "Bắc Kạn", "Hà Giang",
+    ],
+    "Miền Trung": [
+        "Đà Nẵng", "Khánh Hòa", "Thanh Hóa", "Nghệ An", "Hà Tĩnh", "Quảng Bình",
+        "Quảng Trị", "Thừa Thiên Huế", "Quảng Nam", "Quảng Ngãi", "Bình Định",
+        "Phú Yên", "Ninh Thuận", "Bình Thuận", "Kon Tum", "Gia Lai", "Đắk Lắk",
+        "Đắk Nông", "Lâm Đồng",
+    ],
+    "Miền Nam": [
+        "Hồ Chí Minh", "Bình Dương", "Đồng Nai", "Long An", "Bà Rịa - Vũng Tàu",
+        "Tây Ninh", "Bình Phước", "Cần Thơ", "Tiền Giang", "Bến Tre", "Trà Vinh",
+        "Vĩnh Long", "Đồng Tháp", "An Giang", "Kiên Giang", "Hậu Giang", "Sóc Trăng",
+        "Bạc Liêu", "Cà Mau",
+    ],
+}
+
+
+_WORD_NUMS = {
+    "mot": 1, "hai": 2, "ba": 3, "bon": 4, "nam": 5,
+    "sau": 6, "bay": 7, "tam": 8, "chin": 9, "muoi": 10,
+}
+
 
 def _normalize(value: str) -> str:
     normalized = unicodedata.normalize("NFD", value.lower())
@@ -85,6 +112,29 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     text = _normalize(message)
     criteria: dict = {}
     groups: set[str] = set()
+
+    # Requested quantity / limit detection
+    num_qty = re.search(
+        r"\b(?:tim|goi y|cho|lay|chon|xem|can|muon|top)?\s*(\d+)\s*(?:can ho|can nha|can|nha|bat dong san|bds|biet thu|villa|lo dat)\b(?!\s*(?:phong|pn|ngu|tang|ty|ti|trieu|tr|m2|m|met|tieng|gio|thang|nam))",
+        text,
+    )
+    word_qty = re.search(
+        r"\b(?:tim|goi y|cho|lay|chon|xem|can|muon)?\s*(mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)\s*(?:can ho|can nha|can|nha|bat dong san|bds|biet thu|villa|lo dat)\b(?!\s*(?:phong|pn|ngu|tang|ty|ti|trieu|tr|m2|m|met|tieng|gio|thang|nam))",
+        text,
+    )
+    top_qty = re.search(r"\btop\s*(\d+)\b", text)
+
+    if num_qty:
+        qty_val = int(num_qty.group(1))
+        if 1 <= qty_val <= 50:
+            criteria["limit"] = qty_val
+            groups.add("quantity")
+    elif word_qty:
+        criteria["limit"] = _WORD_NUMS[word_qty.group(1)]
+        groups.add("quantity")
+    elif top_qty:
+        criteria["limit"] = int(top_qty.group(1))
+        groups.add("quantity")
 
     price_range = re.search(
         r"(?:tu|khoang)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\s*(?:den|-|toi)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
@@ -116,6 +166,17 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     area = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:m2|met vuong)", text)
     if area:
         criteria["min_area"] = float(area.group(1).replace(",", "."))
+
+    # Region detection
+    if re.search(r"\b(mien bac|phia bac|bac bo)\b", text):
+        criteria["region"] = "Miền Bắc"
+        groups.add("location")
+    elif re.search(r"\b(mien trung|phia trung|trung bo)\b", text):
+        criteria["region"] = "Miền Trung"
+        groups.add("location")
+    elif re.search(r"\b(mien nam|phia nam|nam bo)\b", text):
+        criteria["region"] = "Miền Nam"
+        groups.add("location")
 
     if re.search(r"ha\s*noi", text):
         criteria["province"] = "Hà Nội"
@@ -183,7 +244,7 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
 def build_search_criteria(message: str, memory: dict | None) -> dict:
     """Merge memory with the current request, with explicit input winning."""
     allowed = {
-        "area_or_ward", "ward", "district", "province", "property_kind", "min_price", "max_price",
+        "limit", "region", "area_or_ward", "ward", "district", "province", "property_kind", "min_price", "max_price",
         "min_bedrooms", "min_bathrooms", "min_area",
     }
     current, groups = extract_search_criteria(message)
@@ -199,10 +260,13 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
         if key in allowed and value not in (None, "")
     }
 
+    if "quantity" in groups:
+        merged.pop("limit", None)
     if "budget" in groups:
         merged.pop("min_price", None)
         merged.pop("max_price", None)
     if "location" in groups:
+        merged.pop("region", None)
         merged.pop("area_or_ward", None)
         merged.pop("ward", None)
         merged.pop("district", None)

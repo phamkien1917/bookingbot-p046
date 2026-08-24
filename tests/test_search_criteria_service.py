@@ -100,3 +100,90 @@ def test_minimum_price_search_in_hanoi() -> None:
         "province": "Hà Nội",
     }
     assert groups == {"budget", "location"}
+
+
+def test_region_search_mien_bac() -> None:
+    criteria, groups = extract_search_criteria("nhà trên 10 tỷ ở miền bắc")
+
+    assert criteria == {
+        "min_price": 10_000_000_000,
+        "region": "Miền Bắc",
+    }
+    assert groups == {"budget", "location"}
+
+
+def test_region_replaces_previous_province_in_memory() -> None:
+    previous = {
+        "province": "Hà Nội",
+        "min_price": 10_000_000_000,
+    }
+    merged = build_search_criteria("nhà trên 10 tỷ ở miền bắc", previous)
+
+    assert merged == {
+        "region": "Miền Bắc",
+        "min_price": 10_000_000_000,
+    }
+
+
+def test_format_criteria_summary_deduplicates_identical_locations() -> None:
+    from src.agents.nodes.inventory_agent import format_criteria_summary
+
+    summary = format_criteria_summary({
+        "area_or_ward": "Hà Nội",
+        "province": "Hà Nội",
+        "min_price": 10_000_000_000,
+    })
+    assert summary == "Hà Nội, từ 10 tỷ"
+    assert "Hà Nội, Hà Nội" not in summary
+
+
+def test_format_criteria_summary_with_region() -> None:
+    from src.agents.nodes.inventory_agent import format_criteria_summary
+
+    summary = format_criteria_summary({
+        "region": "Miền Bắc",
+        "min_price": 10_000_000_000,
+    })
+    assert summary == "Miền Bắc, từ 10 tỷ"
+
+
+def test_explicit_requested_quantity() -> None:
+    criteria, groups = extract_search_criteria("tìm 2 nhà dưới 5 tỷ ở miền bắc")
+    assert criteria["limit"] == 2
+    assert criteria["max_price"] == 5_000_000_000
+    assert criteria["region"] == "Miền Bắc"
+    assert "quantity" in groups
+
+    criteria_word, groups_word = extract_search_criteria("gợi ý ba căn hộ ở Cầu Giấy")
+    assert criteria_word["limit"] == 3
+    assert criteria_word["district"] == "Quận Cầu Giấy"
+    assert criteria_word["property_kind"] == "APARTMENT"
+    assert "quantity" in groups_word
+
+
+def test_bedroom_not_confused_with_quantity() -> None:
+    criteria, groups = extract_search_criteria("tìm căn hộ 2 phòng ngủ ở Hà Nội")
+    assert "limit" not in criteria
+    assert criteria["min_bedrooms"] == 2
+    assert criteria["province"] == "Hà Nội"
+    assert "quantity" not in groups
+
+
+def test_interleave_properties_by_province() -> None:
+    from src.agents.nodes.inventory_agent import _interleave_properties_by_province
+
+    items = [
+        {"id": "1", "province": "Hà Nội", "list_price": 1_000_000_000},
+        {"id": "2", "province": "Hà Nội", "list_price": 2_000_000_000},
+        {"id": "3", "province": "Quảng Ninh", "list_price": 4_000_000_000},
+        {"id": "4", "province": "Bắc Giang", "list_price": 5_000_000_000},
+    ]
+    interleaved = _interleave_properties_by_province(items, limit=4)
+    # The first 3 items should be from 3 distinct provinces: Hà Nội, Quảng Ninh, Bắc Giang
+    provs = [x["province"] for x in interleaved[:3]]
+    assert "Hà Nội" in provs
+    assert "Quảng Ninh" in provs
+    assert "Bắc Giang" in provs
+
+
+
