@@ -184,6 +184,8 @@ async def query_properties_from_db(
             filters.append(Property.list_price <= criteria["max_price"])
         if criteria.get("min_bedrooms") is not None and criteria["min_bedrooms"] > 0:
             filters.append(Property.bedrooms >= criteria["min_bedrooms"])
+        if criteria.get("max_bedrooms") is not None and criteria["max_bedrooms"] > 0:
+            filters.append(Property.bedrooms <= criteria["max_bedrooms"])
         if criteria.get("min_bathrooms") is not None and criteria["min_bathrooms"] > 0:
             filters.append(Property.bathrooms >= criteria["min_bathrooms"])
         if criteria.get("min_area") is not None and criteria["min_area"] > 0:
@@ -299,7 +301,12 @@ def format_criteria_summary(criteria: dict[str, Any]) -> str:
     if criteria.get("min_price") is not None:
         parts.append(f"từ {_price_text(criteria['min_price'])}")
     if criteria.get("min_bedrooms") is not None and criteria["min_bedrooms"] > 0:
-        parts.append(f"{criteria['min_bedrooms']}+ phòng ngủ")
+        if criteria.get("max_bedrooms") == criteria["min_bedrooms"]:
+            parts.append(f"{criteria['min_bedrooms']} phòng ngủ")
+        else:
+            parts.append(f"{criteria['min_bedrooms']}+ phòng ngủ")
+    elif criteria.get("max_bedrooms") is not None and criteria["max_bedrooms"] > 0:
+        parts.append(f"tối đa {criteria['max_bedrooms']} phòng ngủ")
     if criteria.get("min_area") is not None and criteria["min_area"] > 0:
         area_val = _num(criteria["min_area"])
         if area_val is not None:

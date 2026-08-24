@@ -54,6 +54,7 @@ class ExtractedCriteria(BaseModel):
     min_price: int | None = None
     max_price: int | None = None
     min_bedrooms: int | None = None
+    max_bedrooms: int | None = None
     min_bathrooms: int | None = None
     min_area: float | None = None
 
@@ -227,6 +228,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
                 min_price=det_criteria.get("min_price"),
                 max_price=det_criteria.get("max_price"),
                 min_bedrooms=det_criteria.get("min_bedrooms"),
+                max_bedrooms=det_criteria.get("max_bedrooms"),
                 min_area=det_criteria.get("min_area"),
             ),
         )
@@ -328,7 +330,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     elif "property_kind" in llm_dict:
         merged_criteria["property_kind"] = llm_dict["property_kind"]
 
-    for field in ("min_bedrooms", "min_bathrooms", "min_area"):
+    for field in ("min_bedrooms", "max_bedrooms", "min_bathrooms", "min_area"):
         if field in det_criteria:
             merged_criteria[field] = det_criteria[field]
         elif field in llm_dict:

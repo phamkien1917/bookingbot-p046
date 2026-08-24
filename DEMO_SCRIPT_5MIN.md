@@ -32,10 +32,10 @@ Mở sẵn 3 cửa sổ để chuyển đổi nhanh bằng phím tắt `Alt + Ta
 * 🎙️ **Lời thuyết minh:**
   > "Xin chào thầy cô và các bạn. Hôm nay em xin đại diện nhóm phát triển dự án **P-046** trình bày video demo sản phẩm **Nera – Hệ thống Trợ lý Bất động sản AI**.
   > 
-  > Hệ thống Nera được xây dựng nhằm phục vụ 3 nhóm đối tượng chính:
-  > - **Thứ nhất, đối với Khách hàng mua nhà:** Giúp tìm kiếm bất động sản dễ dàng qua trò chuyện tự nhiên, ghi nhớ sở thích cá nhân và đặt lịch hẹn xem nhà trực tiếp mà không phải đọc hàng ngàn tin đăng rời rạc.
-  > - **Thứ hai, đối với Chuyên viên Môi giới (Sale):** Tự động tiếp nhận, phê duyệt lịch hẹn xem nhà theo thời gian thực và tự động sắp xếp tuyến đường di chuyển tối ưu trong ngày.
-  > - **Thứ ba, đối với Ban quản lý (Admin):** Quản lý tập trung toàn bộ kho dữ liệu bất động sản và điều phối nhân sự Sale theo từng khu vực.
+  > Hệ thống Nera kết nối 3 đối tượng chính:
+  > - **Khách hàng:** Tìm nhà và đặt lịch xem nhà nhanh chóng qua AI trò chuyện.
+  > - **Môi giới (Sale):** Tiếp nhận, duyệt lịch tức thì và xem lộ trình di chuyển tối ưu.
+  > - **Quản trị (Admin):** Quản lý kho nhà đất và điều phối nhân sự.
   > 
   > Sau đây, em xin đi vào chi tiết các chức năng thực tế của hệ thống."
 
@@ -51,9 +51,9 @@ Mở sẵn 3 cửa sổ để chuyển đổi nhanh bằng phím tắt `Alt + Ta
      `chỉ lấy căn 2 phòng ngủ ở cầu giấy`
      ➜ Nhấn Enter. Nera tự động giữ ngân sách $\le$ 5 tỷ và lọc tiếp theo Cầu Giấy + 2PN.
 * 🎙️ **Lời thuyết minh:**
-  > "Chức năng đầu tiên là **Tìm kiếm bất động sản bằng ngôn ngữ tự nhiên**. Em nhập yêu cầu: *'tìm nhà dưới 5 tỷ ở miền bắc'*. Hệ thống lập tức bóc tách yêu cầu về vùng miền, khoảng giá và tìm ra các căn nhà phù hợp nhất trong kho dữ liệu, kèm theo phần giải thích lý do đề xuất rất trực quan.
+  > "Chức năng đầu tiên là **Tìm kiếm bất động sản bằng ngôn ngữ tự nhiên**. Em nhập yêu cầu: *'tìm nhà dưới 5 tỷ ở thanh xuân'*. Hệ thống lập tức bóc tách yêu cầu về địa điểm, khoảng giá và tìm ra các căn nhà phù hợp nhất trong kho dữ liệu, kèm theo phần giải thích lý do đề xuất trực quan.
   > 
-  > Điểm đặc biệt tiếp theo là **khả năng hiểu ngữ cảnh nối tiếp**. Khi em nhập tiếp: *'chỉ lấy căn 2 phòng ngủ ở cầu giấy'*, hệ thống không bắt em phải nhập lại từ đầu, mà tự động giữ nguyên tiêu chí ngân sách dưới 5 tỷ từ câu trước và kết hợp cùng tiêu chí mới là Quận Cầu Giấy và 2 phòng ngủ."
+  > Tiếp theo là **khả năng hiểu ngữ cảnh nối tiếp**. Khi em nhập tiếp: *'chỉ lấy căn 2 phòng ngủ'*, hệ thống không bắt em phải nhập lại từ đầu, mà tự động giữ nguyên tiêu chí ngân sách dưới 5 tỷ từ câu trước và kết hợp cùng tiêu chí mới là Quận Cầu Giấy và 2 phòng ngủ."
 
 ---
 
@@ -66,7 +66,7 @@ Mở sẵn 3 cửa sổ để chuyển đổi nhanh bằng phím tắt `Alt + Ta
 * 🎙️ **Lời thuyết minh:**
   > "Chức năng thứ hai là **Trí nhớ nhu cầu khách hàng**. Trong quá trình trò chuyện, hệ thống tự động ghi nhớ sở thích cá nhân của người dùng.
   > 
-  > Khi vào mục Trí nhớ, chúng ta có thể thấy hồ sơ đã được lưu lại gồm: ngân sách dưới 5 tỷ, khu vực Cầu Giấy và căn hộ 2 phòng ngủ.
+  > Khi vào mục memory, chúng ta có thể thấy hồ sơ đã được lưu lại gồm: ngân sách dưới 5 tỷ, khu vực thanh xuân.
   > 
   > Nhờ vậy, khi khách hàng quay lại trang chủ sau nhiều ngày, hệ thống sẽ nhận diện được ngay. Khi em bấm nút *'Tiếp tục hành trình'*, trợ lý ảo Nera lập tức chào đón và đưa ra các căn nhà phù hợp đúng theo sở thích đã lưu mà khách hàng không cần phải khai báo lại."
 
@@ -84,7 +84,7 @@ Mở sẵn 3 cửa sổ để chuyển đổi nhanh bằng phím tắt `Alt + Ta
 * 🎙️ **Lời thuyết minh:**
   > "Chức năng quan trọng tiếp theo là **Đặt lịch xem nhà thông minh**. Khách hàng chỉ cần nhắn: *'đặt lịch căn Fodacon Bắc Hà ngày mai lúc 14h'*. Hệ thống sẽ kiểm tra căn hộ, kiểm tra lịch trống của chuyên viên Sale phụ trách và tạo một yêu cầu đặt lịch ở trạng thái Chờ duyệt.
   > 
-  > Ngay lập tức, em chuyển sang giao diện làm việc của Chuyên viên Sale. Lịch hẹn vừa rồi đã xuất hiện theo thời gian thực. Sale kiểm tra thông tin và chỉ cần bấm nút *'Xác nhận'*.
+  > em sẽ chuyển sang giao diện làm việc của Chuyên viên Sale. Lịch hẹn vừa rồi đã xuất hiện theo thời gian thực. Sale kiểm tra thông tin và chỉ cần bấm nút *'Xác nhận'*.
   > 
   > Quay lại phía khách hàng, hệ thống lập tức thông báo lịch hẹn đã được xác nhận thành công, gửi kèm mã Booking và số điện thoại của Sale phụ trách để hai bên tiện liên hệ tiếp đón."
 
@@ -107,8 +107,7 @@ Mở sẵn 3 cửa sổ để chuyển đổi nhanh bằng phím tắt `Alt + Ta
 * 🖥️ **Thao tác trên màn hình:**
   - Bấm `Alt + Tab` quay về Trang chủ Nera (`https://www.nerahome.space`).
 * 🎙️ **Lời thuyết minh:**
-  > "Tóm lại, Nera mang đến một giải pháp toàn diện: vừa giúp khách hàng tìm nhà và đặt lịch xem nhà nhanh chóng, vừa giúp đội ngũ Sale và ban quản lý vận hành công việc hiệu quả và chính xác.
-  > 
+
   > Em xin kết thúc phần demo của nhóm P-046 tại đây. Cảm ơn thầy cô và các bạn đã theo dõi!"
 
 ---

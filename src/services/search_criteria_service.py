@@ -161,7 +161,26 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
 
     bedrooms = re.search(r"(\d+)\s*(?:phong ngu|pn|ngu)", text)
     if bedrooms:
-        criteria["min_bedrooms"] = int(bedrooms.group(1))
+        bed_count = int(bedrooms.group(1))
+        is_exact = bool(re.search(r"\b(chi|chi lay|dung|chinh xac|loai|can)\b", text))
+        is_min_explicit = bool(re.search(
+            r"(?:tu|it nhat|toi thieu|tren|>=)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)"
+            r"|" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)\s*(?:tro len|\+)",
+            text,
+        ))
+        is_max_explicit = bool(re.search(
+            r"(?:duoi|toi da|nhieu nhat|khong qua|<=)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)",
+            text,
+        ))
+        if is_max_explicit:
+            criteria["max_bedrooms"] = bed_count
+        elif is_min_explicit:
+            criteria["min_bedrooms"] = bed_count
+        elif is_exact or bed_count == 1:
+            criteria["min_bedrooms"] = bed_count
+            criteria["max_bedrooms"] = bed_count
+        else:
+            criteria["min_bedrooms"] = bed_count
 
     area = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:m2|met vuong)", text)
     if area:
@@ -245,7 +264,7 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
     """Merge memory with the current request, with explicit input winning."""
     allowed = {
         "limit", "region", "area_or_ward", "ward", "district", "province", "property_kind", "min_price", "max_price",
-        "min_bedrooms", "min_bathrooms", "min_area",
+        "min_bedrooms", "max_bedrooms", "min_bathrooms", "min_area",
     }
     current, groups = extract_search_criteria(message)
     text = _normalize(message)
@@ -264,6 +283,9 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
     if "budget" in groups:
         merged.pop("min_price", None)
         merged.pop("max_price", None)
+    if "min_bedrooms" in current or "max_bedrooms" in current:
+        merged.pop("min_bedrooms", None)
+        merged.pop("max_bedrooms", None)
     if "location" in groups:
         merged.pop("region", None)
         merged.pop("area_or_ward", None)

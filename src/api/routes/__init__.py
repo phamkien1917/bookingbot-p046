@@ -157,7 +157,7 @@ async def chat(
                     for key, value in customer_memory.items()
                     if key in {
                         "region", "district", "province", "property_kind", "min_price", "max_price",
-                        "min_bedrooms", "min_bathrooms", "min_area", "area_or_ward", "ward",
+                        "min_bedrooms", "max_bedrooms", "exact_bedrooms", "min_bathrooms", "min_area", "area_or_ward", "ward",
                     }
                 }
 
