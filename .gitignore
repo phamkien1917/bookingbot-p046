@@ -60,3 +60,6 @@ out/
 .ai-log/archive/
 
 scratch/
+
+# Demo & presentation notes
+DEMO_SCRIPT*
