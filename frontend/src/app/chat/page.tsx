@@ -482,7 +482,7 @@ function ChatContent() {
   const [sessionActionLoading, setSessionActionLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const propertyLoaded = useRef(false);
-  const promptSent = useRef(false);
+  const handledPromptRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadSessions = useCallback(async () => {
@@ -563,7 +563,8 @@ function ChatContent() {
   }
 
   useEffect(() => {
-    if (initialPrompt) {
+    if (initialPrompt && handledPromptRef.current !== initialPrompt) {
+      handledPromptRef.current = initialPrompt;
       const nextSession = crypto.randomUUID();
       window.sessionStorage.setItem("nera_chat_session_id", nextSession);
       setSessionId(nextSession);
@@ -579,7 +580,7 @@ function ChatContent() {
       return;
     }
 
-    if (isNewParam) {
+    if (isNewParam && !initialPrompt) {
       const nextSession = crypto.randomUUID();
       window.sessionStorage.setItem("nera_chat_session_id", nextSession);
       setSessionId(nextSession);

@@ -246,8 +246,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     llm_dict = understanding.criteria.model_dump(exclude_none=True)
     if is_resume_signal:
         understanding.is_new_search = False
-        if understanding.intent in {Intent.GREETING, Intent.FALLBACK, Intent.ASK_CRITERIA}:
-            understanding.intent = Intent.SEARCH_PROPERTY
+        understanding.intent = Intent.SEARCH_PROPERTY
     elif understanding.is_new_search or starts_new_search_signal:
         merged_criteria = {}
         understanding.is_new_search = True
