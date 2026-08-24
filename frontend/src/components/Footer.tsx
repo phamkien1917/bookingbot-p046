@@ -11,7 +11,7 @@ export default function Footer() {
           <div className="max-w-md">
             <div className="flex items-center text-white mb-6">
               <FaRobot className="h-8 w-8 text-teal-400" />
-              <span className="ml-2 text-2xl font-bold">Booking Bot AI</span>
+              <span className="ml-2 text-2xl font-bold">Nera</span>
             </div>
             <p className="text-slate-400 leading-relaxed text-sm">
               Giải pháp AI thông minh giúp tối ưu hóa quy trình tìm kiếm và đặt lịch xem bất động sản.
@@ -29,7 +29,7 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="pt-8 border-t border-slate-700/50 flex justify-between items-center text-xs text-slate-500">
-          <p>© 2024 Booking Bot AI Agent. Tất cả quyền được bảo lưu.</p>
+          <p>© 2026 Nera · Team 046 LTD. Tất cả quyền được bảo lưu.</p>
         </div>
       </div>
     </footer>

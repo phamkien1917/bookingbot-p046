@@ -1,6 +1,10 @@
-# Booking Bot AI
+# Nera
 
-Hệ thống tìm bất động sản và đặt lịch xem nhà gồm FastAPI/LangGraph, Next.js, PostgreSQL và Redis (có fallback bộ nhớ khi Redis không chạy). Hệ thống có bốn vai trò: Khách hàng, Sale, Điều phối và Admin.
+Trợ lý AI tìm nhà và đặt lịch xem nhà qua hội thoại tự nhiên. Hệ thống gồm FastAPI/LangGraph, Next.js, PostgreSQL và Redis (có fallback bộ nhớ khi Redis không chạy), phục vụ bốn vai trò: Khách hàng, Sale, Điều phối và Admin.
+
+Bản chạy thật: https://www.nerahome.space/
+
+> Một số định danh kỹ thuật trong mã nguồn vẫn giữ tên cũ `bookingbot`/`visitops` (tên cookie phiên, user database, subdomain Render). Đổi những tên này sẽ làm hỏng phiên đăng nhập và kết nối đang chạy, nên giữ nguyên.
 
 ## Chạy nhanh trên Windows
 
