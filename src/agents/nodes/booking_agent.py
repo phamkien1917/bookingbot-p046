@@ -27,7 +27,7 @@ from src.services.booking_service import (
     reschedule_customer_booking,
 )
 from src.services.chat_state_service import LOCAL_TZ
-from src.utils.property_text import clean_property_title
+from src.utils.property_text import clean_property_title, match_property_by_title
 
 logger = logging.getLogger(__name__)
 
@@ -424,10 +424,15 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
     # ==========================================
     # Find property
     prop_id = state.get("current_property_id")
-    properties = state.get("selected_properties", [])
+    properties = state.get("selected_properties") or state.get("search_results") or []
 
-    if not prop_id:
-        if len(properties) == 1:
+    if not prop_id and properties:
+        matched_idx, matched_prop = match_property_by_title(state.get("query", ""), properties)
+        if matched_prop:
+            prop_id = str(matched_prop["id"])
+            state["current_property_id"] = prop_id
+            state["selected_property_index"] = matched_idx
+        elif len(properties) == 1:
             prop_id = properties[0]["id"]
             state["current_property_id"] = prop_id
         elif len(properties) > 1:
@@ -442,6 +447,12 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
                 "current_agent": AgentType.RESPOND,
                 "suggested_actions": ["Tìm căn hộ Quận 7", "Tìm nhà phố Hà Nội"],
             }
+    elif not prop_id:
+        return {
+            "response": "Hiện tại chưa có bất động sản nào được chọn trong danh sách. Bạn hãy tìm và chọn một căn ưng ý trước khi đặt lịch nhé!",
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": ["Tìm căn hộ Quận 7", "Tìm nhà phố Hà Nội"],
+        }
 
     # Get Property Title
     async with get_session_context() as session:

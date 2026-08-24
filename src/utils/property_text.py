@@ -166,3 +166,65 @@ def get_search_variations(text: str | None) -> list[str]:
                 variations.add(term.replace(v2, v1))
 
     return [v for v in variations if v]
+
+
+def match_property_by_title(
+    query: str,
+    properties: list[dict[str, Any]],
+) -> tuple[int | None, dict[str, Any] | None]:
+    """Find the best matching property from a list given user query text."""
+    if not query or not properties:
+        return None, None
+
+    def _normalize_str(s: str) -> str:
+        import unicodedata
+        normalized = unicodedata.normalize("NFD", s.lower())
+        normalized = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+        return normalized.replace("đ", "d").strip()
+
+    q_norm = _normalize_str(query)
+    best_idx = None
+    best_prop = None
+    max_score = 0
+
+    for idx, prop in enumerate(properties):
+        title = prop.get("title", "")
+        t_norm = _normalize_str(title)
+        code = str(prop.get("code") or "").lower()
+
+        # Direct property code match
+        if code and len(code) >= 3 and code in q_norm:
+            return idx, prop
+
+        # Direct title inclusion
+        if t_norm and len(t_norm) >= 5 and t_norm in q_norm:
+            return idx, prop
+
+        # Keyword token overlap score
+        noise = {
+            "can", "ho", "chung", "cu", "nha", "ban", "mua", "cho", "toi",
+            "dat", "lich", "xem", "tai", "phuong", "quan", "tp", "ha", "noi", "hcm",
+        }
+        tokens = [w for w in re.findall(r"\w+", t_norm) if len(w) >= 2 and w not in noise]
+
+        score = 0
+        for i in range(len(tokens)):
+            if tokens[i] in q_norm:
+                score += 1
+            if i + 1 < len(tokens):
+                bigram = f"{tokens[i]} {tokens[i+1]}"
+                if bigram in q_norm:
+                    score += 3
+            if i + 2 < len(tokens):
+                trigram = f"{tokens[i]} {tokens[i+1]} {tokens[i+2]}"
+                if trigram in q_norm:
+                    score += 6
+
+        if score > max_score and score >= 3:
+            max_score = score
+            best_idx = idx
+            best_prop = prop
+
+    if best_prop:
+        return best_idx, best_prop
+    return None, None

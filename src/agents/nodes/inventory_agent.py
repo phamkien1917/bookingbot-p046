@@ -20,7 +20,7 @@ from src.database.models import Property, PropertyKind, PropertyStatus
 from src.services.chat_state_service import normalize_text
 from src.services.llm import get_llm
 from src.services.search_criteria_service import REGION_PROVINCES, extract_search_criteria
-from src.utils.property_text import clean_property_title, get_search_variations
+from src.utils.property_text import clean_property_title, get_search_variations, match_property_by_title
 
 logger = logging.getLogger(__name__)
 
@@ -687,6 +687,10 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
                 if 0 <= idx < len(search_pool):
                     chosen = search_pool[idx]
 
+        if not chosen and search_pool:
+            matched_idx, matched_prop = match_property_by_title(query, search_pool)
+            if matched_prop:
+                chosen = matched_prop
         if not chosen and current_prop_id and search_pool:
             chosen = next((p for p in search_pool if p.get("id") == current_prop_id), None)
         if not chosen and search_pool:
@@ -719,7 +723,11 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
     # Step 3: Handle SELECT_PROPERTY
     if intent == Intent.SELECT_PROPERTY:
         if search_pool:
-            if selected_idx is not None and 0 <= selected_idx < len(search_pool):
+            matched_idx, matched_prop = match_property_by_title(query, search_pool)
+            if matched_prop:
+                chosen = matched_prop
+                selected_idx = matched_idx
+            elif selected_idx is not None and 0 <= selected_idx < len(search_pool):
                 chosen = search_pool[selected_idx]
             elif current_prop_id:
                 chosen = next((p for p in search_pool if p.get("id") == current_prop_id), search_pool[0])

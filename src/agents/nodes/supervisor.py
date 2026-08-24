@@ -27,6 +27,7 @@ from src.services.chat_state_service import (
 )
 from src.services.llm import get_llm
 from src.services.search_criteria_service import extract_search_criteria
+from src.utils.property_text import match_property_by_title
 
 logger = logging.getLogger(__name__)
 
@@ -334,12 +335,20 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     target_hour = parse_requested_hour(query) or understanding.requested_hour
 
-    # Ordinal resolution
+    # Ordinal & Property Name resolution
     prop_count = len(state.get("selected_properties", []))
     slot_count = len(state.get("selected_slots", []))
     ordinal = extract_ordinal(query, maximum=max(prop_count, slot_count, 10))
     if ordinal is None and understanding.property_ordinal:
         ordinal = understanding.property_ordinal - 1
+
+    matched_prop_id = None
+    if ordinal is None and state.get("phase") != "AWAITING_SLOT":
+        search_pool = state.get("selected_properties") or state.get("search_results") or []
+        matched_idx, matched_prop = match_property_by_title(query, search_pool)
+        if matched_prop:
+            ordinal = matched_idx
+            matched_prop_id = str(matched_prop["id"])
 
     # Soft preferences & household context accumulation
     soft_prefs = list(state.get("soft_preferences", []))
@@ -387,7 +396,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         phase = state.get("phase")
         if phase in ("AWAITING_CANCEL_CONFIRMATION", "AWAITING_AUTH", "AWAITING_SLOT", "AWAITING_DATE"):
             current_agent = AgentType.BOOKING
-        elif intent == Intent.CONFIRM and (state.get("current_property_id") or state.get("selected_properties")):
+        elif intent == Intent.CONFIRM and (state.get("current_property_id") or state.get("selected_properties") or matched_prop_id):
             current_agent = AgentType.BOOKING
             intent = Intent.BOOK_APPOINTMENT
         else:
@@ -428,8 +437,10 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     uuid_match = re.search(r"\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b", query, re.IGNORECASE)
     if uuid_match:
         updates["current_property_id"] = uuid_match.group(1).lower()
-
-    if ordinal is not None:
+    elif matched_prop_id:
+        updates["current_property_id"] = matched_prop_id
+        updates["selected_property_index"] = ordinal
+    elif ordinal is not None:
         if state.get("phase") == "AWAITING_SLOT":
             updates["selected_slot_index"] = ordinal
         else:

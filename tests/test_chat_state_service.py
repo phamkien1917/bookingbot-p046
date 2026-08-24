@@ -55,3 +55,33 @@ def test_chat_state_round_trip_ignores_unknown_fields() -> None:
     assert restored["selected_property_id"] == "p-1"
     assert "untrusted_future_field" not in restored
 
+
+def test_match_property_by_title() -> None:
+    from src.utils.property_text import match_property_by_title
+
+    pool = [
+        {"id": "p1", "title": "Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ"},
+        {"id": "p2", "title": "Chung cư cao cấp Feliz Home 297 Hoàng Mai"},
+        {"id": "p3", "title": "CĂN HỘ Fodacon Bắc Hà – Mỗ Lao, Hà Đông"},
+    ]
+
+    # Full exact query matching
+    idx, prop = match_property_by_title("đặt lịch căn CĂN HỘ Fodacon Bắc Hà – Mỗ Lao, Hà Đông cho tôi", pool)
+    assert idx == 2
+    assert prop["id"] == "p3"
+
+    # Partial / keyword query matching
+    idx2, prop2 = match_property_by_title("đặt lịch xem căn Fodacon Bắc Hà", pool)
+    assert idx2 == 2
+    assert prop2["id"] == "p3"
+
+    # Feliz Home matching
+    idx3, prop3 = match_property_by_title("xem chi tiết Feliz Home", pool)
+    assert idx3 == 1
+    assert prop3["id"] == "p2"
+
+    # Non matching query
+    idx4, prop4 = match_property_by_title("tìm căn ở đà nẵng", pool)
+    assert idx4 is None
+    assert prop4 is None
+
