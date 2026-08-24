@@ -101,13 +101,18 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
 
     # Derive smart default suggested actions (Quick Replies) if empty
     suggested_actions = list(state.get("suggested_actions", []))
+    mem_summary = state.get("memory_summary", "")
+
     if not suggested_actions:
         if intent == Intent.GREETING:
-            suggested_actions = [
+            suggested_actions = []
+            if mem_summary:
+                suggested_actions.append(f"Tiếp tục: {mem_summary[:28]}...")
+            suggested_actions.extend([
                 "Tìm căn hộ Quận 7",
                 "Tìm nhà riêng Hà Nội",
                 "Tư vấn mua nhà lần đầu",
-            ]
+            ])
         elif intent == Intent.CONSULTATION_QA:
             suggested_actions = [
                 "Tìm bất động sản phù hợp",
@@ -139,9 +144,24 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
     if state.get("max_commute_minutes"):
         insights["max_commute_minutes"] = state["max_commute_minutes"]
 
-    return {
+    CONVERSATIONAL_INTENTS = {
+        Intent.CONSULTATION_QA,
+        Intent.GREETING,
+        Intent.THANKS,
+        Intent.GOODBYE,
+        Intent.OUT_OF_SCOPE,
+        Intent.FALLBACK,
+    }
+
+    result: dict[str, Any] = {
         "response": final_response,
         "suggested_actions": suggested_actions,
         "insights": insights,
         "ai_mode": ai_mode,
     }
+
+    # Clear selected_properties if purely conversational to avoid leaking property cards
+    if intent in CONVERSATIONAL_INTENTS:
+        result["selected_properties"] = []
+
+    return result

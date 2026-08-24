@@ -108,6 +108,7 @@ def create_initial_agent_state(
     customer_role: UserRole | None = None,
     history: list[dict[str, Any]] | None = None,
     metadata: dict[str, Any] | None = None,
+    memory_summary: str = "",
 ) -> AgentState:
     """Create a fully initialized AgentState from session and metadata."""
     stored_state = (metadata or {}).get("chat_state", {})
@@ -151,7 +152,7 @@ def create_initial_agent_state(
         "response_kind": "DIRECT",
         "suggested_actions": [],
         "insights": (metadata or {}).get("insights", {}),
-        "memory_summary": "",
+        "memory_summary": memory_summary or stored_state.get("memory_summary", ""),
         "ai_mode": "llm_grounded",
         "ai_model": None,
         "ai_latency_ms": 0,

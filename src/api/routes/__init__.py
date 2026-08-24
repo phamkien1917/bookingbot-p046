@@ -1,6 +1,7 @@
 """API routes for BookingBot AI Agent."""
 
 import logging
+import re
 import uuid
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from src.database import get_session
 from src.database.models import User, UserRole
 from src.models.schemas import ChatRequest, ChatResponse
 from src.services.chat_ai_service import get_chat_ai_service
+from src.services.chat_state_service import normalize_text
 from src.services.conversation_service import (
     delete_persistent_session,
     get_persistent_session,
@@ -113,13 +115,14 @@ async def chat(
                 raise HTTPException(status_code=403, detail="Session does not belong to this user")
 
         customer_memory = await get_customer_memory(db, customer_id) if customer_id else {}
+        current_mem_summary = memory_summary(customer_memory) if customer_memory else ""
         messages = list(session_data.get("messages", [])) if session_data else []
         metadata = session_data.get("metadata", {}) if session_data else {}
         if customer_id:
             metadata["customer_id"] = customer_id
         metadata["last_active"] = utcnow().isoformat()
 
-        # Create AgentState for LangGraph
+        # Create AgentState for LangGraph with memory summary for context / suggestions
         agent_state = create_initial_agent_state(
             session_id=session_id,
             query=request.message,
@@ -127,10 +130,16 @@ async def chat(
             customer_role=user.role if user else None,
             history=messages,
             metadata=metadata,
+            memory_summary=current_mem_summary,
         )
 
-        # Merge customer memory if new search criteria empty
-        if not agent_state.get("search_criteria") and customer_memory:
+        # Only merge customer memory into active search_criteria if user explicitly asks to resume
+        norm_query = normalize_text(request.message)
+        resume_signal = bool(re.search(
+            r"\b(nhu cau cu|so thich da luu|tiep tuc tim|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu)\b",
+            norm_query
+        ))
+        if resume_signal and not agent_state.get("search_criteria") and customer_memory:
             agent_state["search_criteria"] = {
                 key: value
                 for key, value in customer_memory.items()
@@ -150,7 +159,25 @@ async def chat(
         if not response_msg:
             response_msg = "Chào bạn! Mình có thể giúp bạn tìm nhà, xem chi tiết và đặt lịch xem nhà. Bạn cần hỗ trợ gì?"
 
-        properties = final_state.get("selected_properties") or []
+        raw_properties = final_state.get("selected_properties") or []
+        response_kind = final_state.get("response_kind", "DIRECT")
+        intent = final_state.get("intent")
+
+        PROPERTY_RELEVANT_KINDS = {
+            "SEARCH_RESULTS", "PROPERTY_SELECTED", "PROPERTY_ADVICE",
+            "PROPERTY_LIST", "COMPARISON",
+        }
+        PROPERTY_RELEVANT_INTENTS = {
+            "SEARCH_PROPERTY", "SELECT_PROPERTY", "PROPERTY_DETAILS",
+            "COMPARE_PROPERTIES", "BOOK_APPOINTMENT",
+        }
+
+        # Strict relevancy check: only attach property cards when turn is genuinely about searching/viewing properties
+        if response_kind in PROPERTY_RELEVANT_KINDS or (intent in PROPERTY_RELEVANT_INTENTS and response_kind not in ("DIRECT", "ASK_CRITERIA", "SEARCH_NO_RESULTS")):
+            properties = raw_properties
+        else:
+            properties = []
+
         insights = final_state.get("insights") or {}
         ai_mode = final_state.get("ai_mode") or "llm_grounded"
         ai_model = final_state.get("ai_model") or settings.openai_model_name
@@ -164,7 +191,7 @@ async def chat(
             "household_context": final_state.get("household_context", []),
             "commute_landmark": final_state.get("commute_landmark"),
             "max_commute_minutes": final_state.get("max_commute_minutes"),
-            "property_refs": properties,
+            "property_refs": raw_properties if properties else (metadata.get("chat_state", {}).get("property_refs", []) if intent in PROPERTY_RELEVANT_INTENTS else []),
             "selected_property_id": final_state.get("current_property_id"),
             "selected_property_index": final_state.get("selected_property_index"),
             "requested_date": final_state.get("requested_date"),
@@ -190,7 +217,8 @@ async def chat(
         })
 
         if customer_id:
-            await remember_search_criteria(db, customer_id, final_state.get("search_criteria"))
+            if intent == "SEARCH_PROPERTY" and final_state.get("search_criteria"):
+                await remember_search_criteria(db, customer_id, final_state.get("search_criteria"))
             await remember_feedback(db, customer_id, request.message)
             await save_persistent_session(db, session_id, customer_id, messages, metadata)
 
