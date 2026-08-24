@@ -62,7 +62,11 @@ Mật khẩu chung trong môi trường development: `Demo@123`.
 | Sale | `kien.sale@example.com` | `/sale` |
 | Admin | `admin.demo@example.com` | `/admin` |
 
-Tài khoản seed dùng mật khẩu demo chỉ được chấp nhận khi `APP_ENV=development`. Tài khoản khách đăng ký mới luôn được lưu bằng bcrypt. Trước khi deploy production, đặt `APP_ENV=production`, dùng `JWT_SECRET_KEY` ngẫu nhiên dài và thay hash demo trong dữ liệu seed.
+Tài khoản khách đăng ký mới luôn được lưu bằng bcrypt.
+
+**Hạn chế đã biết:** `verify_password` trong `src/services/auth_service.py` chấp nhận mật khẩu demo cho mọi tài khoản có hash bằng chuỗi giữ chỗ `DEMO_ONLY_REPLACE_WITH_ARGON2ID_HASH`, và **không kiểm tra `APP_ENV`**. Mười tài khoản seed trong `database/002_seed.sql` đang dùng đúng chuỗi giữ chỗ đó. Đây là lựa chọn có chủ đích để demo đăng nhập nhanh ở nhiều vai trò, nhưng không dùng được cho môi trường thật.
+
+Trước khi chạy thật với dữ liệu người dùng: thay toàn bộ hash seed bằng hash bcrypt sinh ngẫu nhiên, xoá nhánh so sánh `DEMO_PASSWORD_HASH` trong `verify_password`, đặt `APP_ENV=production` và dùng `JWT_SECRET_KEY` ngẫu nhiên đủ dài.
 
 ## Luồng nghiệp vụ
 
