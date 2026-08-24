@@ -60,9 +60,21 @@ def test_match_property_by_title() -> None:
     from src.utils.property_text import match_property_by_title
 
     pool = [
-        {"id": "p1", "title": "Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ"},
-        {"id": "p2", "title": "Chung cư cao cấp Feliz Home 297 Hoàng Mai"},
-        {"id": "p3", "title": "CĂN HỘ Fodacon Bắc Hà – Mỗ Lao, Hà Đông"},
+        {
+            "id": "p1", "code": "TX-101",
+            "title": "Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ",
+            "district": "Thanh Xuân", "province": "Hà Nội",
+        },
+        {
+            "id": "p2", "code": "HM-297",
+            "title": "Chung cư cao cấp Feliz Home 297 Hoàng Mai",
+            "district": "Hoàng Mai", "province": "Hà Nội",
+        },
+        {
+            "id": "p3", "code": "HD-303",
+            "title": "CĂN HỘ Fodacon Bắc Hà – Mỗ Lao, Hà Đông",
+            "district": "Hà Đông", "province": "Hà Nội",
+        },
     ]
 
     # Full exact query matching
@@ -85,3 +97,16 @@ def test_match_property_by_title() -> None:
     assert idx4 is None
     assert prop4 is None
 
+    # A location alone is search criteria, not a unique property selection.
+    idx5, prop5 = match_property_by_title("đặt lịch căn ở Thanh Xuân", pool)
+    assert idx5 is None
+    assert prop5 is None
+
+    # Property codes require token boundaries to avoid matching another word.
+    idx6, prop6 = match_property_by_title("tôi chọn mã TX-101", pool)
+    assert idx6 == 0
+    assert prop6["id"] == "p1"
+
+    idx7, prop7 = match_property_by_title("mã giả ATX-1019", pool)
+    assert idx7 is None
+    assert prop7 is None

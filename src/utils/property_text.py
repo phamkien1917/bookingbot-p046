@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 # Comprehensive prefixes to remove (crawler junk, marketing prefixes, noisy sale keywords)
 _JUNK_PREFIXES = [
@@ -190,10 +191,10 @@ def match_property_by_title(
     for idx, prop in enumerate(properties):
         title = prop.get("title", "")
         t_norm = _normalize_str(title)
-        code = str(prop.get("code") or "").lower()
+        code = _normalize_str(str(prop.get("code") or ""))
 
         # Direct property code match
-        if code and len(code) >= 3 and code in q_norm:
+        if code and len(code) >= 3 and re.search(rf"(?<!\w){re.escape(code)}(?!\w)", q_norm):
             return idx, prop
 
         # Direct title inclusion
@@ -205,7 +206,22 @@ def match_property_by_title(
             "can", "ho", "chung", "cu", "nha", "ban", "mua", "cho", "toi",
             "dat", "lich", "xem", "tai", "phuong", "quan", "tp", "ha", "noi", "hcm",
         }
-        tokens = [w for w in re.findall(r"\w+", t_norm) if len(w) >= 2 and w not in noise]
+        location_tokens: set[str] = set()
+        for field in ("address", "address_line", "ward", "district", "province"):
+            location_tokens.update(re.findall(r"\w+", _normalize_str(str(prop.get(field) or ""))))
+
+        # Structured location fields are search facts, not a distinctive
+        # property name. Excluding them prevents location-only language from
+        # silently selecting an arbitrary result in that district.
+        tokens = [
+            word
+            for word in re.findall(r"\w+", t_norm)
+            if (
+                len(word) >= 2
+                and word not in noise
+                and word not in location_tokens
+            )
+        ]
 
         score = 0
         for i in range(len(tokens)):

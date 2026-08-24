@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   FaBars, FaBed, FaBookmark, FaBrain, FaCalendarAlt, FaCheck, FaCheckCircle, FaChevronDown, FaChevronRight,
   FaCompass, FaEllipsisV, FaExclamationCircle, FaHistory, FaMagic, FaMapMarkerAlt,
-  FaPaperPlane, FaPen, FaPlus, FaRegBookmark, FaShieldAlt, FaStop, FaTimes, FaTimesCircle, FaTrash
+  FaPaperPlane, FaPen, FaPlus, FaRegBookmark, FaShieldAlt, FaTimes, FaTimesCircle, FaTrash
 } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";

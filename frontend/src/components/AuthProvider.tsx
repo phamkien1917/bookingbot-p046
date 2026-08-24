@@ -128,6 +128,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     try {
       if (typeof window !== "undefined") {
         localStorage.removeItem("nera_auth_token");
+        // Prevent the next account from reusing a conversation owned by the
+        // account signing out. Guest-to-customer login remains uninterrupted.
+        sessionStorage.removeItem("nera_chat_session_id");
       }
       await apiFetch<void>("/auth/logout", { method: "POST" });
       if (operation === operationVersion.current) {
