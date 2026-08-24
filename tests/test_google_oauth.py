@@ -11,10 +11,12 @@ def test_oauth_state_round_trip() -> None:
 
 def test_oauth_state_rejects_tampering() -> None:
     state = _create_oauth_state("sale-user-id")
-    replacement = "a" if state[-1] != "a" else "b"
+    parts = state.split(".")
+    tampered_payload = parts[1][:-2] + ("aa" if not parts[1].endswith("aa") else "bb")
+    tampered = f"{parts[0]}.{tampered_payload}.{parts[2]}"
 
     with pytest.raises(HTTPException) as exc_info:
-        _decode_oauth_state(f"{state[:-1]}{replacement}")
+        _decode_oauth_state(tampered)
 
     assert exc_info.value.status_code == 400
 

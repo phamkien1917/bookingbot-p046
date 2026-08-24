@@ -507,10 +507,32 @@ function ChatContent() {
     return () => window.clearTimeout(t);
   }, [loadMemory, loadSavedProperties, loadSessions]);
 
+  const sessionLoadedOnMount = useRef(false);
+
   useEffect(() => {
     const stored = window.sessionStorage.getItem("nera_chat_session_id");
-    if (stored) setSessionId(stored);
-  }, []);
+    if (stored) {
+      setSessionId(stored);
+      if (user && !initialPrompt && !propertyId && !sessionLoadedOnMount.current) {
+        sessionLoadedOnMount.current = true;
+        void apiFetch<SessionDetail>(`/session/${stored}`)
+          .then(data => {
+            if (data.messages && data.messages.length > 0) {
+              setMessages(data.messages.map(m => ({
+                role: m.role.toLowerCase() === "user" ? "user" : "assistant",
+                content: m.content,
+                properties: m.properties,
+                aiMode: m.ai_mode,
+                aiModel: m.ai_model,
+              })));
+            }
+          })
+          .catch(() => {
+            // Silently start fresh without showing an error banner
+          });
+      }
+    }
+  }, [user, initialPrompt, propertyId]);
 
   useEffect(() => {
     window.sessionStorage.setItem("nera_chat_session_id", sessionId);
@@ -536,10 +558,10 @@ function ChatContent() {
 
   async function send(event?: FormEvent, quickText?: string) {
     event?.preventDefault();
+    if (loading) return; // Prevent double submit while generating
     const text = (quickText ?? input).trim();
     if (!text) return;
 
-    // If currently generating, abort previous request and start new one immediately
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -578,7 +600,15 @@ function ChatContent() {
 
   useEffect(() => {
     if (!initialPrompt || promptSent.current) return;
-    const t = window.setTimeout(() => { if (!promptSent.current) { promptSent.current = true; void send(undefined, initialPrompt); } }, 0);
+    promptSent.current = true;
+    // Clean prompt parameter from URL so subsequent reload does not re-send
+    const url = new URL(window.location.href);
+    url.searchParams.delete("prompt");
+    window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+
+    const t = window.setTimeout(() => {
+      void send(undefined, initialPrompt);
+    }, 0);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPrompt]);
@@ -587,7 +617,11 @@ function ChatContent() {
     try {
       const data = await apiFetch<SessionDetail>(`/session/${id}`);
       setSessionId(id);
-      setMessages(data.messages.map(m => ({ role: m.role.toLowerCase() === "user" ? "user" : "assistant", content: m.content, properties: m.properties, aiMode: m.ai_mode, aiModel: m.ai_model })));
+      if (data.messages && data.messages.length > 0) {
+        setMessages(data.messages.map(m => ({ role: m.role.toLowerCase() === "user" ? "user" : "assistant", content: m.content, properties: m.properties, aiMode: m.ai_mode, aiModel: m.ai_model })));
+      } else {
+        setMessages([greeting]);
+      }
       setExpandedCards({});
       setError("");
     } catch { setError("Không tải được cuộc trò chuyện."); }
@@ -812,8 +846,14 @@ function ChatContent() {
                   {message.role === "assistant" && message.quickReplies && message.quickReplies.length > 0 && index === messages.length - 1 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {message.quickReplies.map(chip => (
-                        <button key={chip} onClick={() => void send(undefined, chip)}
-                          className="rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm">
+                        <button
+                          key={chip}
+                          disabled={loading}
+                          onClick={() => void send(undefined, chip)}
+                          className={`rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm ${
+                            loading ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                          }`}
+                        >
                           {chip}
                         </button>
                       ))}
@@ -893,9 +933,12 @@ function ChatContent() {
             <input
               aria-label="Tin nhắn"
               value={input}
+              disabled={loading}
               onChange={e => setInput(e.target.value)}
-              placeholder="Nói điều bạn thích, không thích hoặc muốn thay đổi…"
-              className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] py-4 pl-5 pr-14 text-sm outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
+              placeholder={loading ? "Nera đang trả lời, vui lòng chờ trong giây lát…" : "Nói điều bạn thích, không thích hoặc muốn thay đổi…"}
+              className={`w-full rounded-2xl border border-black/10 bg-[#fbfaf7] py-4 pl-5 pr-14 text-sm outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10 transition-colors ${
+                loading ? "opacity-60 cursor-not-allowed bg-stone-100/70" : ""
+              }`}
             />
             {loading ? (
               <button
@@ -911,8 +954,8 @@ function ChatContent() {
             ) : (
               <button
                 type="submit"
-                disabled={!input.trim()}
-                className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink)] text-white transition hover:scale-105 disabled:opacity-30 cursor-pointer"
+                disabled={!input.trim() || loading}
+                className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink)] text-white transition hover:scale-105 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
                 aria-label="Gửi tin nhắn"
               >
                 <FaPaperPlane />
