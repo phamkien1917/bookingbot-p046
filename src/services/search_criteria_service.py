@@ -8,6 +8,7 @@ import re
 import unicodedata
 
 DISTRICT_NAMES = {
+    # Hà Nội
     "ba dinh": "Quận Ba Đình",
     "hoan kiem": "Quận Hoàn Kiếm",
     "tay ho": "Quận Tây Hồ",
@@ -20,11 +21,50 @@ DISTRICT_NAMES = {
     "nam tu liem": "Quận Nam Từ Liêm",
     "bac tu liem": "Quận Bắc Từ Liêm",
     "ha dong": "Quận Hà Đông",
-    "go vap": "Quận Gò Vấp",
+    "gia lam": "Huyện Gia Lâm",
+    "dong anh": "Huyện Đông Anh",
+    "thanh tri": "Huyện Thanh Trì",
+    "dan phuong": "Huyện Đan Phượng",
+    "hoai duc": "Huyện Hoài Đức",
+    "thuong tin": "Huyện Thường Tín",
+    "me linh": "Huyện Mê Linh",
+    "soc son": "Huyện Sóc Sơn",
+    "son tay": "Thị xã Sơn Tây",
+
+    # TP. Hồ Chí Minh
     "binh thanh": "Quận Bình Thạnh",
+    "go vap": "Quận Gò Vấp",
     "tan binh": "Quận Tân Bình",
+    "tan phu": "Quận Tân Phú",
     "phu nhuan": "Quận Phú Nhuận",
+    "binh tan": "Quận Bình Tân",
     "thu duc": "Thành phố Thủ Đức",
+    "binh chanh": "Huyện Bình Chánh",
+    "can gio": "Huyện Cần Giờ",
+    "hoc mon": "Huyện Hóc Môn",
+    "cu chi": "Huyện Củ Chi",
+    "nha be": "Huyện Nhà Bè",
+
+    # Đà Nẵng
+    "hai chau": "Quận Hải Châu",
+    "son tra": "Quận Sơn Trà",
+    "ngu hanh son": "Quận Ngũ Hành Sơn",
+    "lien chieu": "Quận Liên Chiểu",
+    "cam le": "Quận Cẩm Lệ",
+    "thanh khe": "Quận Thanh Khê",
+    "hoa vang": "Huyện Hòa Vang",
+
+    # Khánh Hòa / Quảng Ninh / Bình Dương / Bắc Ninh / Hưng Yên / Long An
+    "nha trang": "Thành phố Nha Trang",
+    "ha long": "Thành phố Hạ Long",
+    "thuan an": "Thành phố Thuận An",
+    "di an": "Thành phố Dĩ An",
+    "thu dau mot": "Thành phố Thủ Dầu Một",
+    "tu son": "Thành phố Từ Sơn",
+    "van giang": "Huyện Văn Giang",
+    "ben luc": "Huyện Bến Lức",
+    "duc hoa": "Huyện Đức Hòa",
+    "thanh hoa": "Thành phố Thanh Hóa",
 }
 
 
@@ -86,14 +126,36 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     elif re.search(r"da\s*nang", text):
         criteria["province"] = "Đà Nẵng"
         groups.add("location")
+    elif re.search(r"khanh\s*hoa|nha\s*trang", text):
+        criteria["province"] = "Khánh Hòa"
+        groups.add("location")
+    elif re.search(r"quang\s*ninh|ha\s*long", text):
+        criteria["province"] = "Quảng Ninh"
+        groups.add("location")
+    elif re.search(r"binh\s*duong", text):
+        criteria["province"] = "Bình Dương"
+        groups.add("location")
+    elif re.search(r"bac\s*ninh", text):
+        criteria["province"] = "Bắc Ninh"
+        groups.add("location")
+    elif re.search(r"hung\s*yen", text):
+        criteria["province"] = "Hưng Yên"
+        groups.add("location")
+    elif re.search(r"long\s*an", text):
+        criteria["province"] = "Long An"
+        groups.add("location")
+    elif re.search(r"thanh\s*hoa", text):
+        criteria["province"] = "Thanh Hóa"
+        groups.add("location")
 
     named_districts = "|".join(
         re.escape(name) for name in sorted(DISTRICT_NAMES, key=len, reverse=True)
     )
-    district = re.search(rf"\b(?:quan\s+)?({named_districts})\b", text)
-    numbered_district = re.search(r"\bquan\s+(\d+)\b", text)
+    district = re.search(rf"\b(?:quan|huyen|thanh pho|tp\.?|tx\.?)\s+({named_districts})\b|\b({named_districts})\b", text)
+    numbered_district = re.search(r"\b(?:quan|q\.?)\s*(\d+)\b", text)
     if district:
-        criteria["district"] = DISTRICT_NAMES[district.group(1)]
+        dist_name = district.group(1) or district.group(2)
+        criteria["district"] = DISTRICT_NAMES[dist_name]
         groups.add("location")
     elif numbered_district:
         criteria["district"] = f"Quận {numbered_district.group(1)}"
@@ -103,8 +165,6 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         criteria["property_kind"] = "APARTMENT"
     elif re.search(r"\b(biet thu|villa)\b", text):
         criteria["property_kind"] = "VILLA"
-    # Sau khi bỏ dấu, cả "đất" và "đặt" đều thành "dat". Không được dùng
-    # một token "dat" đơn lẻ vì câu "đặt lịch" từng làm loại nhà bị đổi thành LAND.
     elif (
         re.search(r"\bđất(?:\s+nền)?\b", message.lower())
         or re.search(r"\b(dat nen|lo dat|mua dat|tim dat|can dat)\b", text)
@@ -123,7 +183,7 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
 def build_search_criteria(message: str, memory: dict | None) -> dict:
     """Merge memory with the current request, with explicit input winning."""
     allowed = {
-        "district", "province", "property_kind", "min_price", "max_price",
+        "area_or_ward", "ward", "district", "province", "property_kind", "min_price", "max_price",
         "min_bedrooms", "min_bathrooms", "min_area",
     }
     current, groups = extract_search_criteria(message)
@@ -143,6 +203,8 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
         merged.pop("min_price", None)
         merged.pop("max_price", None)
     if "location" in groups:
+        merged.pop("area_or_ward", None)
+        merged.pop("ward", None)
         merged.pop("district", None)
         merged.pop("province", None)
 

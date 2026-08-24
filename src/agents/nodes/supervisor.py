@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractedCriteria(BaseModel):
+    area_or_ward: str | None = Field(
+        default=None,
+        description="Phường/xã, khu đô thị, dự án, tên đường hoặc địa danh cụ thể (ví dụ: Xa La, Văn Quán, Yên Hòa, Nam Trung Yên, Văn Khê, Dịch Vọng, Mễ Trì, Trung Kính, Times City...)"
+    )
+    ward: str | None = None
     district: str | None = None
     province: str | None = None
     property_kind: str | None = None
@@ -70,10 +75,18 @@ Nhiệm vụ của bạn:
 3. Trích xuất chính xác các thực thể khi khách thật sự có nhu cầu tìm BĐS (địa điểm, loại nhà, tầm giá VND, số phòng ngủ, ngày giờ, mã booking).
 4. Phân loại chuẩn xác vào các Intent sau:
 
-- SEARCH_PROPERTY: Khách THỰC SỰ muốn tìm BĐS mới hoặc tinh chỉnh tiêu chí (ví dụ: "tìm nhà Quận 7", "tìm căn hộ 2PN dưới 5 tỷ", "lọc nhà có ban công", "xem thêm căn khác").
+- SEARCH_PROPERTY: Khách THỰC SỰ muốn tìm BĐS mới hoặc tinh chỉnh tiêu chí (ví dụ: "tìm nhà 2 ngủ ở xa la hà đông", "tìm căn hộ ở Thảo Điền Quận 2", "tìm nhà ở Liên Chiểu Đà Nẵng", "tìm căn hộ 2PN dưới 5 tỷ", "lọc nhà có ban công", "xem thêm căn khác").
+  * ĐỊA ĐIỂM CHI TIẾT (area_or_ward): Khi khách nhắc đến bất kỳ phường/xã, khu đô thị, dự án, tên đường hay địa danh cụ thể trên toàn quốc (ví dụ:
+    - Hà Nội: Xa La, Văn Quán, Yên Hòa, Nam Trung Yên, Văn Khê, Mỗ Lao, Trung Kính, Linh Đàm, Times City, Dịch Vọng, Mễ Trì...
+    - TP. HCM: Thảo Điền, An Phú, Tân Quy, Phú Mỹ Hưng, Bến Nghé, Bến Thành, Hiệp Bình Chánh, Vinhomes Central Park...
+    - Đà Nẵng: Mỹ An, Khuê Mỹ, Phước Mỹ, An Hải Bắc, Hòa Cường, Hòa Khánh, Nam Hòa Xuân...
+    - Các tỉnh khác: Bãi Cháy (Hạ Long), Vĩnh Hải (Nha Trang), Dĩ An (Bình Dương)...),
+    BẮT BUỘC trích xuất tên địa danh/phường đó vào trường area_or_ward (hoặc ward).
+  * QUẬN/HUYỆN/THÀNH PHỐ THUỘC TỈNH (district): Trích xuất vào trường district (ví dụ: "Quận Hà Đông", "Quận Cầu Giấy", "Quận 7", "Quận 2", "Quận Bình Thạnh", "Thành phố Thủ Đức", "Quận Liên Chiểu", "Quận Hải Châu", "Quận Sơn Trà", "Thành phố Nha Trang", "Thành phố Hạ Long"...).
+  * TỈNH/THÀNH PHỐ (province): Trích xuất vào trường province (ví dụ: "Hà Nội", "Hồ Chí Minh", "Đà Nẵng", "Khánh Hòa", "Quảng Ninh", "Bình Dương", "Bắc Ninh"...).
 - SELECT_PROPERTY: Khách muốn chọn 1 căn cụ thể trong danh sách đã tìm (ví dụ: "chọn căn 1", "căn đầu tiên", "xem căn số 2", "căn Masteri").
 - PROPERTY_DETAILS: Khách hỏi sâu về căn đang xem/đã chọn (ví dụ: "căn này có sổ chưa?", "giá bao nhiêu?", "diện tích thế nào?", "phí quản lý bao nhiêu?").
-- COMPARE_PROPERTIES: Khách yêu cầu so sánh giữa các căn (ví dụ: "so sánh căn 1 và căn 2", "căn nào hợp lý hơn?").
+- COMPARE_PROPERTIES: CHỈ khi khách THỰC SỰ YÊU CẦU SO SÁNH (dùng từ "so sánh", "đối chiếu" hoặc "so sánh căn 1 và căn 2", "so sánh các căn này"). KHÔNG phân loại vào COMPARE_PROPERTIES khi khách chỉ hỏi tìm căn có đặc điểm cụ thể (ví dụ: "căn nào trên 2 phòng ngủ", "căn nào có ban công", "căn nào rẻ nhất", "căn nào gần trường"). Những câu đó là SEARCH_PROPERTY.
 - BOOK_APPOINTMENT: Khách muốn đặt lịch hẹn xem nhà (ví dụ: "cho tôi xem căn này", "đặt lịch vào 14h thứ Bảy", "hẹn chiều mai", "chọn căn 1 và đặt lịch xem").
 - Với câu phức hợp vừa chọn căn vừa đặt lịch (ví dụ: "Chọn căn 1, đặt lịch 14h thứ Bảy", "Chọn căn số 1, cho tôi hẹn xem chiều mai"): Intent PHẢI LÀ BOOK_APPOINTMENT, đồng thời đặt property_ordinal và trích xuất requested_date, requested_hour.
 - SELECT_SLOT: Khách chọn khung giờ trong danh sách slot được đề xuất (ví dụ: "chọn slot 1", "khung giờ 2", "lúc 9h").
@@ -190,6 +203,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             confidence=0.8,
             booking_code=booking_code,
             criteria=ExtractedCriteria(
+                ward=None,
                 district=det_criteria.get("district"),
                 province=det_criteria.get("province"),
                 property_kind=det_criteria.get("property_kind"),
@@ -207,6 +221,14 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     # Apply deterministic parser overrides for location / budget / kind if explicit
     llm_dict = understanding.criteria.model_dump(exclude_none=True)
+    area_val = llm_dict.get("area_or_ward") or llm_dict.get("ward")
+    if area_val:
+        merged_criteria["area_or_ward"] = area_val
+        merged_criteria["ward"] = area_val
+    elif understanding.is_new_search:
+        merged_criteria.pop("area_or_ward", None)
+        merged_criteria.pop("ward", None)
+
     if "location" in det_groups:
         merged_criteria.pop("district", None)
         merged_criteria.pop("province", None)

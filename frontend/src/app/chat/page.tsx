@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   FaBars, FaBed, FaBookmark, FaBrain, FaCalendarAlt, FaCheck, FaCheckCircle, FaChevronDown, FaChevronRight,
   FaCompass, FaEllipsisV, FaExclamationCircle, FaHistory, FaMagic, FaMapMarkerAlt,
-  FaPaperPlane, FaPen, FaPlus, FaRegBookmark, FaShieldAlt, FaTimes, FaTimesCircle, FaTrash
+  FaPaperPlane, FaPen, FaPlus, FaRegBookmark, FaShieldAlt, FaStop, FaTimes, FaTimesCircle, FaTrash
 } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -481,6 +481,7 @@ function ChatContent() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const propertyLoaded = useRef(false);
   const promptSent = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadSessions = useCallback(async () => {
     if (!user) { setSessions([]); return; }
@@ -524,17 +525,36 @@ function ChatContent() {
       .catch(() => setError("Không tìm thấy bất động sản này."));
   }, [propertyId]);
 
+  const stopGenerating = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  }, []);
+
   async function send(event?: FormEvent, quickText?: string) {
     event?.preventDefault();
     const text = (quickText ?? input).trim();
-    if (!text || loading) return;
+    if (!text) return;
+
+    // If currently generating, abort previous request and start new one immediately
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setInput(""); setError(""); setLoading(true);
     setMessages(cur => [...cur, { role: "user", content: text }]);
     try {
       const res = await apiFetch<ChatResponse>("/chat", {
         method: "POST",
         headers: { "X-Session-ID": sessionId },
-        body: JSON.stringify({ message: text, property_id: propertyId || undefined })
+        body: JSON.stringify({ message: text, property_id: propertyId || undefined }),
+        signal: controller.signal,
       });
       setSessionId(res.session_id || sessionId);
       const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
@@ -542,8 +562,17 @@ function ChatContent() {
       setInsights(res.insights ?? {});
       if (res.memory_summary) setMemorySummary(res.memory_summary);
       void loadSessions();
-    } catch (err) { setError(err instanceof Error ? err.message : "Nera chưa phản hồi được."); }
-    finally { setLoading(false); }
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) {
+        return; // User intentionally stopped/interrupted
+      }
+      setError(err instanceof Error ? err.message : "Nera chưa phản hồi được.");
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setLoading(false);
+      }
+    }
   }
 
   useEffect(() => {
@@ -815,8 +844,8 @@ function ChatContent() {
 
             {loading && (
               <div className="flex animate-message-in items-start gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
-                <div className="flex gap-1 rounded-[1.35rem] rounded-tl-md bg-white px-5 py-5 shadow-sm">
+                <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs"><FaMagic /></span>
+                <div className="flex gap-1 rounded-[1.35rem] rounded-tl-md bg-white px-5 py-5 shadow-xs border border-stone-100">
                   <i className="typing-dot" /><i className="typing-dot [animation-delay:150ms]" /><i className="typing-dot [animation-delay:300ms]" />
                 </div>
               </div>
@@ -840,11 +869,27 @@ function ChatContent() {
               placeholder="Nói điều bạn thích, không thích hoặc muốn thay đổi…"
               className="w-full rounded-2xl border border-black/10 bg-[#fbfaf7] py-4 pl-5 pr-14 text-sm outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
             />
-            <button disabled={loading || !input.trim()}
-              className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink)] text-white transition hover:scale-105 disabled:opacity-30"
-              aria-label="Gửi tin nhắn">
-              <FaPaperPlane />
-            </button>
+            {loading ? (
+              <button
+                type="button"
+                onClick={stopGenerating}
+                className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--forest)] text-white shadow-xs transition hover:scale-105 hover:bg-[#163825] active:scale-95 cursor-pointer"
+                aria-label="Tạm dừng"
+                title="Bấm để dừng"
+              >
+                {/* Clean white stop square / circle icon */}
+                <span className="h-3.5 w-3.5 rounded-[3px] bg-white block" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="absolute right-2 top-2 grid h-10 w-10 place-items-center rounded-xl bg-[var(--ink)] text-white transition hover:scale-105 disabled:opacity-30 cursor-pointer"
+                aria-label="Gửi tin nhắn"
+              >
+                <FaPaperPlane />
+              </button>
+            )}
           </div>
           <p className="mx-auto mt-2 max-w-3xl text-center text-[10px] text-stone-400">
             Nera dùng dữ liệu hệ thống làm nguồn sự thật và không tự xác nhận lịch thay Sale.

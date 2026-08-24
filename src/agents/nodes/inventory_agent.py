@@ -11,7 +11,7 @@ from typing import Any
 from uuid import UUID
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from src.agents.state import AgentState, AgentType, Intent
@@ -19,7 +19,7 @@ from src.database.connection import get_session_context
 from src.database.models import Property, PropertyKind, PropertyStatus
 from src.services.chat_state_service import normalize_text
 from src.services.llm import get_llm
-from src.utils.property_text import clean_property_title
+from src.utils.property_text import clean_property_title, get_search_variations
 
 logger = logging.getLogger(__name__)
 
@@ -84,14 +84,28 @@ async def query_properties_from_db(criteria: dict[str, Any], limit: int = 5) -> 
     async with get_session_context() as session:
         filters = [Property.status == PropertyStatus.AVAILABLE]
 
+        area_target = criteria.get("area_or_ward") or criteria.get("ward")
         district = criteria.get("district")
         province = criteria.get("province")
         property_kind = criteria.get("property_kind")
 
+        if area_target:
+            area_vars = get_search_variations(area_target)
+            area_filters = []
+            for v in area_vars:
+                area_filters.extend([
+                    Property.ward.ilike(f"%{v}%"),
+                    Property.address_line.ilike(f"%{v}%"),
+                    Property.title.ilike(f"%{v}%"),
+                ])
+            filters.append(or_(*area_filters))
+
         if district:
-            filters.append(Property.district.ilike(f"%{str(district).strip()}%"))
+            dist_vars = get_search_variations(district)
+            filters.append(or_(*[Property.district.ilike(f"%{v}%") for v in dist_vars]))
         if province:
-            filters.append(Property.province.ilike(f"%{str(province).strip()}%"))
+            prov_vars = get_search_variations(province)
+            filters.append(or_(*[Property.province.ilike(f"%{v}%") for v in prov_vars]))
         if property_kind:
             try:
                 filters.append(Property.property_kind == PropertyKind(str(property_kind)))
@@ -102,11 +116,11 @@ async def query_properties_from_db(criteria: dict[str, Any], limit: int = 5) -> 
             filters.append(Property.list_price >= criteria["min_price"])
         if criteria.get("max_price") is not None:
             filters.append(Property.list_price <= criteria["max_price"])
-        if criteria.get("min_bedrooms") is not None:
+        if criteria.get("min_bedrooms") is not None and criteria["min_bedrooms"] > 0:
             filters.append(Property.bedrooms >= criteria["min_bedrooms"])
-        if criteria.get("min_bathrooms") is not None:
+        if criteria.get("min_bathrooms") is not None and criteria["min_bathrooms"] > 0:
             filters.append(Property.bathrooms >= criteria["min_bathrooms"])
-        if criteria.get("min_area") is not None:
+        if criteria.get("min_area") is not None and criteria["min_area"] > 0:
             filters.append(Property.area_sqm >= criteria["min_area"])
 
         stmt = (
@@ -144,10 +158,16 @@ async def load_properties_by_ids(ids: list[str]) -> list[dict[str, Any]]:
 
 def format_criteria_summary(criteria: dict[str, Any]) -> str:
     parts = []
+    loc_parts = []
+    area_target = criteria.get("area_or_ward") or criteria.get("ward")
+    if area_target:
+        loc_parts.append(str(area_target).strip())
     if criteria.get("district"):
-        parts.append(str(criteria["district"]))
+        loc_parts.append(str(criteria["district"]))
     elif criteria.get("province"):
-        parts.append(str(criteria["province"]))
+        loc_parts.append(str(criteria["province"]))
+    if loc_parts:
+        parts.append(", ".join(loc_parts))
 
     kind_names = {
         "APARTMENT": "căn hộ",
@@ -164,9 +184,9 @@ def format_criteria_summary(criteria: dict[str, Any]) -> str:
         parts.append(f"tối đa {_price_text(criteria['max_price'])}")
     if criteria.get("min_price") is not None:
         parts.append(f"từ {_price_text(criteria['min_price'])}")
-    if criteria.get("min_bedrooms") is not None:
+    if criteria.get("min_bedrooms") is not None and criteria["min_bedrooms"] > 0:
         parts.append(f"{criteria['min_bedrooms']}+ phòng ngủ")
-    if criteria.get("min_area") is not None:
+    if criteria.get("min_area") is not None and criteria["min_area"] > 0:
         area_val = _num(criteria["min_area"])
         if area_val is not None:
             parts.append(f"từ {area_val:g} m²")
@@ -390,13 +410,13 @@ async def answer_feature_question_on_properties(query: str, pool: list[dict[str,
     try:
         llm = get_llm()._create_chat_model()
         sys_prompt = (
-            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI tận tâm, trung thực và am hiểu.\n"
-            "Khách hàng đang hỏi một câu hỏi cụ thể về tiện ích/đặc điểm (như trường học, pháp lý/sổ đỏ, chỗ đỗ xe, ban công, độ thoáng, hướng...) "
-            "đối với danh sách các bất động sản đang thảo luận.\n\n"
-            "Hãy đọc kỹ thông tin và mô tả thực tế của các căn hộ dưới đây và trả lời trực tiếp cho khách hàng:\n"
-            "1. Chỉ ra cụ thể căn số mấy đáp ứng tốt nhất yêu cầu của khách và giải thích chi tiết tại sao (dựa trên địa chỉ, mô tả tiện ích thực tế).\n"
-            "2. Trình bày tự nhiên, ấm áp, mạch lạc theo từng đầu mục rõ ràng.\n"
-            "3. Kết thúc bằng câu hỏi gợi ý xem chi tiết hoặc đặt lịch đi xem thực tế căn phù hợp."
+            "Bạn là Nera, chuyên gia tư vấn Bất động sản AI tận tâm, trung thực và súc tích.\n"
+            "Khách hàng đang hỏi một câu hỏi cụ thể về đặc điểm/tiện ích/số phòng ngủ/diện tích/giá của danh sách các bất động sản đang thảo luận (ví dụ: 'căn nào trên 2 phòng ngủ ko', 'căn nào có chỗ đỗ ô tô', 'căn nào gần trường').\n\n"
+            "Hãy đọc kỹ thông tin các căn dưới đây và trả lời trực tiếp cho khách hàng:\n"
+            "1. Trả lời thẳng vào câu hỏi ngay ở đầu câu (ví dụ: 'Trong 3 căn đang xem, chỉ có Căn 2: Feliz Home 297 Hoàng Mai là có 3 phòng ngủ (114 m²)...').\n"
+            "2. Nêu rõ lý do ngắn gọn vì sao căn đó phù hợp và vì sao các căn khác chưa phù hợp.\n"
+            "3. Tuyệt đối KHÔNG vẽ bảng so sánh Markdown (vì khách chỉ hỏi 1 câu hỏi cụ thể, không yêu cầu so sánh).\n"
+            "4. Kết thúc bằng câu gợi ý ngắn gọn để khách xem chi tiết hoặc đặt lịch đi xem thực tế."
         )
         context = {
             "customer_question": query,
@@ -430,7 +450,6 @@ async def answer_feature_question_on_properties(query: str, pool: list[dict[str,
 
                 is_matched = any(p in res_lower for p in ordinal_patterns)
                 if not is_matched and len(title_keywords) >= 2:
-                    # Match if key title phrase or at least 2 significant words are in the answer
                     is_matched = any(" ".join(title_keywords[i:i+2]) in res_lower for i in range(len(title_keywords) - 1))
 
                 if is_matched and prop not in matched_props:
@@ -471,12 +490,14 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     # Step 0: Check if this is a feature question on existing search results
     q_low = query.lower()
+    is_explicit_compare = bool(re.search(r"\b(so sanh|doi chieu|lap bang so sanh)\b", q_low))
     feature_patterns = [
-        "có căn nào", "căn nào gần", "căn nào có", "căn nào view", "căn nào hướng", "căn nào tầng",
-        "căn nào rẻ", "căn nào đẹp", "gần trường", "sổ đỏ", "sổ hồng", "ô tô", "đỗ xe", "để xe",
-        "hầm", "gửi xe", "chính sách", "pháp lý", "thủ tục", "vay vốn", "ngân hàng", "tiện ích"
+        "căn nào", "có căn nào", "căn mấy", "căn số mấy", "căn thứ mấy",
+        "phòng ngủ", "pn", "diện tích", "m2", "m²", "rẻ nhất", "đắt nhất", "rẻ hơn",
+        "gần trường", "sổ đỏ", "sổ hồng", "ô tô", "đỗ xe", "để xe", "ban công", "view",
+        "hướng", "tầng", "hầm", "gửi xe", "chính sách", "pháp lý", "thủ tục", "vay vốn", "ngân hàng", "tiện ích"
     ]
-    if search_pool and any(p in q_low for p in feature_patterns) and not any(k in q_low for k in ["tìm thêm", "search", "lọc lại", "đổi sang"]):
+    if search_pool and not is_explicit_compare and any(p in q_low for p in feature_patterns) and not any(k in q_low for k in ["tìm thêm", "search", "lọc lại", "đổi sang"]):
         feature_ans = await answer_feature_question_on_properties(query, search_pool)
         if feature_ans:
             return feature_ans

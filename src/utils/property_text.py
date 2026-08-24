@@ -139,3 +139,30 @@ def build_full_address(
             return address_line
         return f"{address_line}, {tail}" if tail not in address_line else address_line
     return ", ".join(filter(None, [ward, district, province]))
+
+
+def get_search_variations(text: str | None) -> list[str]:
+    """Return common search patterns and spelling variations for Vietnamese locations."""
+    if not text:
+        return []
+    clean = text.strip()
+    # Remove prefix "phường", "xã", "quận", "huyện" for core name
+    core = re.sub(r"^(?:phường|xã|quận|huyện|thành phố|thị trấn|tt\.?|p\.?|q\.?)\s+", "", clean, flags=re.IGNORECASE).strip()
+
+    variations = {clean, core}
+
+    # Generate old vs new tone placement variants (e.g. Yên Hòa vs Yên Hoà)
+    tone_map = [
+        ("oà", "òa"), ("oá", "óa"), ("oả", "ỏa"), ("oã", "õa"), ("oạ", "ọa"),
+        ("uỳ", "ùy"), ("uý", "úy"), ("uỷ", "ủy"), ("uỹ", "ũy"), ("uỵ", "ụy"),
+        ("oè", "òe"), ("oé", "óe"), ("oẻ", "ỏe"), ("oẽ", "õe"), ("oẹ", "ọe"),
+    ]
+
+    for term in list(variations):
+        for v1, v2 in tone_map:
+            if v1 in term:
+                variations.add(term.replace(v1, v2))
+            if v2 in term:
+                variations.add(term.replace(v2, v1))
+
+    return [v for v in variations if v]
