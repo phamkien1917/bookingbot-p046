@@ -751,7 +751,7 @@ function ChatContent() {
               <FaPlus /> Cuộc trò chuyện mới
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 pb-4 dark-sidebar-scroll">
             <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-white/35"><FaHistory /> Lịch sử</p>
             {!user
               ? <Link href="/login?next=/chat" className="text-sm text-[#a9c9b0] hover:underline">Đăng nhập để lưu lịch sử</Link>
