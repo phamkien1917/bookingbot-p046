@@ -1,137 +1,131 @@
-# 🎬 KỊCH BẢN DEMO 5 PHÚT: DỰ ÁN NERA (P-046)
-## ĐÃ TỐI ƯU CHO FISH AUDIO (< 500 KÝ TỰ / ĐOẠN)
+# 🎬 KỊCH BẢN THUYẾT TRÌNH VIDEO DEMO (5 PHÚT)
+## DỰ ÁN: NERA (P-046) – HỆ THỐNG TRỢ LÝ BẤT ĐỘNG SẢN AI ĐA TÁC NHÂN
 
-> 💡 **Hướng dẫn dùng với Fish Audio:**
-> * Kịch bản được chia sẵn thành **11 đoạn audio ngắn (Clip 01 ➜ Clip 11)**.
-> * Mỗi đoạn chỉ từ **200 – 300 ký tự** (hoàn toàn nằm trong giới hạn 500 ký tự của Fish Audio).
-> * Bạn chỉ cần **Copy từng ô văn bản** ➜ Dán vào [fish.audio](https://fish.audio) ➜ Bấm Generate và tải file `audio_01.mp3`, `audio_02.mp3`... về máy.
-
----
-
-## 📋 CÔNG TÁC CHUẨN BỊ (30 GIÂY)
-1. **Tab 1 (Khách hàng):** `http://localhost:3000` (đăng nhập tài khoản khách).
-2. **Tab 2 (Sale Staff):** `http://localhost:3000/sale` (đăng nhập sẵn tài khoản sale).
-3. **Tab 3 (Admin):** `http://localhost:3000/admin`.
+* **Người thuyết trình:** Cá nhân tự trình bày
+* **Thời lượng mục tiêu:** ~ 5 phút (05:00)
+* **Phong cách:** Gãy gọn, chuyên nghiệp, tập trung vào tính năng kỹ thuật và luồng nghiệp vụ thực tế (không dùng từ ngữ hoa mỹ/sến súa).
+* **Môi trường demo:** `https://www.nerahome.space` (hoặc `http://localhost:3000`)
 
 ---
 
-## 🎙️ 11 ĐOẠN AUDIO VÀ THAO TÁC MÀN HÌNH TƯƠNG ỨNG
+## 🛠️ CÔNG TÁC CHUẨN BỊ TRƯỚC KHI BẤM QUAY (1 PHÚT)
+
+Mở sẵn 3 cửa sổ trên màn hình để chuyển đổi bằng phím tắt `Alt + Tab`:
+1. **Cửa sổ 1 (Trình duyệt Chrome thường):** Mở Trang chủ `https://www.nerahome.space` (Giao diện Khách hàng).
+2. **Cửa sổ 2 (Cửa sổ Ẩn danh `Ctrl + Shift + N`):** Mở `https://www.nerahome.space/sale` (Đã đăng nhập sẵn tài khoản Sale, ví dụ: `hanh.bt.sale0@xhome.com`).
+3. **Cửa sổ 3 (Trình duyệt Edge/Brave):** Mở `https://www.nerahome.space/admin` (Đã đăng nhập sẵn tài khoản Admin).
+
+*💡 Công cụ quay đề xuất: Dùng **Snipping Tool (`Win + Shift + S` chọn biểu tượng Máy quay)** để quay toàn màn hình.*
 
 ---
 
-### 🔹 Clip 01: Mở đầu & Nêu vấn đề
-* **Thời lượng ước tính:** ~20 giây | **Độ dài:** `290 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Quay Trang chủ Nera (`http://localhost:3000`), cuộn nhẹ từ trên xuống lướt qua Hero section và các căn hộ nổi bật.
-* 📋 **Copy vào Fish Audio:**
-```text
-Xin chào thầy cô và các bạn! Hôm nay em xin demo sản phẩm Nera – Trợ lý bất động sản AI thông minh thuộc dự án P-046. Trong thị trường bất động sản, người mua thường mất nhiều thời gian lọc tin và khó kết nối lịch hẹn với môi giới. Nera được xây dựng để giải quyết triệt để vấn đề này. Đây là giao diện trang chủ của hệ thống sau khi đăng nhập
-```
+## ⏱️ CHI TIẾT TỪNG PHÂN ĐOẠN (TIMELINE & LỜI THUYẾT MINH)
 
 ---
 
-### 🔹 Clip 02: Giới thiệu hệ thống Multi-Agent
-* **Thời lượng ước tính:** ~20 giây | **Độ dài:** `242 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Di chuột lên thanh Header, bấm vào nút **"Nói với Nera"** để mở trang Chat.
-* 📋 **Copy vào Fish Audio:**
-```text
-Nera là một hệ thống đa tác nhân gồm Supervisor Agent, Inventory Agent và Booking Agent. Hệ thống có khả năng hiểu ngôn ngữ tự nhiên sâu sắc, phân tích bất động sản đa tiêu chí và đồng bộ dữ liệu thời gian thực giữa Khách hàng và Sale.
-```
+### 📍 PHẦN 1: MỞ ĐẦU & TỔNG QUAN HỆ THỐNG (0:00 – 0:40)
+
+* 🖥️ **Thao tác trên màn hình:**
+  - Quay Trang chủ `https://www.nerahome.space`.
+  - Cuộn nhẹ trang từ trên xuống: lướt qua Hero section, các dự án/căn hộ nổi bật, sau đó di chuột lên Header bấm vào nút **"Nói với Nera"** (hoặc truy cập `/chat`).
+* 🎙️ **Lời thuyết minh:**
+  > "Xin chào thầy cô và các bạn. Hôm nay em xin demo sản phẩm **Nera – Trợ lý bất động sản AI thông minh** thuộc dự án P-046.
+  > 
+  > Dự án được xây dựng nhằm giải quyết hai vấn đề lớn trên thị trường: Một là người mua mất quá nhiều thời gian lọc hàng ngàn tin đăng không phù hợp; Hai là khâu kết nối lịch hẹn giữa người mua và môi giới thường bị chậm trễ và rời rạc.
+  > 
+  > Để giải quyết bài toán này, Nera áp dụng kiến trúc **LangGraph Multi-Agent** gồm 3 tác nhân chính: **Supervisor Agent** điều phối intent, **Inventory Agent** phụ trách truy vấn dữ liệu bất động sản, và **Booking Agent** xử lý nghiệp vụ đặt lịch xem nhà theo thời gian thực."
 
 ---
 
-### 🔹 Clip 03: Tìm kiếm bằng ngôn ngữ tự nhiên
-* **Thời lượng ước tính:** ~25 giây | **Độ dài:** `260 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Trong ô chat, gõ câu lệnh `tìm nhà dưới 5 tỷ ở miền bắc` ➜ Nhấn Enter ➜ Nera trả về danh sách thẻ BĐS kèm giá, diện tích và lý do gợi ý.
-* 📋 **Copy vào Fish Audio:**
-```text
-Đầu tiên là tính năng Tìm kiếm bằng ngôn ngữ tự nhiên. Em nhập yêu cầu: tìm nhà dưới 5 tỷ ở miền bắc. Inventory Agent lập tức trích xuất khu vực, tầm giá và truy vấn cơ sở dữ liệu để đưa ra các căn nhà phù hợp nhất kèm giải thích lý do rất trực quan.
-```
+### 📍 PHẦN 2: TÌM KIẾM TỰ NHIÊN & DUY TRÌ NGỮ CẢNH ĐA LƯỢT (0:40 – 1:40)
+
+* 🖥️ **Thao tác trên màn hình:**
+  1. Trong ô chat, gõ câu lệnh tìm kiếm diện rộng:
+     `tìm nhà dưới 5 tỷ ở miền bắc`
+     ➜ Nhấn Enter. Nera phản hồi danh sách các căn kèm thẻ thông tin (giá, diện tích, vị trí và lý do gợi ý).
+  2. Gõ tiếp câu truy vấn thu hẹp ngữ cảnh (Multi-turn):
+     `chỉ lấy căn 2 phòng ngủ ở cầu giấy`
+     ➜ Nhấn Enter. Nera tự động giữ ngân sách $\le$ 5 tỷ và lọc tiếp theo Quận Cầu Giấy + 2PN.
+* 🎙️ **Lời thuyết minh:**
+  > "Đầu tiên là khả năng **Tìm kiếm bằng ngôn ngữ tự nhiên**. Em nhập câu lệnh: *'tìm nhà dưới 5 tỷ ở miền bắc'*. Inventory Agent sẽ bóc tách thực thể vùng miền, khoảng giá và truy vấn cơ sở dữ liệu PostgreSQL để trả về các bất động sản phù hợp, đi kèm lý do gợi ý cụ thể cho từng căn.
+  > 
+  > Tiếp theo, khi em nhập tiếp câu lệnh: *'chỉ lấy căn 2 phòng ngủ ở cầu giấy'*, hệ thống thể hiện khả năng **duy trì ngữ cảnh đa lượt (Multi-turn Context)**. Supervisor Agent tự động kế thừa mức ngân sách dưới 5 tỷ từ lượt chat trước và kết hợp với tiêu chí mới là Quận Cầu Giấy và 2 phòng ngủ, thay vì reset lại từ đầu như các chatbot thông thường."
 
 ---
 
-### 🔹 Clip 04: Trò chuyện đa lượt (Multi-turn Context)
-* **Thời lượng ước tính:** ~25 giây | **Độ dài:** `279 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Gõ câu tinh chỉnh tiếp theo: `chỉ lấy căn 2 phòng ngủ ở cầu giấy` ➜ Nera giữ ngân sách $\le$ 5 tỷ và lọc Cầu Giấy 2PN ➜ Chỉ chuột vào bóng chat Messenger gọn gàng.
-* 📋 **Copy vào Fish Audio:**
-```text
-Nera có khả năng duy trì ngữ cảnh đa lượt cực kỳ thông minh. Khi em nhập tiếp: chỉ lấy căn 2 phòng ngủ ở cầu giấy, Supervisor Agent tự động kết hợp ngân sách dưới 5 tỷ từ câu trước với bộ lọc mới. Bóng chat được thiết kế gọn gàng, co giãn theo nội dung kiểu Messenger.
-```
+### 📍 PHẦN 3: TRÍ NHỚ DÀI HẠN (SEMANTIC MEMORY) (1:40 – 2:30)
+
+* 🖥️ **Thao tác trên màn hình:**
+  1. Bấm vào mục **Trí nhớ (Memory)** trên thanh điều hướng (`/memory`) ➜ Cho người xem thấy bảng hồ sơ sở thích (Ngân sách, Khu vực quan tâm, Tiện ích mong muốn).
+  2. Bấm về lại **Trang chủ (`/`)** ➜ Trỏ chuột vào Card chào mừng: *"Chào bạn quay lại – Lần trước bạn quan tâm: Quận Cầu Giấy..."*.
+  3. Bấm vào nút **"Tiếp tục hành trình →"** ➜ Màn hình chuyển vào chat, Nera tự động nạp tiêu chí cũ và đưa ra danh sách căn hộ phù hợp ngay lập tức.
+* 🎙️ **Lời thuyết minh:**
+  > "Tính năng cốt lõi thứ hai của Nera là **Trí nhớ dài hạn (Semantic Memory)**. Thông qua quá trình trò chuyện, hệ thống tự động trích xuất và cập nhật hồ sơ sở thích của người dùng vào cơ sở dữ liệu.
+  > 
+  > Như thầy cô thấy trên trang Memory, hệ thống đã lưu lại các thông tin: tài chính dưới 5 tỷ, khu vực Cầu Giấy và căn 2 phòng ngủ.
+  > 
+  > Khi người dùng quay lại trang chủ sau nhiều ngày, hệ thống sẽ nhận diện và hiển thị card tiếp nối hành trình. Khi em bấm *'Tiếp tục hành trình'*, Nera lập tức khởi tạo phiên làm việc mới, nạp lại toàn bộ tiêu chí đã nhớ và đề xuất ngay các căn hộ mới nhất mà người dùng không cần nhập lại bất kỳ thông tin nào."
 
 ---
 
-### 🔹 Clip 05: Trí nhớ dài hạn (Semantic Memory)
-* **Thời lượng ước tính:** ~25 giây | **Độ dài:** `247 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Bấm vào mục **Trí nhớ (Memory)** trên menu ➜ Hiển thị hồ sơ sở thích về ngân sách, khu vực đã được trích xuất tự động qua Mem0.
-* 📋 **Copy vào Fish Audio:**
-```text
-Điểm đột phá tiếp theo là Trí nhớ dài hạn tích hợp Mem0. Hệ thống tự động phân tích hội thoại để trích xuất hồ sơ sở thích cá nhân: từ tầm tài chính, quận huyện yêu thích cho đến nhu cầu gia đình mà người dùng không cần khai báo thủ công.
-```
+### 📍 PHẦN 4: ĐẶT LỊCH XEM NHÀ & DUYỆT THỜI GIAN THỰC PHÍA SALE (2:30 – 3:45)
+
+* 🖥️ **Thao tác trên màn hình:**
+  1. Trong ô chat, gõ câu lệnh đặt lịch:
+     `đặt lịch căn CĂN HỘ Fodacon Bắc Hà – Mỗ Lao, Hà Đông ngày mai lúc 14h`
+     ➜ Nhấn Enter. Nera nhận diện đúng căn hộ, kiểm tra slot trống và tạo Tour Request `TR-XXXXX` trạng thái Chờ duyệt.
+  2. Bấm `Alt + Tab` chuyển sang **Cửa sổ 2 (Giao diện Sale: `/sale`)** ➜ Yêu cầu `TR-XXXXX` vừa tạo xuất hiện ngay trên danh sách Lịch hẹn mới.
+  3. Bấm nút **"Xác nhận" (Approve)** trên giao diện Sale.
+  4. Bấm `Alt + Tab` quay lại **Cửa sổ 1 (Khách hàng)** ➜ Trong chat và trang `/my-bookings`, trạng thái đổi thành Đã xác nhận (`CONFIRMED`) kèm mã Booking, tên Sale và SĐT liên hệ.
+* 🎙️ **Lời thuyết minh:**
+  > "Bây giờ em sẽ thực hiện quy trình **Đặt lịch xem nhà**. Trong khung chat, em nhắn: *'đặt lịch căn Fodacon Bắc Hà ngày mai lúc 14h'*.
+  > 
+  > Booking Agent sẽ định danh chính xác bất động sản, kiểm tra tính khả dụng của chuyên viên Sale phụ trách khu vực và khởi tạo một yêu cầu lịch hẹn ở trạng thái Chờ duyệt.
+  > 
+  > Ngay lập tức, em chuyển sang màn hình làm việc của Sale. Yêu cầu vừa tạo đã hiển thị theo thời gian thực. Sale kiểm tra thông tin và bấm nút *'Xác nhận'*.
+  > 
+  > Quay trở lại phía khách hàng, hệ thống lập tức đồng bộ trạng thái sang *Đã xác nhận*, cung cấp mã Booking chính thức cùng thông tin liên hệ của chuyên viên Sale phụ trách. Toàn bộ luồng dữ liệu từ AI đến nhân viên vận hành được kết nối khép kín."
 
 ---
 
-### 🔹 Clip 06: Tiếp tục hành trình từ Memory
-* **Thời lượng ước tính:** ~25 giây | **Độ dài:** `227 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Quay lại Trang chủ (`/`), bấm nút **"Tiếp tục hành trình →"** trên Banner chào mừng ➜ Mở phiên chat và Nera hiển thị ngay các căn theo sở thích đã lưu.
-* 📋 **Copy vào Fish Audio:**
-```text
-Khi khách hàng quay lại sau vài ngày, Nera vẫn nhớ rõ nhu cầu trước đó. Người dùng chỉ cần bấm Tiếp tục hành trình, Nera lập tức chào đón và đưa ra các đề xuất nhà đất chính xác theo hồ sơ sở thích đã lưu trong Memory.
-```
+### 📍 PHẦN 5: TỐI ƯU LỘ TRÌNH CHO SALE & TRANG QUẢN TRỊ ADMIN (3:45 – 4:35)
+
+* 🖥️ **Thao tác trên màn hình:**
+  1. Tại Cửa sổ 2 (Sale), bấm vào mục **"Lộ trình di chuyển"** (`/sale/route-map`) ➜ Màn hình hiển thị bản đồ các điểm hẹn trong ngày và đường đi tối ưu.
+  2. Bấm `Alt + Tab` sang **Cửa sổ 3 (Admin Dashboard: `/admin`)** ➜ Lướt nhanh qua Quản lý kho Bất động sản (`/admin/properties`) và Quản lý đội ngũ Sale (`/admin/sales`).
+* 🎙️ **Lời thuyết minh:**
+  > "Để hỗ trợ đội ngũ kinh doanh làm việc hiệu quả, Nera tích hợp tính năng **Tối ưu lộ trình di chuyển (Route Map)**. Thuật toán sẽ tự động tính toán khoảng cách địa lý và sắp xếp thứ tự các điểm hẹn xem nhà trong ngày của Sale theo tuyến đường ngắn nhất, giúp tiết kiệm thời gian di chuyển.
+  > 
+  > Cuối cùng là **Trang quản trị Admin**. Tại đây, ban quản lý có thể giám sát toàn bộ danh mục bất động sản trên hệ thống, kiểm soát tình trạng tin đăng và phân bổ nhân sự phụ trách theo từng dự án hoặc khu vực địa lý."
 
 ---
 
-### 🔹 Clip 07: Đặt lịch xem nhà thông minh
-* **Thời lượng ước tính:** ~25 giây | **Độ dài:** `261 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Trong ô chat, gõ `đặt lịch căn CĂN HỘ Fodacon Bắc Hà – Mỗ Lao, Hà Đông ngày mai lúc 14h` ➜ Nera nhận diện đúng căn và tạo yêu cầu `TR-XXXXX` trạng thái Chờ duyệt.
-* 📋 **Copy vào Fish Audio:**
-```text
-Tiếp theo là quy trình Đặt lịch xem nhà thông minh. Khách hàng chỉ cần nhắn: đặt lịch căn Fodacon Bắc Hà ngày mai lúc 14h. Booking Agent nhận diện chính xác căn hộ theo tên, kiểm tra lịch trống của Sale và tạo yêu cầu đặt lịch ở trạng thái Chờ duyệt.
-```
+### 📍 PHẦN 6: TỔNG KẾT (4:35 – 5:00)
+
+* 🖥️ **Thao tác trên màn hình:**
+  - Bấm `Alt + Tab` quay về Trang chủ `https://www.nerahome.space`, dừng lại ở giao diện tổng quan.
+* 🎙️ **Lời thuyết minh:**
+  > "Tổng kết lại, dự án Nera đã hoàn thiện toàn bộ các module từ: Trợ lý AI hội thoại đa tác nhân với LangGraph, Bộ nhớ dài hạn Semantic Memory, Hệ thống đặt lịch và đồng bộ thời gian thực cho Sale, đến Thuật toán tối ưu lộ trình.
+  > 
+  > Hệ thống được triển khai trên nền tảng FastAPI backend, Next.js 16 frontend và cơ sở dữ liệu PostgreSQL.
+  > 
+  > Em xin kết thúc phần trình bày demo tại đây. Cảm ơn thầy cô và các bạn đã lắng nghe."
 
 ---
 
-### 🔹 Clip 08: Phê duyệt thời gian thực phía Sale
-* **Thời lượng ước tính:** ~20 giây | **Độ dài:** `215 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Chuyển sang Tab 2 (Giao diện Sale: `/sale`) ➜ Thấy yêu cầu `TR-XXXXX` xuất hiện ngay lập tức ➜ Bấm nút **"Xác nhận" (Approve)**.
-* 📋 **Copy vào Fish Audio:**
-```text
-Chuyển sang giao diện của Chuyên viên Sale, yêu cầu đặt lịch vừa rồi xuất hiện ngay lập tức theo thời gian thực. Chuyên viên Sale kiểm tra thông tin căn hộ, thời gian và bấm nút Xác nhận để tiếp nhận lịch hẹn.
-```
+## 📋 BẢNG TỔNG HỢP CÂU LỆNH MẪU (COPY ĐỂ DÁN KHI DEMO)
 
----
+Để tránh bị gõ nhầm hoặc mất thời gian gõ phím khi quay, bạn có thể copy sẵn các câu lệnh này:
 
-### 🔹 Clip 09: Xác nhận hoàn tất phía Khách hàng
-* **Thời lượng ước tính:** ~20 giây | **Độ dài:** `228 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Quay lại Tab 1 (Khách hàng) ➜ Thấy thông báo xác nhận lịch hẹn chính thức `BK-XXXXX` kèm tên Sale và số điện thoại.
-* 📋 **Copy vào Fish Audio:**
-```text
-Ngay lập tức, bên phía khách hàng, hệ thống gửi thông báo xác nhận lịch hẹn chính thức cùng mã Booking, tên Sale phụ trách và số điện thoại liên hệ. Toàn bộ luồng kết nối diễn ra mượt mà và không hề xảy ra xung đột.
-```
-
----
-
-### 🔹 Clip 10: Tối ưu lộ trình (Route Map) & Quản trị Admin
-* **Thời lượng ước tính:** ~25 giây | **Độ dài:** `246 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Ở Tab Sale, bấm vào `/sale/route-map` xem bản đồ lộ trình di chuyển ➜ Chuyển sang Tab Admin (`/admin`) lướt qua quản lý kho BĐS và phân bổ Sale.
-* 📋 **Copy vào Fish Audio:**
-```text
-Bên cạnh đó, Nera còn hỗ trợ tính năng Tối ưu lộ trình di chuyển cho Sale bằng thuật toán Nearest Neighbour. Ở góc độ quản lý, trang Admin Dashboard cho phép theo dõi toàn bộ kho bất động sản và phân bổ chuyên viên Sale theo từng khu vực.
-```
-
----
-
-### 🔹 Clip 11: Tổng kết & Cảm ơn
-* **Thời lượng ước tính:** ~20 giây | **Độ dài:** `231 / 500 ký tự`
-* 🖥️ **Thao tác màn hình:** Chuyển về Trang chủ Nera, hiển thị giao diện tổng thể và logo dự án.
-* 📋 **Copy vào Fish Audio:**
-```text
-Tóm lại, dự án Nera đã tích hợp thành công FastAPI, Next.js 16, LangGraph Multi-Agent, PostgreSQL và Semantic Memory để mang lại giải pháp toàn diện cho bất động sản. Em xin chân thành cảm ơn thầy cô và các bạn đã theo dõi!
-```
-
----
-
-## ✂️ HƯỚNG DẪN GHÉP VIDEO TRONG CAPCUT (5 PHÚT LÀ XONG)
-1. Tải 11 file `audio_01.mp3` đến `audio_11.mp3` từ Fish Audio về.
-2. Kéo video quay màn hình vào CapCut.
-3. Xếp lần lượt 11 file audio vào hàng dưới theo thứ tự từ `01` đến `11`.
-4. Nếu video chạy nhanh hơn audio ➜ Bấm chuột phải vào video chọn **Dừng khung hình (Freeze)** tại khoảnh khắc đó 2-3 giây.
-5. Xuất video ➜ Hoàn thành bài demo chuẩn 100%!
+1. **Lệnh 1 (Tìm kiếm ban đầu):**
+   ```text
+   tìm nhà dưới 5 tỷ ở miền bắc
+   ```
+2. **Lệnh 2 (Lọc đa lượt):**
+   ```text
+   chỉ lấy căn 2 phòng ngủ ở cầu giấy
+   ```
+3. **Lệnh 3 (Đặt lịch xem nhà):**
+   ```text
+   đặt lịch căn CĂN HỘ Fodacon Bắc Hà – Mỗ Lao, Hà Đông ngày mai lúc 14h
+   ```
