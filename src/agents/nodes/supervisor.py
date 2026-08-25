@@ -16,6 +16,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from src.agents.state import AgentState, AgentType, Intent
+from src.services.affordability import estimate_affordability
+from src.services.affordability import explain as explain_affordability
 from src.services.chat_state_service import (
     LOCAL_TZ,
     extract_ordinal,
@@ -72,6 +74,16 @@ class SupervisorUnderstanding(BaseModel):
     household_context: list[str] = Field(default_factory=list)
     commute_landmark: str | None = None
     max_commute_minutes: int | None = None
+    monthly_income_vnd: int | None = Field(
+        default=None,
+        description="Thu nhập hằng tháng khách tự nêu, quy về số VND (ví dụ '15-20 triệu/tháng' -> 17500000, "
+        "lấy trung bình khi khách nói một khoảng). Chỉ điền khi khách thực sự nói về thu nhập của mình."
+    )
+    own_capital_vnd: int | None = Field(
+        default=None,
+        description="Số vốn tự có / tiền đang có sẵn khách nêu, quy về số VND (ví dụ 'em có sẵn 800 triệu' -> 800000000). "
+        "Không suy đoán nếu khách không nói."
+    )
     property_ordinal: int | None = None
     requested_date: str | None = None
     requested_hour: int | None = None
@@ -121,6 +133,9 @@ LƯU Ý QUAN TRỌNG:
 - Giữ vững ngữ cảnh hội thoại nhiều lượt. Nếu khách nói "căn đó", "căn này", đó là tham chiếu đến căn đang được chọn hoặc căn vừa thảo luận.
 - Khi khách bắt đầu một nhu cầu mua/tìm mới chung chung (ví dụ: "t muốn mua 1 căn nhà ?", "tôi muốn mua nhà", "muốn tìm nhà", "cần mua nhà", "tìm nhà") mà KHÔNG nêu rõ địa điểm hay tầm giá trong câu hiện tại: BẮT BUỘC đặt is_new_search=true và ĐỂ TRỐNG TOÀN BỘ tiêu chí (criteria), KHÔNG tự ý copy tiêu chí cũ từ các lượt chat trước.
 - Khi khách yêu cầu tiếp tục tìm kiếm theo nhu cầu cũ/sở thích đã lưu (ví dụ: "Tiếp tục tìm kiếm với nhu cầu cũ của tôi", "tiếp tục hành trình", "tìm theo nhu cầu cũ", "sở thích đã lưu"): Intent PHẢI LÀ SEARCH_PROPERTY, đặt is_new_search=false và kế thừa active_search_criteria từ context.
+- Khi khách nêu THU NHẬP thay vì tầm giá (ví dụ: "tôi làm 15-20 triệu/tháng thì mua được căn nào", "lương em 25 củ"): điền monthly_income_vnd và ĐỂ TRỐNG max_price. Hệ thống sẽ tự tính tầm giá từ thu nhập; bạn KHÔNG được tự nhẩm ra con số ngân sách. Intent vẫn là SEARCH_PROPERTY nếu khách đang hỏi có căn nào phù hợp.
+- Khi khách nêu VỐN TỰ CÓ (ví dụ: "em có sẵn 800 triệu", "tôi để dành được 1 tỷ"): điền own_capital_vnd. Vốn tự có khác thu nhập, đừng gộp làm một.
+- Nếu khách vừa nêu thu nhập vừa nêu tầm giá cụ thể, giữ nguyên tầm giá khách nói và vẫn điền monthly_income_vnd.
 """
 
 
@@ -336,6 +351,20 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         elif field in llm_dict:
             merged_criteria[field] = llm_dict[field]
 
+    # Income -> price ceiling. The model reports the income figure the customer
+    # said; every number derived from it is computed in affordability.py, because
+    # a budget the model guessed wrong sends someone to view homes they cannot buy.
+    monthly_income = understanding.monthly_income_vnd or state.get("monthly_income_vnd")
+    own_capital = understanding.own_capital_vnd or state.get("own_capital_vnd")
+    affordability_note = None
+    if monthly_income:
+        estimate = estimate_affordability(monthly_income, own_capital_vnd=own_capital)
+        if estimate:
+            affordability_note = explain_affordability(estimate)
+            # An explicit budget from the customer always wins over a derived one.
+            if not merged_criteria.get("max_price"):
+                merged_criteria["max_price"] = estimate.assumed_price_vnd
+
     # Target date / hour resolution
     target_date = parse_requested_date(query)
     if not target_date and understanding.requested_date:
@@ -433,6 +462,9 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         "household_context": household_ctx,
         "commute_landmark": understanding.commute_landmark or state.get("commute_landmark"),
         "max_commute_minutes": understanding.max_commute_minutes or state.get("max_commute_minutes"),
+        "monthly_income_vnd": monthly_income,
+        "own_capital_vnd": own_capital,
+        "affordability_note": affordability_note,
         "ai_model": ai_model,
         "ai_latency_ms": state.get("ai_latency_ms", 0) + latency_ms,
     }

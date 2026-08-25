@@ -315,7 +315,12 @@ def format_criteria_summary(criteria: dict[str, Any]) -> str:
     return ", ".join(parts)
 
 
-def format_search_results_markdown(items: list[dict[str, Any]], criteria: dict[str, Any], soft_prefs: list[str]) -> str:
+def format_search_results_markdown(
+    items: list[dict[str, Any]],
+    criteria: dict[str, Any],
+    soft_prefs: list[str],
+    affordability_note: str | None = None,
+) -> str:
     summary = format_criteria_summary(criteria)
     total_count = len(items)
     requested_limit = criteria.get("limit")
@@ -348,7 +353,18 @@ def format_search_results_markdown(items: list[dict[str, Any]], criteria: dict[s
     body = "\n\n".join(blocks)
     note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
 
-    return f"{intro}\n\n{body}{note}\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊"
+    # When the ceiling came from stated income, show the working before the list.
+    # A price range the customer cannot check is worse than no range at all.
+    prefix = f"{affordability_note}\n\n---\n\n" if affordability_note else ""
+
+    closing = "Bạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊"
+    if affordability_note:
+        closing = (
+            "Nếu bạn cho Nera biết số vốn tự có, Nera tính lại tầm giá sát hơn. "
+            "Hoặc bạn muốn xem chi tiết căn nào, cứ nói nhé! 😊"
+        )
+
+    return f"{prefix}{intro}\n\n{body}{note}\n\n{closing}"
 
 
 def format_property_details_markdown(item: dict[str, Any]) -> str:
@@ -914,7 +930,9 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         "search_results": properties,
         "current_property_id": None,
         "selected_property_index": None,
-        "response": format_search_results_markdown(properties, criteria, soft_prefs),
+        "response": format_search_results_markdown(
+            properties, criteria, soft_prefs, state.get("affordability_note")
+        ),
         "response_kind": "SEARCH_RESULTS",
         "phase": "SEARCH_RESULTS",
         "current_agent": AgentType.RESPOND,

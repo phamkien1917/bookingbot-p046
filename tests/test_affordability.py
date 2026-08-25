@@ -1,0 +1,77 @@
+from src.services.affordability import (
+    DEFAULT_MAX_DTI,
+    estimate_affordability,
+    explain,
+    format_vnd,
+)
+
+
+def test_income_becomes_a_payment_capped_at_the_dti() -> None:
+    estimate = estimate_affordability(17_500_000)
+
+    assert estimate is not None
+    assert estimate.max_monthly_payment_vnd == int(17_500_000 * DEFAULT_MAX_DTI)
+
+
+def test_twenty_year_loan_at_ten_percent_lands_in_the_expected_range() -> None:
+    """A 7tr/month payment services roughly 725tr over 20 years at 10%/year."""
+    estimate = estimate_affordability(17_500_000)
+
+    assert estimate is not None
+    assert 700_000_000 < estimate.max_loan_vnd < 760_000_000
+    # With the standard 30% down assumption that is a home just over 1 tỷ.
+    assert 1_000_000_000 < estimate.assumed_price_vnd < 1_100_000_000
+
+
+def test_unknown_savings_is_flagged_rather_than_hidden() -> None:
+    estimate = estimate_affordability(17_500_000)
+
+    assert estimate is not None
+    assert estimate.own_capital_is_assumed
+    assert estimate.needs_capital_question
+    assert "vốn" in explain(estimate)
+
+
+def test_known_savings_replaces_the_assumption() -> None:
+    estimate = estimate_affordability(17_500_000, own_capital_vnd=1_000_000_000)
+
+    assert estimate is not None
+    assert not estimate.needs_capital_question
+    assert estimate.assumed_price_vnd == estimate.max_loan_vnd + 1_000_000_000
+
+
+def test_more_income_buys_proportionally_more_loan() -> None:
+    single = estimate_affordability(17_500_000)
+    double = estimate_affordability(35_000_000)
+
+    assert single is not None and double is not None
+    assert abs(double.max_loan_vnd - single.max_loan_vnd * 2) < 1_000_000
+
+
+def test_income_too_small_returns_nothing_instead_of_a_bad_number() -> None:
+    assert estimate_affordability(1_000_000) is None
+    assert estimate_affordability(0) is None
+    assert estimate_affordability(-5_000_000) is None
+
+
+def test_zero_interest_does_not_divide_by_zero() -> None:
+    estimate = estimate_affordability(17_500_000, annual_rate=0.0)
+
+    assert estimate is not None
+    assert estimate.max_loan_vnd == 7_000_000 * 240
+
+
+def test_explanation_names_every_assumption_it_relies_on() -> None:
+    text = explain(estimate_affordability(17_500_000))  # type: ignore[arg-type]
+
+    assert "40%" in text  # the debt-service ratio
+    assert "10%/năm" in text  # the interest rate
+    assert "20 năm" in text  # the term
+    assert "tham khảo" in text  # it does not present itself as a bank decision
+
+
+def test_vnd_formatting_matches_how_listings_are_written() -> None:
+    assert format_vnd(1_630_000_000) == "1.63 tỷ"
+    assert format_vnd(2_000_000_000) == "2 tỷ"
+    assert format_vnd(7_000_000) == "7 triệu"
+    assert format_vnd(725_400_000) == "725.4 triệu"

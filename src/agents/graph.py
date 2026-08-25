@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from langgraph.graph import END, StateGraph
 
@@ -70,12 +72,30 @@ def get_agent_graph():
     return _compiled_agent
 
 
-async def run_agent(state: AgentState) -> AgentState:
-    """Execute the multi-agent graph with error boundary and recovery."""
+async def run_agent(
+    state: AgentState,
+    on_stage: Callable[[str], None] | None = None,
+) -> AgentState:
+    """Execute the multi-agent graph with error boundary and recovery.
+
+    When `on_stage` is given the graph is streamed node by node and the callback
+    receives each node name as it finishes, so a caller can report real progress
+    instead of guessing at it. The result is identical either way: AgentState is a
+    plain TypedDict with no reducers, so merging the per-node updates in order
+    produces what ainvoke would have returned.
+    """
     graph = get_agent_graph()
     try:
-        result = await graph.ainvoke(state)
-        return result
+        if on_stage is None:
+            return await graph.ainvoke(state)
+
+        merged: dict[str, Any] = dict(state)
+        async for chunk in graph.astream(state, stream_mode="updates"):
+            for node_name, updates in chunk.items():
+                if isinstance(updates, dict):
+                    merged.update(updates)
+                on_stage(node_name)
+        return merged  # type: ignore[return-value]
     except Exception as exc:
         logger.exception("Error executing LangGraph agent: %s", exc)
         fallback_state = dict(state)

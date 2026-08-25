@@ -12,7 +12,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
 import PropertyImage from "@/components/PropertyImage";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError, apiStream } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
 import { formatPropertyAddress, formatPropertyTitle } from "@/lib/propertyAddress";
@@ -467,6 +467,8 @@ function ChatContent() {
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  // Label of the graph node currently running, streamed from the backend.
+  const [stage, setStage] = useState("");
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Property | null>(null);
   const [feedbackProperty, setFeedbackProperty] = useState<Property | null>(null);
@@ -534,15 +536,50 @@ function ChatContent() {
 
     const activeSessionId = targetSessionId || sessionId;
 
-    setInput(""); setError(""); setLoading(true);
+    setInput(""); setError(""); setLoading(true); setStage("");
     setMessages(cur => [...cur, { role: "user", content: text }]);
     try {
-      const res = await apiFetch<ChatResponse>("/chat", {
+      const payload = { message: text, property_id: propertyId || undefined };
+      const streamed: { result?: ChatResponse; sawStage: boolean } = { sawStage: false };
+
+      // Stream first so the customer sees which step is running.
+      try {
+        let streamError: string | undefined;
+        await apiStream("/chat/stream", {
+          body: payload,
+          headers: { "X-Session-ID": activeSessionId },
+          signal: controller.signal,
+          onEvent: (event, data) => {
+            if (event === "stage") {
+              streamed.sawStage = true;
+              setStage((data as { label?: string }).label ?? "");
+            } else if (event === "result") {
+              streamed.result = data as ChatResponse;
+            } else if (event === "error") {
+              streamError = (data as { detail?: string }).detail;
+            }
+          },
+        });
+        if (streamError) throw new ApiError(streamError, 503);
+      } catch (streamErr: unknown) {
+        if (streamErr instanceof Error && (streamErr.name === "AbortError" || streamErr.message.includes("abort"))) {
+          throw streamErr;
+        }
+        // Receiving a stage proves the server ran this turn. Retrying over POST
+        // would make it run and persist a second time, duplicating the message.
+        if (streamed.sawStage) throw streamErr;
+      }
+
+      // Falling back only when streaming never started: an older backend, or a
+      // proxy that does not pass text/event-stream through.
+      const res = streamed.result ?? await apiFetch<ChatResponse>("/chat", {
         method: "POST",
         headers: { "X-Session-ID": activeSessionId },
-        body: JSON.stringify({ message: text, property_id: propertyId || undefined }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
+
+      setStage("");
       setSessionId(res.session_id || activeSessionId);
       const chips = deriveQuickReplies(res.response, res.properties?.length ?? 0);
       setMessages(cur => [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }]);
@@ -558,6 +595,7 @@ function ChatContent() {
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
         setLoading(false);
+        setStage("");
       }
     }
   }
@@ -570,25 +608,21 @@ function ChatContent() {
       setSessionId(nextSession);
       sessionLoadedOnMount.current = true;
 
-      // Clean query parameters from URL so subsequent reload does not re-send
-      const url = new URL(window.location.href);
-      url.searchParams.delete("prompt");
-      url.searchParams.delete("new");
-      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      // router.replace, not history.replaceState: the latter leaves useSearchParams
+      // holding the stale prompt, so a remount would read it again.
+      router.replace("/chat", { scroll: false });
 
       void send(undefined, initialPrompt, nextSession);
       return;
     }
 
-    if (isNewParam && !initialPrompt) {
+    if (isNewParam && !initialPrompt && !sessionLoadedOnMount.current) {
       const nextSession = crypto.randomUUID();
       window.sessionStorage.setItem("nera_chat_session_id", nextSession);
       setSessionId(nextSession);
       setMessages([greeting]);
       sessionLoadedOnMount.current = true;
-      const url = new URL(window.location.href);
-      url.searchParams.delete("new");
-      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      router.replace("/chat", { scroll: false });
       return;
     }
 
@@ -935,8 +969,13 @@ function ChatContent() {
             {loading && (
               <div className="flex animate-message-in items-start gap-3">
                 <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs"><FaMagic /></span>
-                <div className="flex gap-1 rounded-[1.35rem] rounded-tl-md bg-white px-5 py-5 shadow-xs border border-stone-100">
-                  <i className="typing-dot" /><i className="typing-dot [animation-delay:150ms]" /><i className="typing-dot [animation-delay:300ms]" />
+                <div className="flex items-center gap-3 rounded-[1.35rem] rounded-tl-md bg-white px-5 py-5 shadow-xs border border-stone-100">
+                  <span className="flex gap-1">
+                    <i className="typing-dot" /><i className="typing-dot [animation-delay:150ms]" /><i className="typing-dot [animation-delay:300ms]" />
+                  </span>
+                  {stage && (
+                    <span aria-live="polite" className="text-sm text-[var(--muted)]">{stage}</span>
+                  )}
                 </div>
               </div>
             )}

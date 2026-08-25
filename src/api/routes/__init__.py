@@ -1,11 +1,15 @@
 """API routes for BookingBot AI Agent."""
 
+import asyncio
+import json
 import logging
 import re
 import uuid
+from collections.abc import AsyncIterator, Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -86,6 +90,25 @@ async def chat(
     db: AsyncSession = Depends(get_session),
 ) -> ChatResponse:
     """Chat through the LangGraph Multi-Agent System."""
+    return await _execute_chat_turn(request, session_id, user, db)
+
+
+async def _execute_chat_turn(
+    request: ChatRequest,
+    session_id: str,
+    user: User | None,
+    db: AsyncSession,
+    on_stage: Callable[[str], None] | None = None,
+) -> ChatResponse:
+    """Run one chat turn end to end.
+
+    Both the plain POST and the streaming endpoint go through here, so there is a
+    single persistence path: whichever transport a client uses, the session is
+    written exactly once and in the same way.
+
+    `on_stage` receives each graph node name as it finishes. It only reports
+    progress; it must not change what the turn produces.
+    """
     try:
         session_id = request.session_id or session_id
         try:
@@ -165,7 +188,7 @@ async def chat(
             agent_state["current_property_id"] = str(request.property_id)
 
         # Execute LangGraph Multi-Agent
-        final_state = await run_agent(agent_state)
+        final_state = await run_agent(agent_state, on_stage=on_stage)
 
         response_msg = str(final_state.get("response") or "").strip()
         if not response_msg:
@@ -193,6 +216,8 @@ async def chat(
             "household_context": final_state.get("household_context", []),
             "commute_landmark": final_state.get("commute_landmark"),
             "max_commute_minutes": final_state.get("max_commute_minutes"),
+            "monthly_income_vnd": final_state.get("monthly_income_vnd"),
+            "own_capital_vnd": final_state.get("own_capital_vnd"),
             "property_refs": raw_properties if properties else (metadata.get("chat_state", {}).get("property_refs", []) if intent in _PROPERTY_RELEVANT_INTENTS else []),
             "selected_property_id": final_state.get("current_property_id"),
             "selected_property_index": final_state.get("selected_property_index"),
@@ -257,6 +282,94 @@ async def chat(
             status_code=503,
             detail="Trợ lý đang gặp sự cố tạm thời. Vui lòng thử lại sau ít phút.",
         ) from exc
+
+
+# Upper bound on waiting for a turn to finish after the client has gone. Two LLM
+# calls at ~20s each plus persistence fits comfortably inside this.
+_STREAM_DRAIN_TIMEOUT = 60
+
+# What each graph node is actually doing, in the customer's words. Only nodes
+# that take visible time are listed; anything unmapped is skipped rather than
+# reported under a vague label.
+_STAGE_LABELS = {
+    "supervisor": "Đang đọc nhu cầu của bạn",
+    "inventory": "Đang tìm trong kho nhà",
+    "booking": "Đang kiểm tra khung giờ trống",
+    "assignment": "Đang tìm nhân viên phụ trách",
+    "hitl": "Đang chuyển cho nhân viên xác nhận",
+    "respond": "Đang viết câu trả lời",
+}
+
+
+@router.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    session_id: str = Depends(get_session_id),
+    user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> StreamingResponse:
+    """Same turn as POST /chat, with real progress reported while it runs.
+
+    Each `stage` event fires when a graph node genuinely finishes. Nothing here is
+    simulated: if the work is fast, the client simply sees fewer stages.
+    """
+    queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+    async def run() -> ChatResponse:
+        try:
+            return await _execute_chat_turn(
+                request, session_id, user, db, on_stage=queue.put_nowait
+            )
+        finally:
+            queue.put_nowait(None)
+
+    async def events() -> AsyncIterator[str]:
+        task = asyncio.create_task(run())
+        try:
+            while True:
+                node = await queue.get()
+                if node is None:
+                    break
+                label = _STAGE_LABELS.get(node)
+                if label:
+                    payload = json.dumps({"stage": node, "label": label}, ensure_ascii=False)
+                    yield f"event: stage\ndata: {payload}\n\n"
+
+            result = await task
+            body = result.model_dump(mode="json")
+            yield f"event: result\ndata: {json.dumps(body, ensure_ascii=False)}\n\n"
+        except HTTPException as exc:
+            error = json.dumps({"detail": exc.detail, "status": exc.status_code}, ensure_ascii=False)
+            yield f"event: error\ndata: {error}\n\n"
+        except Exception:
+            logger.exception("Chat stream failed for session %s", session_id)
+            error = json.dumps(
+                {"detail": "Trợ lý đang gặp sự cố tạm thời. Vui lòng thử lại sau ít phút.", "status": 503},
+                ensure_ascii=False,
+            )
+            yield f"event: error\ndata: {error}\n\n"
+        finally:
+            # The turn is never cancelled: it holds the request-scoped DB session,
+            # and cutting it off mid-write would persist half a turn. If the client
+            # disconnected, wait here so FastAPI does not tear that session down
+            # underneath the task. The shield keeps the timeout from cancelling it.
+            if not task.done():
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), timeout=_STREAM_DRAIN_TIMEOUT)
+                except (TimeoutError, HTTPException):
+                    logger.warning("Chat turn still running after client left: %s", session_id)
+                except Exception:
+                    logger.exception("Chat turn failed after client left: %s", session_id)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",  # keep proxies from holding the stages back
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.get("/status")

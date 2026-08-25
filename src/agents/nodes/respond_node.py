@@ -85,10 +85,27 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
                 "recent_history": recent_turns,
             }
 
+            # Money answers are computed, never improvised. When the turn carries a
+            # worked affordability figure, the model must quote it rather than run
+            # its own arithmetic on the customer's income.
+            affordability_note = state.get("affordability_note")
+            if affordability_note:
+                context_info["affordability_analysis"] = affordability_note
+
             try:
                 llm = get_llm()
+                system_prompt = NERA_PERSONA_PROMPT
+                if affordability_note:
+                    # Kept in the leading system message: a trailing one is ignored
+                    # by several providers, and this rule must not be optional.
+                    system_prompt += (
+                        "\n\nQUY TẮC BẮT BUỘC VỀ TIỀN: ngữ cảnh có trường affordability_analysis "
+                        "đã được hệ thống tính sẵn bằng công thức tài chính. Hãy dùng đúng các con số "
+                        "trong đó và giữ nguyên phần nêu giả định. TUYỆT ĐỐI không tự tính lại khoản vay, "
+                        "tiền trả góp hay tầm giá từ thu nhập của khách."
+                    )
                 prompt_messages = [
-                    SystemMessage(content=NERA_PERSONA_PROMPT),
+                    SystemMessage(content=system_prompt),
                     HumanMessage(
                         content=f"Ngữ cảnh hiện tại:\n{json.dumps(context_info, ensure_ascii=False)}\n\n"
                         f"Tin nhắn mới của khách: \"{query}\"\n\n"

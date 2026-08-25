@@ -58,6 +58,9 @@ class AgentState(TypedDict, total=False):
     household_context: list[str]  # e.g. ["gia đình 4 người", "có con nhỏ", "nuôi thú cưng"]
     commute_landmark: str | None  # e.g. "Quận 1", "Sân bay Tân Sơn Nhất"
     max_commute_minutes: int | None
+    monthly_income_vnd: int | None  # Income the customer stated, used to derive a price ceiling
+    own_capital_vnd: int | None  # Savings the customer stated; changes the ceiling a lot
+    affordability_note: str | None  # Deterministic explanation of how the ceiling was derived
     selected_properties: list[dict[str, Any]]  # Full property items matching search / current view
     search_results: list[dict[str, Any]]  # Preserved list of search result properties across turns
     current_property_id: str | None  # ID of property being discussed / selected
@@ -125,6 +128,9 @@ def create_initial_agent_state(
         "household_context": stored_state.get("household_context", []),
         "commute_landmark": stored_state.get("commute_landmark"),
         "max_commute_minutes": stored_state.get("max_commute_minutes"),
+        "monthly_income_vnd": stored_state.get("monthly_income_vnd"),
+        "own_capital_vnd": stored_state.get("own_capital_vnd"),
+        "affordability_note": None,
         "selected_properties": stored_state.get("property_refs", []),
         "current_property_id": stored_state.get("selected_property_id"),
         "selected_property_index": stored_state.get("selected_property_index"),
