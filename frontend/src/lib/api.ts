@@ -10,10 +10,8 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit & { signal?: AbortSignal } = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("nera_auth_token") : null;
   const headers: Record<string, string> = {
     ...(options.body ? { "Content-Type": "application/json" } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string>),
   };
 

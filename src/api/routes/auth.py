@@ -17,7 +17,16 @@ from src.schemas.auth import (
     UserResponse,
     UserUpdate,
 )
-from src.services.auth_service import create_access_token, get_password_hash, register_user, verify_password
+from src.services.auth_service import (
+    create_access_token,
+    create_password_reset_token,
+    get_password_hash,
+    get_password_reset_subject,
+    register_user,
+    verify_password,
+    verify_password_reset_token,
+)
+from src.services.email_service import send_password_reset_email
 from src.utils.time import utcnow
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -25,7 +34,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 settings = get_settings()
 
 
-def _set_auth_cookie(response: Response, token: str) -> None:
+def set_auth_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
@@ -76,7 +85,7 @@ async def login(
     access_token = create_access_token(
         data={"user_id": str(user.id), "role": user.role.value}
     )
-    _set_auth_cookie(response, access_token)
+    set_auth_cookie(response, access_token)
     return {"access_token": access_token, "token_type": "bearer", "user": user}
 
 
@@ -181,18 +190,18 @@ async def forgot_password(
     stmt = select(User).where(User.email == data.email.lower().strip())
     result = await db.execute(stmt)
     user = result.scalars().first()
-
-    if not user:
-        return {
-            "message": "Nếu email tồn tại trong hệ thống, bạn có thể thiết lập lại mật khẩu ngay.",
-            "exists": False,
-        }
-
-    return {
-        "message": "Email hợp lệ. Bạn có thể tiến hành đặt lại mật khẩu mới.",
-        "exists": True,
-        "email": user.email,
+    response = {
+        "message": "Nếu email tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi."
     }
+    if user and user.status == UserStatus.ACTIVE:
+        token = create_password_reset_token(user)
+        reset_url = f"{settings.frontend_url.rstrip('/')}/forgot-password?token={token}"
+        await send_password_reset_email(user.email, reset_url)
+        # Local development remains usable without an SMTP account. Never leak
+        # this token from a production response.
+        if settings.app_env == "development":
+            response["dev_reset_token"] = token
+    return response
 
 
 @router.post("/reset-password")
@@ -200,12 +209,15 @@ async def reset_password(
     data: ResetPasswordRequest,
     db: AsyncSession = Depends(get_session),
 ):
-    stmt = select(User).where(User.email == data.email.lower().strip())
+    user_id = get_password_reset_subject(data.token)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.")
+    stmt = select(User).where(User.id == user_id)
     result = await db.execute(stmt)
     user = result.scalars().first()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản với email này.")
+    if not user or not verify_password_reset_token(data.token, user):
+        raise HTTPException(status_code=400, detail="Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.")
 
     user.password_hash = get_password_hash(data.new_password)
     user.updated_at = utcnow()

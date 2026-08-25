@@ -30,6 +30,11 @@ class RescheduleRequest(BaseModel):
     sale_user_id: UUID
 
 
+class RescheduleProposalRequest(BaseModel):
+    desired_start: datetime | None = None
+    reason: str = "SCHEDULE_CONFLICT"
+
+
 @router.get("/availability")
 async def availability(
     property_id: UUID,
@@ -38,7 +43,8 @@ async def availability(
     db: AsyncSession = Depends(get_session),
 ):
     try:
-        return await list_available_slots(db, property_id, target_date)
+        customer_id = user.id if user and user.role == UserRole.CUSTOMER else None
+        return await list_available_slots(db, property_id, target_date, customer_id)
     except BookingConflictError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -112,6 +118,66 @@ async def reschedule_booking(
             payload.new_preferred_end,
         )
         return result
+    except BookingNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BookingConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{booking_id}/reschedule/proposals")
+async def create_reschedule_proposals(
+    booking_id: UUID,
+    payload: RescheduleProposalRequest,
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
+):
+    from src.services.reschedule_service import propose_alternative_slots
+
+    try:
+        booking = await get_customer_booking(db, booking_id, user.id)
+        if not booking.appointment:
+            raise BookingConflictError("Lịch chưa được Sale xác nhận nên chưa thể tự dời")
+        return await propose_alternative_slots(
+            db,
+            booking.appointment.id,
+            user.id,
+            desired_start=payload.desired_start,
+            reason=payload.reason,
+        )
+    except BookingNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BookingConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{booking_id}/reschedule/proposals/{proposal_id}/confirm")
+async def confirm_reschedule(
+    booking_id: UUID,
+    proposal_id: UUID,
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
+):
+    from src.services.reschedule_service import confirm_reschedule_proposal
+
+    try:
+        return await confirm_reschedule_proposal(db, proposal_id, user.id)
+    except BookingNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BookingConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{booking_id}/reschedule/proposals/{proposal_id}/reject")
+async def reject_reschedule(
+    booking_id: UUID,
+    proposal_id: UUID,
+    user: User = Depends(require_roles(UserRole.CUSTOMER)),
+    db: AsyncSession = Depends(get_session),
+):
+    from src.services.reschedule_service import reject_reschedule_proposal
+
+    try:
+        return await reject_reschedule_proposal(db, proposal_id, user.id)
     except BookingNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except BookingConflictError as exc:

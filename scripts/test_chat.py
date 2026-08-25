@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Script test chat truc tiep de debug."""
 
+__test__ = False  # Debug CLI, not a pytest module.
+
 import asyncio
 import sys
 import logging
@@ -17,7 +19,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from src.agents.state import create_initial_state
+from src.agents.state import create_initial_agent_state
 from src.agents.graph import get_agent_graph
 from src.services.llm import get_llm, reset_llm
 from langchain_core.messages import HumanMessage
@@ -33,7 +35,7 @@ async def test_single_message(message: str):
     reset_llm()
 
     # Create state
-    state = create_initial_state(
+    state = create_initial_agent_state(
         session_id="test-session-001",
         query=message,
     )

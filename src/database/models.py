@@ -127,6 +127,7 @@ class NotificationChannel(enum.StrEnum):
     IN_APP = "IN_APP"
     EMAIL = "EMAIL"
     SMS = "SMS"
+    ZALO = "ZALO"
     WEB_PUSH = "WEB_PUSH"
 
 
@@ -954,6 +955,66 @@ class PropertyHold(Base, TimestampMixin):
 
     __table_args__ = (
         Index("ix_property_holds_expiry", "expires_at"),
+    )
+
+
+# ============== Human review & reschedule proposals ==============
+
+class HitlCase(Base, TimestampMixin):
+    """Durable human-in-the-loop work item handled by a coordinator."""
+
+    __tablename__ = "hitl_cases"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    case_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    reason: Mapped[str] = mapped_column(String(100), nullable=False)
+    context: Mapped[dict] = mapped_column(JSONB, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="PENDING", nullable=False)
+    session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    customer_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_coordinator_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    resolved_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    decision: Mapped[dict] = mapped_column(JSONB, default=dict)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_hitl_cases_queue", "status", "created_at"),
+        Index("ix_hitl_cases_customer", "customer_user_id", "created_at"),
+    )
+
+
+class RescheduleProposal(Base, TimestampMixin):
+    """Alternative appointment slot that is inert until the customer confirms it."""
+
+    __tablename__ = "reschedule_proposals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    appointment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("appointments.id", ondelete="CASCADE"), nullable=False
+    )
+    customer_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customer_profiles.user_id", ondelete="CASCADE"), nullable=False
+    )
+    proposed_sale_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sale_profiles.user_id", ondelete="RESTRICT"), nullable=False
+    )
+    proposed_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    proposed_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="PENDING", nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_reschedule_proposals_customer", "customer_user_id", "status", "created_at"),
+        Index("ix_reschedule_proposals_appointment", "appointment_id", "status"),
     )
 
 

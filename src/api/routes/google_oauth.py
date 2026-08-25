@@ -3,19 +3,25 @@ from urllib.parse import urlencode
 
 import httpx
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.routes.auth import require_roles
+from src.api.routes.auth import require_roles, set_auth_cookie
 from src.config import get_settings
 from src.database import get_session
 from src.database.models import CustomerProfile, SaleProfile, User, UserRole, UserStatus
 from src.services.auth_service import ALGORITHM, SECRET_KEY, create_access_token, get_password_hash
+from src.services.oauth_exchange_service import consume_oauth_exchange, create_oauth_exchange
 from src.utils.time import utcnow
 
 router = APIRouter(prefix="/auth/google", tags=["oauth"])
+
+
+class OAuthExchangeRequest(BaseModel):
+    code: str = Field(min_length=32, max_length=200)
 
 
 def _oauth_settings():
@@ -190,22 +196,16 @@ async def google_callback(
                     db.add(profile)
             await db.commit()
 
-        jwt_token = create_access_token(
-            data={"user_id": str(user.id), "role": user.role.value}
+        try:
+            exchange_code = await create_oauth_exchange(str(user.id), user.role.value)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Không thể hoàn tất đăng nhập Google lúc này.",
+            ) from exc
+        return RedirectResponse(
+            url=f"{settings.frontend_url.rstrip('/')}/login?google_code={exchange_code}"
         )
-
-        redirect_url = f"{settings.frontend_url.rstrip('/')}/login?google_token={jwt_token}"
-        response = RedirectResponse(url=redirect_url)
-        response.set_cookie(
-            key=settings.auth_cookie_name,
-            value=jwt_token,
-            httponly=True,
-            secure=settings.app_env == "production",
-            samesite="lax",
-            max_age=settings.access_token_expire_minutes * 60,
-            path="/",
-        )
-        return response
 
     # 2. Handle Sale Google Calendar Sync
     if purpose == "google_calendar_oauth":
@@ -229,3 +229,27 @@ async def google_callback(
         return RedirectResponse(url=f"{settings.frontend_url.rstrip('/')}/sale")
 
     raise HTTPException(status_code=400, detail="Mục đích OAuth không hợp lệ.")
+
+
+@router.post("/exchange")
+async def exchange_google_login(
+    data: OAuthExchangeRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_session),
+):
+    try:
+        payload = await consume_oauth_exchange(data.code)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Phiên đăng nhập Google tạm thời không khả dụng.") from exc
+    if not payload:
+        raise HTTPException(status_code=400, detail="Mã đăng nhập Google không hợp lệ hoặc đã hết hạn.")
+
+    user = (
+        await db.execute(select(User).where(User.id == payload["user_id"]))
+    ).scalar_one_or_none()
+    if not user or user.status != UserStatus.ACTIVE or user.role.value != payload["role"]:
+        raise HTTPException(status_code=401, detail="Tài khoản Google không còn hợp lệ.")
+
+    jwt_token = create_access_token({"user_id": str(user.id), "role": user.role.value})
+    set_auth_cookie(response, jwt_token)
+    return {"success": True}

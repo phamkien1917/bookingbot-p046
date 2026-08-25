@@ -9,3 +9,9 @@ def test_calendar_columns_have_idempotent_runtime_migrations() -> None:
         "calendar_token_expires_at",
     ):
         assert f"ADD COLUMN IF NOT EXISTS {column}" in migration_sql
+
+
+def test_runtime_migrations_never_delete_or_seed_business_data() -> None:
+    migration_sql = "\n".join(POSTGRES_MIGRATIONS).upper()
+    assert "DELETE FROM" not in migration_sql
+    assert "INSERT INTO" not in migration_sql

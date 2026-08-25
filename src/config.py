@@ -24,6 +24,20 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "development-only-secret-change-me-123456"
     access_token_expire_minutes: int = Field(default=10080, ge=5)
     auth_cookie_name: str = "bookingbot_session"
+    password_reset_expire_minutes: int = Field(default=15, ge=5, le=60)
+
+    # Transactional email (password reset)
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_use_tls: bool = True
+    sms_provider_url: str = ""
+    sms_provider_token: str = ""
+    zalo_oa_url: str = "https://openapi.zalo.me/v3.0/oa/message/cs"
+    zalo_oa_token: str = ""
+    reminder_hours_before: str = "24,2"
 
     # OpenRouter LLM
     openrouter_api_key: str = ""
@@ -65,6 +79,14 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "https://bookingbot-api-q0t9.onrender.com/api/v1/auth/google/callback"
     frontend_url: str = "https://www.nerahome.space"
+
+    # Geospatial search. Loaded at process startup; restart after changing the key.
+    # No distance or nearby result is fabricated when this key is absent.
+    google_maps_api_key: str = ""
+    geo_timeout_seconds: int = Field(default=12, ge=2, le=60)
+    geo_geocode_cache_ttl_seconds: int = Field(default=86400, ge=60, le=604800)
+    geo_route_cache_ttl_seconds: int = Field(default=900, ge=30, le=86400)
+    geo_traffic_aware: bool = True
 
     # Vector Store
     chroma_persist_dir: str = "./data/chroma"

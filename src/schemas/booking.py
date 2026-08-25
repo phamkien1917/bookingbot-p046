@@ -56,6 +56,13 @@ class AppointmentResponse(BaseModel):
     starts_at: datetime
     ends_at: datetime
 
+
+class HoldResponse(BaseModel):
+    id: UUID
+    hold_code: str
+    status: str
+    expires_at: datetime
+
 class BookingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,3 +79,4 @@ class BookingResponse(BaseModel):
     property: PropertyResponse | None = None
     sale: SaleResponse | None = None
     appointment: AppointmentResponse | None = None
+    hold: HoldResponse | None = None

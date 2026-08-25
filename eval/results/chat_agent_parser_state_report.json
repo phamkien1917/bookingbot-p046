@@ -1,0 +1,1881 @@
+{
+  "summary": {
+    "passed": 46,
+    "failed": 2,
+    "skipped": 0,
+    "total": 48
+  },
+  "results": [
+    {
+      "id": "NERA-011",
+      "category": "location",
+      "turns": [
+        "Tìm căn hộ ở Hà Nội dưới 8 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "property_kind": "APARTMENT",
+          "max_price": 8000000000
+        },
+        "property_all": [
+          {
+            "path": "province",
+            "op": "contains",
+            "value": "Hà Nội"
+          },
+          {
+            "path": "list_price",
+            "op": "lte",
+            "value": 8000000000
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ ở Hà Nội dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 2629,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² ·",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-012",
+      "category": "location",
+      "turns": [
+        "Tìm nhà ở TP HCM dưới 10 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hồ Chí Minh",
+          "max_price": 10000000000
+        },
+        "property_all": [
+          {
+            "path": "province",
+            "op": "contains",
+            "value": "Hồ Chí Minh"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà ở TP HCM dưới 10 tỷ",
+          "status": 200,
+          "elapsed_ms": 2981,
+          "failures": [],
+          "response": "Nera đã tìm thấy **16 bất động sản** phù hợp nhất với tiêu chí **Hồ Chí Minh, tối đa 10 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. 2PN - 2,1 tỷ, Chung cư Dream Home Palace, Kèm nội thất (2,2 tỷ 62m²)**\n2.2 tỷ · 62 m² · 2 PN · Quận 8, Hồ Chí Minh\n\n**2. Căn hộ Chung cư Elysian 43m² giá 2.6tỷ. 52m² giá 3.55 tỷ, 82m² Lanai 5tỷ PTTT 50% nhận nhà**\n2.6 tỷ · 43 m² · 1 PN · Quận 9, Hồ Chí Minh\n\n**3. Nhà sổ hồng riêng Quận 7 - Giá tốt**\n2.95 tỷ · 26",
+          "criteria": {
+            "province": "Hồ Chí Minh",
+            "max_price": 10000000000
+          },
+          "property_count": 16,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-013",
+      "category": "location",
+      "turns": [
+        "Tìm bất động sản ở Đà Nẵng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Đà Nẵng"
+        },
+        "property_all": [
+          {
+            "path": "province",
+            "op": "contains",
+            "value": "Đà Nẵng"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm bất động sản ở Đà Nẵng",
+          "status": 200,
+          "elapsed_ms": 2842,
+          "failures": [],
+          "response": "Nera đã tìm thấy **6 bất động sản** phù hợp nhất với tiêu chí **Đà Nẵng** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**2. Chỉ 2T7 Sở hữu ngay căn Penthouse S-Light Tower view Pháo Hoa Trung tâm Thành phố**\n2.78 tỷ · 59 m² · 2 PN · Quận Cẩm Lệ, Đà Nẵng\n\n**3. Căn hộ S-Light Tower Đà Nẵng 2 phòng ngủ vi",
+          "criteria": {
+            "province": "Đà Nẵng"
+          },
+          "property_count": 6,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-014",
+      "category": "location",
+      "turns": [
+        "Tìm nhà ở Khánh Hòa"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Khánh Hòa"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà ở Khánh Hòa",
+          "status": 200,
+          "elapsed_ms": 2693,
+          "failures": [],
+          "response": "Nera đã tìm thấy **2 bất động sản** phù hợp nhất với tiêu chí **Khánh Hòa** cho bạn:\n\n**1. Đất mặt đường 23/10 đối diện khu đô thị Vĩnh Điềm Trung Nha Trang 2 mặt thoáng đẹp**\n14.55 tỷ · 194 m² · Thành phố Nha Trang, Khánh Hòa\n\n**2. Nhà 3 tầng, Đường Mê Linh, Ngay sát ngã 3 với đường Nguyễn Thị Minh Khai**\n25.5 tỷ · 123.3 m² · Thành phố Nha Trang, Khánh Hòa\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "province": "Khánh Hòa"
+          },
+          "property_count": 2,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-015",
+      "category": "location",
+      "turns": [
+        "Tìm nhà ở Quảng Ninh"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Quảng Ninh"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà ở Quảng Ninh",
+          "status": 200,
+          "elapsed_ms": 2645,
+          "failures": [],
+          "response": "Nera đã tìm thấy **1 bất động sản** phù hợp nhất với tiêu chí **Quảng Ninh** cho bạn:\n\n**1. Ô góc cạnh nhà ở xã hội BIM Bãi Cháy, Hạ Long. Giá đầu tư.**\n4.8 tỷ · 69.5 m² · Thành phố Hạ Long, Quảng Ninh\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "province": "Quảng Ninh"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-016",
+      "category": "location",
+      "turns": [
+        "Tìm căn hộ Cầu Giấy"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Cầu Giấy",
+          "property_kind": "APARTMENT"
+        },
+        "property_all": [
+          {
+            "path": "district",
+            "op": "contains",
+            "value": "Cầu Giấy"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Cầu Giấy",
+          "status": 200,
+          "elapsed_ms": 2114,
+          "failures": [],
+          "response": "Nera đã tìm thấy **10 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ ĐỦ ĐỒ - GIÁ TỐT 🔥**\n6.55 tỷ · 80 m² · 3 PN · Quận Cầu Giấy, Hà Nội\n\n**4. Căn hộ",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 10,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-017",
+      "category": "location",
+      "turns": [
+        "Tìm nhà Thanh Xuân Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Thanh Xuân",
+          "province": "Hà Nội"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Thanh Xuân Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2794,
+          "failures": [],
+          "response": "Nera đã tìm thấy **11 bất động sản** phù hợp nhất với tiêu chí **Thanh Xuân, Quận Thanh Xuân** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Căn Góc Thoáng Đẹp - Khương Đình, Đối diện Toà Fivestar**\n1.99 tỷ · 50 m² · 2 PN · Quận Thanh Xuân, Hà Nội\n\n**3. Chung cư Mini Nguyễn Trãi sau Royal City, Thoáng Đẹp Nội Thất Decor Xịn",
+          "criteria": {
+            "district": "Quận Thanh Xuân",
+            "province": "Hà Nội",
+            "area_or_ward": "Thanh Xuân",
+            "ward": "Thanh Xuân"
+          },
+          "property_count": 11,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-018",
+      "category": "location",
+      "turns": [
+        "Tìm căn hộ Bình Thạnh"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Bình Thạnh",
+          "property_kind": "APARTMENT"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Bình Thạnh",
+          "status": 200,
+          "elapsed_ms": 2975,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Bình Thạnh, Quận Bình Thạnh, căn hộ**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "district": "Quận Bình Thạnh",
+            "area_or_ward": "Bình Thạnh",
+            "ward": "Bình Thạnh",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-019",
+      "category": "location",
+      "turns": [
+        "Tìm nhà Quận 7"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận 7"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Quận 7",
+          "status": 200,
+          "elapsed_ms": 2594,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Quận 7** cho bạn:\n\n**1. Nhà sổ hồng riêng Quận 7 - Giá tốt**\n2.95 tỷ · 26 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**2. 2PN, 3PN, Office, CĐT mở bán (bàn giao hoàn thiện) || Thanh toán 15% kí HĐMB**\n5.3 tỷ · 70 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**3. Nhà phố ngang 6m xây kiên cố 3 tầng 4 phòng ngủ diện tích sử dụng 109m² giá tốt**\n6.8 tỷ · 40.5 m² · 4 PN · Quận 7, Hồ Chí Minh\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết n",
+          "criteria": {
+            "district": "Quận 7"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-020",
+      "category": "location",
+      "turns": [
+        "Tìm đất Quận 9"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận 9",
+          "property_kind": "LAND"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm đất Quận 9",
+          "status": 200,
+          "elapsed_ms": 2299,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Quận 9, đất nền**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "district": "Quận 9",
+            "property_kind": "LAND"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-021",
+      "category": "location",
+      "turns": [
+        "Tìm căn hộ Liên Chiểu Đà Nẵng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Liên Chiểu",
+          "province": "Đà Nẵng",
+          "property_kind": "APARTMENT"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Liên Chiểu Đà Nẵng",
+          "status": 200,
+          "elapsed_ms": 2589,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Liên Chiểu, Quận Liên Chiểu, căn hộ**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "district": "Quận Liên Chiểu",
+            "province": "Đà Nẵng",
+            "area_or_ward": "Liên Chiểu",
+            "ward": "Liên Chiểu",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-022",
+      "category": "location",
+      "turns": [
+        "Tìm nhà ở miền Bắc"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "region": "Miền Bắc"
+        },
+        "criteria_absent": [
+          "province"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà ở miền Bắc",
+          "status": 200,
+          "elapsed_ms": 2174,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Miền Bắc** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. Ô góc cạnh nhà ở xã hội BIM Bãi Cháy, Hạ Long. Giá đầu tư.**\n4.8 tỷ · 69.5 m² · Thành phố Hạ Long, Quảng Ninh\n\n**3. Nhà riêng tại Vương Văn Trà, 78 triệu/M2, 64.5m², Giá tốt!**\n5.03 tỷ · 64.5 m² · 2 PN · Thàn",
+          "criteria": {
+            "region": "Miền Bắc"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-023",
+      "category": "location",
+      "turns": [
+        "Tìm bất động sản miền Trung"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "region": "Miền Trung"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm bất động sản miền Trung",
+          "status": 200,
+          "elapsed_ms": 2136,
+          "failures": [],
+          "response": "Nera đã tìm thấy **9 bất động sản** phù hợp nhất với tiêu chí **Miền Trung** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Đất nền Đông Tân, Thanh Hóa diện tích 105m², Đường 15m, Gần chợ Đầu mối phía Tây Thanh Hóa**\n2.3 tỷ · 105 m² · Thành phố Thanh Hóa, Thanh Hóa\n\n**2. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**3. Đất mặt đường 23/10 đối diện",
+          "criteria": {
+            "region": "Miền Trung"
+          },
+          "property_count": 9,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-024",
+      "category": "location",
+      "turns": [
+        "Tìm nhà miền Nam"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "region": "Miền Nam"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà miền Nam",
+          "status": 200,
+          "elapsed_ms": 2891,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Miền Nam** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 1,65 tỷ sở hữu khu đất hai mặt tiền hiếm có bên hồ Nông trường 4, Phú Riềng**\n1.65 tỷ · 2314.6 m² · Huyện Phú Riềng, Bình Phước\n\n**2. 2PN - 2,1 tỷ, Chung cư Dream Home Palace, Kèm nội thất (2,2 tỷ 62m²)**\n2.2 tỷ · 62 m² · 2 PN · Quận 8, Hồ Chí Minh\n\n**3. Nhà 5X22.5m² giá nhỉnh 2 tỷ, Giáp Bình Chánh, Đường TL 10 vào 200m, GPX",
+          "criteria": {
+            "region": "Miền Nam"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-025",
+      "category": "location",
+      "turns": [
+        "Tim can ho o Cau Giay Ha Noi"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Cầu Giấy",
+          "province": "Hà Nội",
+          "property_kind": "APARTMENT"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tim can ho o Cau Giay Ha Noi",
+          "status": 200,
+          "elapsed_ms": 3484,
+          "failures": [],
+          "response": "Nera đã tìm thấy **10 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ ĐỦ ĐỒ - GIÁ TỐT 🔥**\n6.55 tỷ · 80 m² · 3 PN · Quận Cầu Giấy, Hà Nội\n\n**4. Căn hộ",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "province": "Hà Nội",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 10,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-036",
+      "category": "budget",
+      "turns": [
+        "Tìm nhà Hà Nội dưới 5 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "max_price": 5000000000
+        },
+        "property_all": [
+          {
+            "path": "list_price",
+            "op": "lte",
+            "value": 5000000000
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Hà Nội dưới 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 2712,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, tối đa 5 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · ",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 5000000000
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-037",
+      "category": "budget",
+      "turns": [
+        "Tìm nhà Hà Nội trên 10 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "min_price": 10000000000
+        },
+        "property_all": [
+          {
+            "path": "list_price",
+            "op": "gte",
+            "value": 10000000000
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Hà Nội trên 10 tỷ",
+          "status": 200,
+          "elapsed_ms": 2290,
+          "failures": [],
+          "response": "Nera đã tìm thấy **15 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, từ 10 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ cần 1 tỷ 073 triệu (10%) sở hữu căn 2PN Lumière Cao Xà Lá giá tốt hiếm có tại Nguyễn Trãi**\n10.33 tỷ · 67.4 m² · 2 PN · Quận Thanh Xuân, Hà Nội\n\n**2. Chung cư cao cấp Feliz Home 297 Hoàng Mai**\n10.5 tỷ · 114 m² · 3 PN · Quận Hoàng Mai, Hà Nội\n\n**3. ĐỨNG TÊN SỔ ĐỎ BÁN CĂN GÓC 84m² TẦNG ĐẸP 11 PARK VIEW CITY**\n10.6 tỷ ",
+          "criteria": {
+            "province": "Hà Nội",
+            "min_price": 10000000000
+          },
+          "property_count": 15,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-038",
+      "category": "budget",
+      "turns": [
+        "Tìm căn hộ Hà Nội từ 3 đến 5 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "min_price": 3000000000,
+          "max_price": 5000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội từ 3 đến 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 2362,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 5 tỷ, từ 3 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chung cư 45m² Nam Từ Liêm**\n3.05 tỷ · 45 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**2. Căn 01 Ngủ Vinhomes Smart City**\n3.05 tỷ · 37.8 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. - Căn hộ 2N, 1N + STU, 3N Vinhomes Ocean Park - Sổ đỏ - Nhà mới - Giá chỉ từ 1,6T**\n3.08 tỷ · 55 m² · 2 PN · Huyện Gia Lâm, Hà ",
+          "criteria": {
+            "province": "Hà Nội",
+            "min_price": 3000000000,
+            "max_price": 5000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-039",
+      "category": "budget",
+      "turns": [
+        "Tìm nhà tầm 4,5 tỷ ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "max_price": 4500000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà tầm 4,5 tỷ ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2516,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, tối đa 4.5 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN ",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 4500000000
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-040",
+      "category": "budget",
+      "turns": [
+        "Ngân sách không quá 7 tỷ, tìm nhà Cầu Giấy"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "max_price": 7000000000,
+          "district": "Quận Cầu Giấy"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Ngân sách không quá 7 tỷ, tìm nhà Cầu Giấy",
+          "status": 200,
+          "elapsed_ms": 3117,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy, tối đa 7 tỷ** cho bạn:\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ ĐỦ ĐỒ - GIÁ TỐT 🔥**\n6.55 tỷ · 80 m² · 3 PN · Quận Cầu Giấy, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "max_price": 7000000000
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-041",
+      "category": "budget",
+      "turns": [
+        "Tìm nhà ít nhất 2 tỷ ở Đà Nẵng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "min_price": 2000000000,
+          "province": "Đà Nẵng"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà ít nhất 2 tỷ ở Đà Nẵng",
+          "status": 200,
+          "elapsed_ms": 2737,
+          "failures": [],
+          "response": "Nera đã tìm thấy **6 bất động sản** phù hợp nhất với tiêu chí **Đà Nẵng, từ 2 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**2. Chỉ 2T7 Sở hữu ngay căn Penthouse S-Light Tower view Pháo Hoa Trung tâm Thành phố**\n2.78 tỷ · 59 m² · 2 PN · Quận Cẩm Lệ, Đà Nẵng\n\n**3. Căn hộ S-Light Tower Đà Nẵng 2 phò",
+          "criteria": {
+            "province": "Đà Nẵng",
+            "min_price": 2000000000
+          },
+          "property_count": 6,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-042",
+      "category": "budget",
+      "turns": [
+        "Tìm căn hộ khoảng 2500 triệu đến 4 tỷ ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "min_price": 2500000000,
+          "max_price": 4000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ khoảng 2500 triệu đến 4 tỷ ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2969,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 4 tỷ, từ 2.5 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Nhà**\n2.5 tỷ · 60 m² · 2 PN · Quận Thanh Xuân, Hà Nội\n\n**2. Căn Stu tòa I2. Vinhome Smart City Tây Mỗ**\n2.55 tỷ · 32 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. CCMN Mặt Phố Xe Buyt, Thoáng Đẹp, Có Thể Làm Văn Phòng**\n2.55 tỷ · 52 m² · 2 PN · Quận Thanh Xuân, Hà Nội\n\n**4. 2 căn 1N+ 43m² 2,59 tỷ, Stud",
+          "criteria": {
+            "province": "Hà Nội",
+            "min_price": 2500000000,
+            "max_price": 4000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-043",
+      "category": "budget",
+      "turns": [
+        "Tìm nhà trên 8 tỷ nhưng dưới 3 tỷ"
+      ],
+      "expect": {
+        "contains_any": [
+          "tối thiểu",
+          "mâu thuẫn",
+          "xác nhận lại"
+        ],
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà trên 8 tỷ nhưng dưới 3 tỷ",
+          "status": 200,
+          "elapsed_ms": 3039,
+          "failures": [],
+          "response": "Mình chưa thể tìm chính xác vì mức giá tối thiểu đang lớn hơn mức giá tối đa. Bạn vui lòng xác nhận lại khoảng tiêu chí mong muốn nhé.",
+          "criteria": {
+            "min_price": 8000000000,
+            "max_price": 3000000000
+          },
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-044",
+      "category": "budget",
+      "turns": [
+        "Tìm căn hộ Hà Nội <= 6 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "max_price": 6000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội <= 6 tỷ",
+          "status": 200,
+          "elapsed_ms": 3650,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 6 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² ·",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 6000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-045",
+      "category": "budget",
+      "turns": [
+        "Tìm nhà Hà Nội >= 12 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "min_price": 12000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Hà Nội >= 12 tỷ",
+          "status": 200,
+          "elapsed_ms": 2210,
+          "failures": [],
+          "response": "Nera đã tìm thấy **8 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, từ 12 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. CCMN 13 phòng khép kín , Doanh Thu khủng**\n12 tỷ · 36.5 m² · 11 PN · Huyện Thanh Trì, Hà Nội\n\n**2. Chung cư G02, Khu đô thị Nam Thăng Long - Ciputra, Giá cực chất 13 tỷ VND, 119m², Hot!**\n13 tỷ · 119 m² · 3 PN · Quận Tây Hồ, Hà Nội\n\n**3. Căn góc 153m², 3N2WC, Pháp lý rõ ràng**\n13.5 tỷ · 153 m² · 3 PN · Quận Nam Từ Liêm, H",
+          "criteria": {
+            "province": "Hà Nội",
+            "min_price": 12000000000
+          },
+          "property_count": 8,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-061",
+      "category": "transaction",
+      "turns": [
+        "Tôi muốn mua căn hộ ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "SALE",
+          "property_kind": "APARTMENT"
+        },
+        "property_all": [
+          {
+            "path": "features.listing_type",
+            "op": "eq",
+            "value": "SALE"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi muốn mua căn hộ ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2395,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, mua bán** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 P",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT",
+            "transaction_type": "SALE"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-062",
+      "category": "transaction",
+      "turns": [
+        "Tôi muốn thuê căn hộ ở Cầu Giấy dưới 20 triệu"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "district": "Quận Cầu Giấy",
+          "max_price": 20000000
+        },
+        "property_all": [
+          {
+            "path": "features.listing_type",
+            "op": "eq",
+            "value": "RENT"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi muốn thuê căn hộ ở Cầu Giấy dưới 20 triệu",
+          "status": 200,
+          "elapsed_ms": 2319,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "max_price": 20000000,
+            "property_kind": "APARTMENT",
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-063",
+      "category": "transaction",
+      "turns": [
+        "Tìm nhà cho thuê ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "province": "Hà Nội"
+        },
+        "property_all": [
+          {
+            "path": "features.listing_type",
+            "op": "eq",
+            "value": "RENT"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà cho thuê ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2442,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "province": "Hà Nội",
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-064",
+      "category": "transaction",
+      "turns": [
+        "Cần mua nhà Quận 7 dưới 8 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "SALE",
+          "district": "Quận 7",
+          "max_price": 8000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Cần mua nhà Quận 7 dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 2243,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Quận 7, tối đa 8 tỷ, mua bán** cho bạn:\n\n**1. Nhà sổ hồng riêng Quận 7 - Giá tốt**\n2.95 tỷ · 26 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**2. 2PN, 3PN, Office, CĐT mở bán (bàn giao hoàn thiện) || Thanh toán 15% kí HĐMB**\n5.3 tỷ · 70 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**3. Nhà phố ngang 6m xây kiên cố 3 tầng 4 phòng ngủ diện tích sử dụng 109m² giá tốt**\n6.8 tỷ · 40.5 m² · 4 PN · Quận 7, Hồ Chí Minh\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, ",
+          "criteria": {
+            "district": "Quận 7",
+            "max_price": 8000000000,
+            "transaction_type": "SALE"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-065",
+      "category": "transaction",
+      "turns": [
+        "Muốn thuê căn 2PN khoảng 15 đến 20 triệu ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "min_price": 15000000,
+          "max_price": 20000000,
+          "min_bedrooms": 2
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Muốn thuê căn 2PN khoảng 15 đến 20 triệu ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2802,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "province": "Hà Nội",
+            "min_price": 15000000,
+            "max_price": 20000000,
+            "min_bedrooms": 2,
+            "max_bedrooms": 2,
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-066",
+      "category": "transaction",
+      "turns": [
+        "Tìm nhà bán ở Đà Nẵng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "SALE",
+          "province": "Đà Nẵng"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà bán ở Đà Nẵng",
+          "status": 200,
+          "elapsed_ms": 2268,
+          "failures": [],
+          "response": "Nera đã tìm thấy **6 bất động sản** phù hợp nhất với tiêu chí **Đà Nẵng, mua bán** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**2. Chỉ 2T7 Sở hữu ngay căn Penthouse S-Light Tower view Pháo Hoa Trung tâm Thành phố**\n2.78 tỷ · 59 m² · 2 PN · Quận Cẩm Lệ, Đà Nẵng\n\n**3. Căn hộ S-Light Tower Đà Nẵng 2 phò",
+          "criteria": {
+            "province": "Đà Nẵng",
+            "transaction_type": "SALE"
+          },
+          "property_count": 6,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-067",
+      "category": "transaction",
+      "turns": [
+        "Tôi cần thuê, không phải mua, ở Bình Thạnh"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "district": "Quận Bình Thạnh"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi cần thuê, không phải mua, ở Bình Thạnh",
+          "status": 200,
+          "elapsed_ms": 2759,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "district": "Quận Bình Thạnh",
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-068",
+      "category": "transaction",
+      "turns": [
+        "Tìm căn hộ thuê full nội thất dưới 25 triệu/tháng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "furniture_status": "Nội thất đầy đủ",
+          "max_price": 25000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ thuê full nội thất dưới 25 triệu/tháng",
+          "status": 200,
+          "elapsed_ms": 3793,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "max_price": 25000000,
+            "property_kind": "APARTMENT",
+            "transaction_type": "RENT",
+            "furniture_status": "Nội thất đầy đủ"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-069",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ Cầu Giấy dưới 5 tỷ",
+        "Nới ngân sách lên 8 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Cầu Giấy",
+          "property_kind": "APARTMENT",
+          "max_price": 8000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Cầu Giấy dưới 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 4098,
+          "failures": [],
+          "response": "Nera đã tìm thấy **1 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy, căn hộ, tối đa 5 tỷ** cho bạn:\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "max_price": 5000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Nới ngân sách lên 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 3046,
+          "failures": [],
+          "response": "Nera đã tìm thấy **5 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ ĐỦ ĐỒ - GIÁ TỐT 🔥**\n6.55 tỷ · 80 m² · 3 PN · Quận Cầu Giấy, Hà Nội\n\n**4. Căn hộ Chung cư Bộ Kế hoạch và Đầu tư , Đông Quan, Cầu Giấy**\n7.2 tỷ · 84",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "property_kind": "APARTMENT",
+            "max_price": 8000000000
+          },
+          "property_count": 5,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-070",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ Quận 7 dưới 8 tỷ",
+        "Đổi sang 3 phòng ngủ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận 7",
+          "min_bedrooms": 3,
+          "max_price": 8000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Quận 7 dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 2905,
+          "failures": [],
+          "response": "Nera đã tìm thấy **1 bất động sản** phù hợp nhất với tiêu chí **Quận 7, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. 2PN, 3PN, Office, CĐT mở bán (bàn giao hoàn thiện) || Thanh toán 15% kí HĐMB**\n5.3 tỷ · 70 m² · 2 PN · Quận 7, Hồ Chí Minh\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "district": "Quận 7",
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Đổi sang 3 phòng ngủ",
+          "status": 200,
+          "elapsed_ms": 3661,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Quận 7, căn hộ, tối đa 8 tỷ, 3+ phòng ngủ**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "district": "Quận 7",
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT",
+            "province": "Hồ Chí Minh",
+            "min_bedrooms": 3
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-071",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm đất nền Quận 9 dưới 3 tỷ",
+        "Không phải đất, đổi sang căn hộ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "property_kind": "APARTMENT"
+        }
+      },
+      "failures": [
+        "turn 2: criteria.property_kind=None, expected 'APARTMENT'"
+      ],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm đất nền Quận 9 dưới 3 tỷ",
+          "status": 200,
+          "elapsed_ms": 2522,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Quận 9, đất nền, tối đa 3 tỷ**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "district": "Quận 9",
+            "max_price": 3000000000,
+            "property_kind": "LAND"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Không phải đất, đổi sang căn hộ",
+          "status": 200,
+          "elapsed_ms": 2703,
+          "failures": [
+            "criteria.property_kind=None, expected 'APARTMENT'"
+          ],
+          "response": "Để mình tìm được căn hộ/nhà đất ưng ý nhất cho bạn, bạn chia sẻ thêm một vài thông tin nhé:\n- **Khu vực mong muốn** (ví dụ: Quận 7, Cầu Giấy, Bình Thạnh...)\n- **Khoảng ngân sách** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Loại hình & số phòng ngủ** (ví dụ: căn hộ 2PN, nhà phố...)",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-072",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ Hà Nội dưới 6 tỷ",
+        "Đổi khu vực sang Đà Nẵng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Đà Nẵng"
+        },
+        "criteria_absent": [
+          "district"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội dưới 6 tỷ",
+          "status": 200,
+          "elapsed_ms": 2740,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 6 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² ·",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 6000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Đổi khu vực sang Đà Nẵng",
+          "status": 200,
+          "elapsed_ms": 4208,
+          "failures": [],
+          "response": "Nera đã tìm thấy **6 bất động sản** phù hợp nhất với tiêu chí **Đà Nẵng** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**2. Chỉ 2T7 Sở hữu ngay căn Penthouse S-Light Tower view Pháo Hoa Trung tâm Thành phố**\n2.78 tỷ · 59 m² · 2 PN · Quận Cẩm Lệ, Đà Nẵng\n\n**3. Căn hộ S-Light Tower Đà Nẵng 2 phòng ngủ vi",
+          "criteria": {
+            "province": "Đà Nẵng"
+          },
+          "property_count": 6,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-073",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm nhà Cầu Giấy dưới 10 tỷ",
+        "Chỉ lấy hướng Đông Nam"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Cầu Giấy",
+          "max_price": 10000000000,
+          "orientation": "Đông Nam"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Cầu Giấy dưới 10 tỷ",
+          "status": 200,
+          "elapsed_ms": 3069,
+          "failures": [],
+          "response": "Nera đã tìm thấy **8 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy, tối đa 10 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ ĐỦ ĐỒ - GIÁ TỐT 🔥**\n6.55 tỷ · 80 m² · 3 PN · Quận Cầu Giấy, Hà Nội\n\n**4. C",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "max_price": 10000000000
+          },
+          "property_count": 8,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Chỉ lấy hướng Đông Nam",
+          "status": 200,
+          "elapsed_ms": 2780,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Cầu Giấy, Quận Cầu Giấy, tối đa 10 tỷ, hướng Đông Nam**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "max_price": 10000000000,
+            "province": "Hà Nội",
+            "orientation": "Đông Nam"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-074",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ tầng 10 ở Hà Nội",
+        "Đổi sang từ tầng 15 trở lên"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "min_floor": 15
+        },
+        "criteria_absent": [
+          "max_floor"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ tầng 10 ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2347,
+          "failures": [],
+          "response": "Nera đã tìm thấy **5 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tầng 10** cho bạn:\n\n**1. Căn hộ 2p ngủ, Pk rộng giá 2,75 tại toà Ecohome Đông Ngạc**\n2.75 tỷ · 39.5 m² · 2 PN · Quận Bắc Từ Liêm, Hà Nội\n\n**2. Căn chung cư vân canh az mặt đường vành đai 3.5 giá rẻ**\n3.65 tỷ · 80 m² · 2 PN · Huyện Hoài Đức, Hà Nội\n\n**3. Chung cư sẵn sổ, Nội thất cơ bản như hình**\n3.99 tỷ · 66 m² · 2 PN · Quận Hoàng Mai, Hà Nội\n\n**4. Căn hộ chính chủ do chuyển công tác**\n4.1 tỷ · 75.5 m² · 2 PN · Quận",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT",
+            "min_floor": 10,
+            "max_floor": 10
+          },
+          "property_count": 5,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Đổi sang từ tầng 15 trở lên",
+          "status": 200,
+          "elapsed_ms": 2590,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tầng 15–—** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Studio toà S, 2T45 bao phi hướng đông nam, View bể bơi, Chính chủ.**\n2.4 tỷ · 30.7 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**2. Rẻ 43m tòa SA1 Vinhomes Smart City full gỗ-view bể bơi**\n3.2 tỷ · 43 m² · 2 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Căn hộ Pavilion toà P3 giá 3TY320**\n3.32 tỷ · 47 m² · 1 PN · Huyện Gia Lâm,",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT",
+            "min_floor": 15
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-075",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm nhà mua ở Hà Nội",
+        "Đổi sang thuê dưới 20 triệu"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "max_price": 20000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà mua ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2408,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, mua bán** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận",
+          "criteria": {
+            "province": "Hà Nội",
+            "transaction_type": "SALE"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Đổi sang thuê dưới 20 triệu",
+          "status": 200,
+          "elapsed_ms": 2784,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "max_price": 20000000,
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-076",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ thuê Cầu Giấy dưới 20 triệu",
+        "Không thuê nữa, tôi muốn mua dưới 5 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "SALE",
+          "max_price": 5000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ thuê Cầu Giấy dưới 20 triệu",
+          "status": 200,
+          "elapsed_ms": 3440,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "max_price": 20000000,
+            "property_kind": "APARTMENT",
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Không thuê nữa, tôi muốn mua dưới 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 2651,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **tối đa 5 tỷ, mua bán** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN ·",
+          "criteria": {
+            "max_price": 5000000000,
+            "transaction_type": "SALE"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-077",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm 3 căn hộ ở Hà Nội dưới 8 tỷ",
+        "Tìm thêm căn khác"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "max_price": 8000000000
+        },
+        "response_non_empty": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm 3 căn hộ ở Hà Nội dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 3123,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nó",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Tìm thêm căn khác",
+          "status": 200,
+          "elapsed_ms": 4537,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. CHUNG CƯ MINI**\n1.78 tỷ · 52 m² · 2 PN · Quận Nam Từ Liêm, Hà Nội\n\n**2. CCMN Căn Góc Thoáng Đẹp - Khương Đình, Đối diện Toà Fivestar**\n1.99 tỷ · 50 m² · 2 PN · Quận Thanh Xuân, Hà Nội\n\n**3. Chung cư mini có sổ - sang được tên**\n2.05 tỷ · 43 m² · 2 PN · Quận Đống Đa, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-078",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm nhà Hà Nội dưới 5 tỷ",
+        "Thay đổi nhu cầu",
+        "Tìm biệt thự Đà Nẵng trên 10 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Đà Nẵng",
+          "property_kind": "VILLA",
+          "min_price": 10000000000
+        },
+        "criteria_absent": [
+          "max_price"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Hà Nội dưới 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 2477,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, tối đa 5 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · ",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 5000000000
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Thay đổi nhu cầu",
+          "status": 200,
+          "elapsed_ms": 3285,
+          "failures": [],
+          "response": "Dạ vâng! Nera đã làm mới yêu cầu tìm kiếm cho bạn.\n\nBạn hãy chia sẻ nhu cầu mới nhé:\n- **Khu vực bạn muốn tìm** (ví dụ: Cầu Giấy, Nam Từ Liêm, Quận 7...)\n- **Khoảng ngân sách mong muốn** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Số phòng ngủ & Loại nhà** (ví dụ: Căn hộ 2PN, Nhà phố...)",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 3,
+          "message": "Tìm biệt thự Đà Nẵng trên 10 tỷ",
+          "status": 200,
+          "elapsed_ms": 4020,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Đà Nẵng, biệt thự, từ 10 tỷ**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "province": "Đà Nẵng",
+            "min_price": 10000000000,
+            "property_kind": "VILLA"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-079",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ 2PN Hà Nội",
+        "Thêm điều kiện sổ hồng riêng",
+        "Thêm hướng Đông Nam"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "min_bedrooms": 2,
+          "legal_status": "Sổ hồng riêng",
+          "orientation": "Đông Nam"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ 2PN Hà Nội",
+          "status": 200,
+          "elapsed_ms": 2859,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, 2 phòng ngủ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. CHUNG CƯ MINI**\n1.78 tỷ · 52 m² · 2 PN · Quận Nam Từ Liêm, Hà Nội\n\n**2. CCMN Căn Góc Thoáng Đẹp - Khương Đình, Đối diện Toà Fivestar**\n1.99 tỷ · 50 m² · 2 PN · Quận Thanh Xuân, Hà Nội\n\n**3. Chung cư mini có sổ - sang được tên**\n2.05 tỷ · 43 m² · 2 PN · Quận Đống Đa, Hà Nội\n\n**4. Chung cư Mini Nguyễn Trãi sau R",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT",
+            "min_bedrooms": 2,
+            "max_bedrooms": 2
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Thêm điều kiện sổ hồng riêng",
+          "status": 200,
+          "elapsed_ms": 2956,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, 2 phòng ngủ, Sổ hồng riêng** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chung cư mini có sổ - sang được tên**\n2.05 tỷ · 43 m² · 2 PN · Quận Đống Đa, Hà Nội\n\n**2. CCMN 45m²- 2PN+1PK tại Đống Đa, Hà Nội**\n2.2 tỷ · 45 m² · 2 PN · Quận Đống Đa, Hà Nội\n\n**3. Chung cư Mini Mặt Phố Xe Buyt- Vũ Tông Phan, 2N2WC Full Nội Thất Cao Câp**\n2.44 tỷ · 55 m² · 2 PN · Quận Thanh Xuâ",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT",
+            "min_bedrooms": 2,
+            "max_bedrooms": 2,
+            "legal_status": "Sổ hồng riêng"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 3,
+          "message": "Thêm hướng Đông Nam",
+          "status": 200,
+          "elapsed_ms": 3415,
+          "failures": [],
+          "response": "Nera đã tìm thấy **1 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 2.55 tỷ, từ 2.05 tỷ, 2 phòng ngủ, hướng Đông Nam, Sổ hồng riêng** cho bạn:\n\n**1. CCMN 45m²- 2PN+1PK tại Đống Đa, Hà Nội**\n2.2 tỷ · 45 m² · 2 PN · Quận Đống Đa, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT",
+            "min_bedrooms": 2,
+            "max_bedrooms": 2,
+            "legal_status": "Sổ hồng riêng",
+            "min_price": 2050000000,
+            "max_price": 2550000000,
+            "orientation": "Đông Nam"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-080",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ Hà Nội từ 3 đến 5 tỷ",
+        "Bỏ giới hạn giá, chỉ cần Cầu Giấy"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Cầu Giấy"
+        },
+        "criteria_absent": [
+          "min_price",
+          "max_price"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội từ 3 đến 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 3377,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 5 tỷ, từ 3 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chung cư 45m² Nam Từ Liêm**\n3.05 tỷ · 45 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**2. Căn 01 Ngủ Vinhomes Smart City**\n3.05 tỷ · 37.8 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. - Căn hộ 2N, 1N + STU, 3N Vinhomes Ocean Park - Sổ đỏ - Nhà mới - Giá chỉ từ 1,6T**\n3.08 tỷ · 55 m² · 2 PN · Huyện Gia Lâm, Hà ",
+          "criteria": {
+            "province": "Hà Nội",
+            "min_price": 3000000000,
+            "max_price": 5000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Bỏ giới hạn giá, chỉ cần Cầu Giấy",
+          "status": 200,
+          "elapsed_ms": 4379,
+          "failures": [],
+          "response": "Nera đã tìm thấy **10 bất động sản** phù hợp nhất với tiêu chí **Quận Cầu Giấy** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ ĐỦ ĐỒ - GIÁ TỐT 🔥**\n6.55 tỷ · 80 m² · 3 PN · Quận Cầu Giấy, Hà Nội\n\n**4. Căn hộ Chung cư Bộ Kế ho",
+          "criteria": {
+            "district": "Quận Cầu Giấy"
+          },
+          "property_count": 10,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-081",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm nhà Quận 7",
+        "3 phòng ngủ",
+        "Ít nhất 80 m2"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận 7",
+          "min_bedrooms": 3,
+          "min_area": 80.0
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Quận 7",
+          "status": 200,
+          "elapsed_ms": 5849,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Quận 7** cho bạn:\n\n**1. Nhà sổ hồng riêng Quận 7 - Giá tốt**\n2.95 tỷ · 26 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**2. 2PN, 3PN, Office, CĐT mở bán (bàn giao hoàn thiện) || Thanh toán 15% kí HĐMB**\n5.3 tỷ · 70 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**3. Nhà phố ngang 6m xây kiên cố 3 tầng 4 phòng ngủ diện tích sử dụng 109m² giá tốt**\n6.8 tỷ · 40.5 m² · 4 PN · Quận 7, Hồ Chí Minh\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết n",
+          "criteria": {
+            "district": "Quận 7"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "3 phòng ngủ",
+          "status": 200,
+          "elapsed_ms": 3723,
+          "failures": [],
+          "response": "Nera đã tìm thấy **1 bất động sản** phù hợp nhất với tiêu chí **Quận 7, 3+ phòng ngủ** cho bạn:\n\n**1. Nhà phố ngang 6m xây kiên cố 3 tầng 4 phòng ngủ diện tích sử dụng 109m² giá tốt**\n6.8 tỷ · 40.5 m² · 4 PN · Quận 7, Hồ Chí Minh\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho Nera biết nhé! 😊",
+          "criteria": {
+            "district": "Quận 7",
+            "province": "Hồ Chí Minh",
+            "min_bedrooms": 3
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 3,
+          "message": "Ít nhất 80 m2",
+          "status": 200,
+          "elapsed_ms": 14952,
+          "failures": [],
+          "response": "Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **Quận 7, 3+ phòng ngủ, từ 80 m²**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+          "criteria": {
+            "district": "Quận 7",
+            "province": "Hồ Chí Minh",
+            "min_bedrooms": 3,
+            "min_area": 80.0
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-082",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm căn hộ Hà Nội dưới 8 tỷ",
+        "Tôi muốn bắt đầu nhu cầu mới: tìm đất Đà Nẵng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Đà Nẵng",
+          "property_kind": "LAND"
+        },
+        "criteria_absent": [
+          "max_price"
+        ]
+      },
+      "failures": [
+        "turn 2: criteria.province=None, expected 'Đà Nẵng'",
+        "turn 2: criteria.property_kind=None, expected 'LAND'"
+      ],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 2885,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² ·",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Tôi muốn bắt đầu nhu cầu mới: tìm đất Đà Nẵng",
+          "status": 200,
+          "elapsed_ms": 3534,
+          "failures": [
+            "criteria.province=None, expected 'Đà Nẵng'",
+            "criteria.property_kind=None, expected 'LAND'"
+          ],
+          "response": "Dạ vâng! Nera đã làm mới yêu cầu tìm kiếm cho bạn.\n\nBạn hãy chia sẻ nhu cầu mới nhé:\n- **Khu vực bạn muốn tìm** (ví dụ: Cầu Giấy, Nam Từ Liêm, Quận 7...)\n- **Khoảng ngân sách mong muốn** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Số phòng ngủ & Loại nhà** (ví dụ: Căn hộ 2PN, Nhà phố...)",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-083",
+      "category": "multi_turn",
+      "turns": [
+        "Tìm nhà Hà Nội dưới 5 tỷ",
+        "Tìm theo nhu cầu cũ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "max_price": 5000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Hà Nội dưới 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 3002,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, tối đa 5 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · ",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 5000000000
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Tìm theo nhu cầu cũ",
+          "status": 200,
+          "elapsed_ms": 3484,
+          "failures": [],
+          "response": "Chào bạn quay lại! Dựa trên nhu cầu bạn đã quan tâm trước đó (**Hà Nội, tối đa 5 tỷ**), Nera đã chọn lọc **20 bất động sản** phù hợp nhất cho bạn đây (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường ",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 5000000000
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    }
+  ]
+}

@@ -35,6 +35,9 @@ class PropertySchema(BaseModel):
     usable_area_sqm: float | None = None
     bedrooms: int | None = None
     bathrooms: int | None = None
+    floor_number: int | None = None
+    orientation: str | None = None
+    legal_status: str | None = None
     list_price: float | None = None
     currency: str
     features: Any

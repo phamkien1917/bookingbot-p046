@@ -21,6 +21,11 @@ interface CalendarAppointment {
 interface OptimizedRoute {
   appointment_ids: string[];
   total_distance_km: number;
+  total_duration_minutes: number | null;
+  provider: string;
+  traffic_aware: boolean;
+  feasible: boolean;
+  warnings: string[];
 }
 
 function escapeHtml(value: string): string {
@@ -197,6 +202,7 @@ export default function RouteMapPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [optimizedOrder, setOptimizedOrder] = useState<string[]>([]);
   const [optimizedDistance, setOptimizedDistance] = useState<number | null>(null);
+  const [routeMeta, setRouteMeta] = useState<Pick<OptimizedRoute, "total_duration_minutes" | "provider" | "traffic_aware" | "feasible" | "warnings"> | null>(null);
   
   const load = useCallback(async () => {
     setLoading(true);
@@ -220,6 +226,7 @@ export default function RouteMapPage() {
       const result = await apiFetch<OptimizedRoute>(`/sale/optimize-route?date=${selectedDate}`, { method: "POST" });
       setOptimizedOrder(result.appointment_ids);
       setOptimizedDistance(result.total_distance_km);
+      setRouteMeta(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi tối ưu lộ trình");
     } finally {
@@ -277,11 +284,18 @@ export default function RouteMapPage() {
                     setSelectedDate(e.target.value);
                     setOptimizedOrder([]);
                     setOptimizedDistance(null);
+                    setRouteMeta(null);
                   }}
                 />
               </div>
             </div>
           </div>
+          {routeMeta && (
+            <div className={`mb-4 rounded-xl border p-3 text-xs ${routeMeta.feasible ? "border-emerald-100 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+              <p className="font-semibold">Nguồn: {routeMeta.provider}{routeMeta.traffic_aware ? " · có dữ liệu giao thông" : " · chưa có thời gian giao thông xác minh"}{routeMeta.total_duration_minutes != null ? ` · ${routeMeta.total_duration_minutes.toFixed(0)} phút di chuyển` : ""}</p>
+              {routeMeta.warnings.map((warning) => <p key={warning} className="mt-1">⚠ {warning}</p>)}
+            </div>
+          )}
           
           <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0">
             <div className="w-full md:w-80 flex flex-col">

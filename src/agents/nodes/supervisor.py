@@ -26,7 +26,7 @@ from src.services.chat_state_service import (
     parse_requested_hour,
 )
 from src.services.llm import get_llm
-from src.services.search_criteria_service import extract_search_criteria
+from src.services.search_criteria_service import extract_search_criteria, validate_search_criteria
 from src.utils.property_text import match_property_by_title
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,12 @@ class ExtractedCriteria(BaseModel):
     max_bedrooms: int | None = None
     min_bathrooms: int | None = None
     min_area: float | None = None
+    transaction_type: str | None = Field(default=None, description="SALE hoặc RENT")
+    orientation: str | None = None
+    legal_status: str | None = None
+    furniture_status: str | None = None
+    min_floor: int | None = None
+    max_floor: int | None = None
 
 
 class SupervisorUnderstanding(BaseModel):
@@ -72,6 +78,9 @@ class SupervisorUnderstanding(BaseModel):
     household_context: list[str] = Field(default_factory=list)
     commute_landmark: str | None = None
     max_commute_minutes: int | None = None
+    max_commute_km: float | None = None
+    travel_mode: str | None = Field(default=None, description="DRIVE, WALK, BICYCLE, TRANSIT hoặc TWO_WHEELER")
+    nearby_categories: list[str] = Field(default_factory=list)
     property_ordinal: int | None = None
     requested_date: str | None = None
     requested_hour: int | None = None
@@ -129,6 +138,76 @@ def _extract_booking_code(message: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _extract_geo_constraints(message: str) -> dict[str, Any]:
+    text = normalize_text(message)
+    result: dict[str, Any] = {}
+    if re.search(r"\b(di bo|walking)\b", text):
+        result["travel_mode"] = "WALK"
+    elif re.search(r"\b(xe may|motorbike|hai banh)\b", text):
+        result["travel_mode"] = "TWO_WHEELER"
+    elif re.search(r"\b(xe dap|bicycle)\b", text):
+        result["travel_mode"] = "BICYCLE"
+    elif re.search(r"\b(xe buyt|tau dien|cong cong|transit)\b", text):
+        result["travel_mode"] = "TRANSIT"
+    elif re.search(r"\b(lai xe|o to|di xe|driving)\b", text):
+        result["travel_mode"] = "DRIVE"
+
+    distance = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+(?:[.,]\d+)?)\s*km\b", text)
+    if distance:
+        result["max_commute_km"] = float(distance.group(1).replace(",", "."))
+    duration = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*phut\b", text)
+    if duration:
+        result["max_commute_minutes"] = int(duration.group(1))
+
+    categories = []
+    for pattern, category in (
+        (r"\b(truong hoc|truong cap|mam non)\b", "school"),
+        (r"\b(benh vien|phong kham|y te)\b", "hospital"),
+        (r"\b(dai hoc|cao dang)\b", "university"),
+        (r"\b(sieu thi)\b", "supermarket"),
+        (r"\b(cong vien)\b", "park"),
+    ):
+        if re.search(pattern, text):
+            categories.append(category)
+    if categories:
+        result["nearby_categories"] = categories
+
+    landmark = re.search(
+        r"\bcach\s+(.+?)\s+(?:duoi|khong qua|toi da|trong vong)\s*\d+(?:[.,]\d+)?\s*(?:km|phut)\b",
+        text,
+    )
+    if landmark:
+        candidate = landmark.group(1).strip(" ,.-")
+        if candidate and candidate not in {"vi tri nay", "day", "do"}:
+            result["commute_landmark"] = candidate
+    return result
+
+
+def _area_is_geo_target(area: str, geo: dict[str, Any]) -> bool:
+    """Keep route destinations and POI categories out of inventory address filters."""
+    normalized_area = normalize_text(area).strip()
+    landmark = normalize_text(str(geo.get("commute_landmark") or "")).strip()
+    if landmark and (
+        normalized_area == landmark
+        or normalized_area in landmark
+        or landmark in normalized_area
+    ):
+        return True
+
+    category_terms = {
+        "hospital": ("benh vien", "phong kham", "y te"),
+        "school": ("truong hoc", "truong cap", "mam non"),
+        "university": ("dai hoc", "cao dang"),
+        "supermarket": ("sieu thi",),
+        "park": ("cong vien",),
+    }
+    return any(
+        term in normalized_area
+        for category in geo.get("nearby_categories", [])
+        for term in category_terms.get(category, ())
+    )
+
+
 async def supervisor_node(state: AgentState) -> dict[str, Any]:
     """Supervisor node: runs LLM understanding on full conversation context."""
     started = time.perf_counter()
@@ -138,6 +217,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     # Fast deterministic pre-checks
     det_criteria, det_groups = extract_search_criteria(query)
+    det_geo = _extract_geo_constraints(query)
     booking_code = _extract_booking_code(query)
 
     # Format recent history for LLM
@@ -218,19 +298,11 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             intent=inferred_intent,
             confidence=0.8,
             booking_code=booking_code,
-            criteria=ExtractedCriteria(
-                region=det_criteria.get("region"),
-                limit=det_criteria.get("limit"),
-                ward=None,
-                district=det_criteria.get("district"),
-                province=det_criteria.get("province"),
-                property_kind=det_criteria.get("property_kind"),
-                min_price=det_criteria.get("min_price"),
-                max_price=det_criteria.get("max_price"),
-                min_bedrooms=det_criteria.get("min_bedrooms"),
-                max_bedrooms=det_criteria.get("max_bedrooms"),
-                min_area=det_criteria.get("min_area"),
-            ),
+            criteria=ExtractedCriteria(**{
+                key: value
+                for key, value in det_criteria.items()
+                if key in ExtractedCriteria.model_fields
+            }),
         )
 
     # Reconcile deterministic explicit criteria with LLM criteria
@@ -242,7 +314,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     )) or bool(state.get("is_resume_search"))
     starts_new_search_signal = (
         not is_resume_signal
-        and bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", norm_query))
+        and bool(re.search(r"\b(tim|tim kiem|can mua|muon mua|can tim|muon tim)\b", norm_query))
         and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", norm_query))
     )
     llm_dict = understanding.criteria.model_dump(exclude_none=True)
@@ -297,7 +369,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         merged_criteria.pop("limit", None)
 
     area_val = llm_dict.get("area_or_ward") or llm_dict.get("ward")
-    if area_val:
+    if area_val and not _area_is_geo_target(str(area_val), det_geo):
         norm_area = normalize_text(area_val)
         norm_dist = normalize_text(merged_criteria.get("district") or "")
         norm_prov = normalize_text(merged_criteria.get("province") or "")
@@ -308,7 +380,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         else:
             merged_criteria.pop("area_or_ward", None)
             merged_criteria.pop("ward", None)
-    elif understanding.is_new_search or "location" in det_groups:
+    elif understanding.is_new_search or "location" in det_groups or det_geo:
         merged_criteria.pop("area_or_ward", None)
         merged_criteria.pop("ward", None)
 
@@ -336,8 +408,33 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         elif field in llm_dict:
             merged_criteria[field] = llm_dict[field]
 
+    # These are strict inventory constraints. Only explicit deterministic
+    # extraction may add/replace them; model inference must not fabricate one.
+    for field in (
+        "transaction_type", "orientation", "legal_status", "furniture_status",
+    ):
+        if field in det_criteria:
+            merged_criteria[field] = det_criteria[field]
+        elif understanding.is_new_search:
+            merged_criteria.pop(field, None)
+
+    if "min_floor" in det_criteria or "max_floor" in det_criteria:
+        merged_criteria.pop("min_floor", None)
+        merged_criteria.pop("max_floor", None)
+        if "min_floor" in det_criteria:
+            merged_criteria["min_floor"] = det_criteria["min_floor"]
+        if "max_floor" in det_criteria:
+            merged_criteria["max_floor"] = det_criteria["max_floor"]
+    elif understanding.is_new_search:
+        merged_criteria.pop("min_floor", None)
+        merged_criteria.pop("max_floor", None)
+
     # Target date / hour resolution
     target_date = parse_requested_date(query)
+    invalid_requested_date = bool(re.search(
+        r"\b(?:mot )?ngay (?:o |trong )?qua khu\b|\bngay da qua\b",
+        normalize_text(query),
+    ))
     if not target_date and understanding.requested_date:
         try:
             target_date = datetime.strptime(understanding.requested_date, "%Y-%m-%d").date()
@@ -347,7 +444,8 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     target_hour = parse_requested_hour(query) or understanding.requested_hour
 
     # Ordinal & Property Name resolution
-    prop_count = len(state.get("selected_properties", []))
+    property_pool = state.get("search_results") or state.get("selected_properties", [])
+    prop_count = len(property_pool)
     slot_count = len(state.get("selected_slots", []))
     ordinal = extract_ordinal(query, maximum=max(prop_count, slot_count, 10))
     if ordinal is None and understanding.property_ordinal:
@@ -355,7 +453,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     matched_prop_id = None
     if ordinal is None and state.get("phase") != "AWAITING_SLOT":
-        search_pool = state.get("selected_properties") or state.get("search_results") or []
+        search_pool = state.get("search_results") or state.get("selected_properties") or []
         matched_idx, matched_prop = match_property_by_title(query, search_pool)
         if matched_prop:
             ordinal = matched_idx
@@ -374,22 +472,112 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     # Route determination
     intent = understanding.intent
+    criteria_correction = bool(re.search(
+        r"\b(doi sang|chuyen sang|khong phai|khong thue nua|nhu cau moi|bat dau nhu cau moi)\b",
+        norm_query,
+    ))
+    if (det_criteria or det_geo) and (starts_new_search_signal or criteria_correction):
+        intent = Intent.SEARCH_PROPERTY
+
+    asks_current_location = bool(re.search(
+        r"\b(vi tri (?:hien tai|cua toi|nay)|cho toi|noi toi dang o|gan day)\b",
+        normalize_text(query),
+    ))
+    if asks_current_location and not state.get("user_location"):
+        intent = Intent.FALLBACK
+        understanding.direct_response = (
+            "Mình chưa nhận được quyền vị trí. Bạn có thể bật quyền vị trí cho trang này và hỏi lại, "
+            "hoặc nhập một địa danh cụ thể (ví dụ: ‘cách Bệnh viện Bạch Mai dưới 5 km đi xe’)."
+        )
+
+    # Time-sensitive finance data must never be answered from model memory as
+    # if it were live market data.
+    if re.search(
+        r"\b(lai suat|interest rate)\b.*\b(hien tai|hom nay|bay gio|moi nhat|current)\b",
+        normalize_text(query),
+    ):
+        intent = Intent.CONSULTATION_QA
+        understanding.direct_response = (
+            "Mình không có nguồn lãi suất ngân hàng thời gian thực trong phiên này nên không thể "
+            "đưa ra một con số ‘hiện tại’ đáng tin cậy. Lãi suất còn phụ thuộc ngân hàng, thời gian "
+            "ưu đãi, tỷ lệ vay và hồ sơ. Bạn hãy cung cấp tên ngân hàng/gói vay hoặc bảng lãi suất "
+            "có ngày cập nhật; Nera sẽ giúp tính khoản trả hằng tháng và so sánh minh bạch."
+        )
+
+    # Monthly income affordability guidance
+    income_match = re.search(
+        r"\b(lam|thu nhap|luong|kiem duoc)\b\s*(\d+(?:[.,]\d+)?)\s*(?:-|den|toi)?\s*(\d+(?:[.,]\d+)?)?\s*(?:trieu|tr)\s*(?:/|\s*moi\s*|\s*hang\s*)thang\b",
+        normalize_text(query),
+    )
+    if income_match and not re.search(r"\b(mua|thue|ban|dat lich|xem nha|hen xem)\b", normalize_text(query)):
+        intent = Intent.CONSULTATION_QA
+        district_val = det_criteria.get("district") or ("Cầu Giấy" if "cau giay" in normalize_text(query) else "khu vực bạn quan tâm")
+        low_val = income_match.group(2)
+        high_val = income_match.group(3) or low_val
+        income_range_str = f"{low_val} – {high_val} triệu/tháng" if low_val != high_val else f"{low_val} triệu/tháng"
+        
+        # Calculate rental budget range (~25% to 35% of income)
+        try:
+            low_f = float(low_val.replace(",", "."))
+            high_f = float(high_val.replace(",", "."))
+            rent_low = max(3, round(low_f * 0.25))
+            rent_high = max(rent_low + 1, round(high_f * 0.35))
+            rent_range_str = f"{rent_low} – {rent_high} triệu/tháng"
+        except Exception:
+            rent_range_str = "4 – 7 triệu/tháng"
+
+        understanding.direct_response = (
+            f"Với mức thu nhập **{income_range_str}**, để đảm bảo an toàn tài chính tại **{district_val}**:\n\n"
+            f"1. 🏠 **Nếu bạn muốn Thuê căn hộ**:\n"
+            f"- Ngân sách thuê tối ưu nên chiếm khoảng **25% – 35% thu nhập**, tương đương **{rent_range_str}**.\n"
+            f"- Mức giá này ở {district_val} phù hợp với căn hộ mini, studio hoặc căn hộ 1PN đủ nội thất.\n\n"
+            f"2. 💰 **Nếu bạn muốn Mua căn hộ**:\n"
+            f"- Mức chi trả gốc + lãi an toàn mỗi tháng khoảng **30% – 40% thu nhập** (tầm 5 – 8 triệu/tháng).\n"
+            f"- Để mua căn hộ từ 1.5 – 2 tỷ, bạn nên chuẩn bị sẵn vốn tự có từ 800 triệu – 1.2 tỷ và vay phần còn lại trong 15–20 năm.\n\n"
+            f"Bạn đang ưu tiên **tìm thuê căn hộ ({rent_range_str})** hay **tìm mua căn hộ** để Nera gợi ý danh sách phù hợp nhất?"
+        )
 
     # Promote compound intent (selecting a property AND requesting booking)
     norm_query = normalize_text(query)
-    if (
+    if asks_current_location and not state.get("user_location"):
+        pass
+    elif (
         re.search(r"\b(dat lich|xem nha|hen xem|tham quan|xem vao|dat ngay)\b", norm_query)
         or (target_date and "xem" in norm_query)
     ) and intent not in (Intent.CANCEL_BOOKING, Intent.RESCHEDULE, Intent.CHECK_STATUS):
         intent = Intent.BOOK_APPOINTMENT
-    elif state.get("current_property_id") and intent != Intent.BOOK_APPOINTMENT:
+    elif state.get("current_property_id") and intent not in (
+        Intent.BOOK_APPOINTMENT,
+        Intent.COMPARE_PROPERTIES,
+        Intent.SEARCH_PROPERTY,
+        Intent.SELECT_PROPERTY,
+    ):
         if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
             intent = Intent.PROPERTY_DETAILS
     elif re.search(r"\b(tiep tuc hanh trinh|nhu cau cu|so thich da luu|tiep tuc tim kiem)\b", norm_query):
         intent = Intent.SEARCH_PROPERTY
     elif re.search(r"\b(thay doi nhu cau|doi nhu cau|nhu cau moi|xoa tieu chi|muon thay doi)\b", norm_query):
         intent = Intent.SEARCH_PROPERTY
-        merged_criteria = {}
+        if not det_criteria and not det_geo:
+            merged_criteria = {}
+
+    if re.search(r"\b(ban co the giup gi|ban giup duoc gi|co the lam gi|chuc nang cua ban)\b", norm_query):
+        intent = Intent.GREETING
+        understanding.direct_response = (
+            "Mình có thể giúp bạn tìm bất động sản theo khu vực, ngân sách và nhu cầu; "
+            "so sánh các căn, kiểm tra thông tin chi tiết và hỗ trợ đặt lịch xem nhà. "
+            "Bạn muốn bắt đầu bằng khu vực hay khoảng giá nào?"
+        )
+    elif (
+        re.search(r"\b(can nao tot nhat|nha nao tot nhat|nen chon can nao)\b", norm_query)
+        and not property_pool
+    ):
+        intent = Intent.FALLBACK
+        understanding.direct_response = (
+            "Mình chưa có danh sách hoặc tiêu chí để xác định căn nào tốt nhất. "
+            "Bạn hãy cho mình biết nhu cầu, khu vực và ngân sách; hoặc yêu cầu tìm một "
+            "danh sách trước, rồi mình sẽ so sánh minh bạch cho bạn."
+        )
 
     current_agent = AgentType.RESPOND
 
@@ -415,6 +603,15 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     else:
         current_agent = AgentType.RESPOND
 
+    validation_errors = validate_search_criteria(merged_criteria)
+    if validation_errors and intent == Intent.SEARCH_PROPERTY:
+        current_agent = AgentType.RESPOND
+        intent = Intent.FALLBACK
+        understanding.direct_response = (
+            "Mình chưa thể tìm chính xác vì " + ", ".join(validation_errors) + ". "
+            "Bạn vui lòng xác nhận lại khoảng tiêu chí mong muốn nhé."
+        )
+
     # If currently in AWAITING_SLOT and customer provides ordinal -> route to BOOKING
     if state.get("phase") == "AWAITING_SLOT" and (ordinal is not None or intent == Intent.SELECT_SLOT):
         current_agent = AgentType.BOOKING
@@ -431,8 +628,12 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         "search_criteria": merged_criteria,
         "soft_preferences": soft_prefs,
         "household_context": household_ctx,
-        "commute_landmark": understanding.commute_landmark or state.get("commute_landmark"),
-        "max_commute_minutes": understanding.max_commute_minutes or state.get("max_commute_minutes"),
+        "commute_landmark": ("Vị trí của bạn" if state.get("user_location") else None) or det_geo.get("commute_landmark") or understanding.commute_landmark or (None if understanding.is_new_search else state.get("commute_landmark")),
+        "max_commute_minutes": det_geo.get("max_commute_minutes") or understanding.max_commute_minutes or (None if understanding.is_new_search else state.get("max_commute_minutes")),
+        "max_commute_km": det_geo.get("max_commute_km") or understanding.max_commute_km or (None if understanding.is_new_search else state.get("max_commute_km")),
+        "travel_mode": det_geo.get("travel_mode") or understanding.travel_mode or ("DRIVE" if understanding.is_new_search else state.get("travel_mode", "DRIVE")),
+        "nearby_categories": det_geo.get("nearby_categories") or understanding.nearby_categories or ([] if understanding.is_new_search else state.get("nearby_categories", [])),
+        "invalid_requested_date": invalid_requested_date,
         "ai_model": ai_model,
         "ai_latency_ms": state.get("ai_latency_ms", 0) + latency_ms,
     }
@@ -456,7 +657,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             updates["selected_slot_index"] = ordinal
         else:
             updates["selected_property_index"] = ordinal
-            props = state.get("selected_properties", [])
+            props = property_pool
             if 0 <= ordinal < len(props):
                 updates["current_property_id"] = str(props[ordinal].get("id"))
 

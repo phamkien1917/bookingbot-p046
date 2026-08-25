@@ -31,6 +31,9 @@ from src.database.models import (
 )
 from src.exceptions import BookingConflictError, BookingNotFoundError, BookingPermissionError
 from src.schemas.booking import BookingResponse, TourRequestCreate
+from src.services.analytics_service import record_event
+from src.services.notification_service import cancel_appointment_notifications, schedule_booking_reminders
+from src.services.property_hold_service import create_hold_for_appointment, release_appointment_hold
 from src.utils.property_text import build_full_address, clean_property_title
 from src.utils.time import utcnow
 
@@ -46,6 +49,7 @@ def _enum_value(value):
 def serialize_booking(row: TourRequest) -> BookingResponse:
     prop = row.property
     appointment = row.appointment
+    hold = appointment.hold if appointment else None
     selected_slot = next(
         (slot for slot in row.slot_options if _enum_value(slot.status) == "SELECTED"),
         row.slot_options[0] if row.slot_options else None,
@@ -92,6 +96,12 @@ def serialize_booking(row: TourRequest) -> BookingResponse:
             "starts_at": appointment.starts_at,
             "ends_at": appointment.ends_at,
         } if appointment else None,
+        "hold": {
+            "id": hold.id,
+            "hold_code": hold.hold_code,
+            "status": _enum_value(hold.status),
+            "expires_at": hold.expires_at,
+        } if hold else None,
     }
     return BookingResponse.model_validate(data)
 
@@ -102,6 +112,7 @@ def _booking_load_options():
         selectinload(TourRequest.appointment)
         .selectinload(Appointment.sale)
         .selectinload(SaleProfile.user),
+        selectinload(TourRequest.appointment).selectinload(Appointment.hold),
         selectinload(TourRequest.slot_options)
         .selectinload(TourSlotOption.sale)
         .selectinload(SaleProfile.user),
@@ -109,12 +120,22 @@ def _booking_load_options():
 
 
 async def _get_booking(db: AsyncSession, booking_id: UUID) -> TourRequest | None:
-    stmt = select(TourRequest).options(*_booking_load_options()).where(TourRequest.id == booking_id)
+    stmt = (
+        select(TourRequest)
+        .options(*_booking_load_options())
+        .where(TourRequest.id == booking_id)
+        .execution_options(populate_existing=True)
+    )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def list_available_slots(db: AsyncSession, property_id: UUID, target_date: date) -> dict:
+async def list_available_slots(
+    db: AsyncSession,
+    property_id: UUID,
+    target_date: date,
+    customer_user_id: UUID | None = None,
+) -> dict:
     prop = await db.get(Property, property_id)
     if not prop or prop.status != PropertyStatus.AVAILABLE:
         raise BookingConflictError("Bất động sản không khả dụng")
@@ -134,7 +155,12 @@ async def list_available_slots(db: AsyncSession, property_id: UUID, target_date:
     sales = sales_result.scalars().all()
     slots: list[dict] = []
     if not sales:
-        return {"property_id": str(property_id), "date": target_date.isoformat(), "slots": slots}
+        return {
+            "property_id": str(property_id),
+            "date": target_date.isoformat(),
+            "slots": slots,
+            "unavailable_reason": "NO_SALE_AVAILABLE",
+        }
 
     sale_ids = [sale.user_id for sale in sales]
     start_of_day = datetime.combine(target_date, time.min, tzinfo=LOCAL_TZ)
@@ -163,6 +189,11 @@ async def list_available_slots(db: AsyncSession, property_id: UUID, target_date:
         )
     )).all()
 
+    preferred_times: list[str] = []
+    if customer_user_id:
+        from src.services.customer_memory_service import get_preferred_time_slots
+        preferred_times = await get_preferred_time_slots(db, str(customer_user_id))
+
     now = datetime.now(LOCAL_TZ)
     for hour in SLOT_HOURS:
         start = datetime.combine(target_date, time(hour=hour), tzinfo=LOCAL_TZ)
@@ -189,7 +220,19 @@ async def list_available_slots(db: AsyncSession, property_id: UUID, target_date:
                     "label": start.strftime("%H:%M"),
                 })
                 break
-    return {"property_id": str(property_id), "date": target_date.isoformat(), "slots": slots}
+    if preferred_times:
+        from src.services.customer_memory_service import time_preference_score
+        for slot in slots:
+            score = time_preference_score(datetime.fromisoformat(slot["starts_at"]), preferred_times)
+            slot["preference_score"] = score
+            slot["preference_match"] = score > 0
+        slots.sort(key=lambda item: (-item["preference_score"], item["starts_at"]))
+    return {
+        "property_id": str(property_id),
+        "date": target_date.isoformat(),
+        "slots": slots,
+        "unavailable_reason": None if slots else "NO_SLOT_AVAILABLE",
+    }
 
 
 async def create_tour_request(
@@ -285,6 +328,16 @@ async def create_tour_request(
         payload=notification_payload,
         status=DeliveryStatus.PENDING,
     ))
+    record_event(
+        db,
+        "booking_requested",
+        customer_user_id=customer_user_id,
+        tour_request_id=request.id,
+        session_id=str(conversation_id) if conversation_id else None,
+        properties={"property_id": str(prop.id), "starts_at": data.preferred_start.isoformat()},
+    )
+    from src.services.customer_memory_service import remember_selected_booking_time
+    await remember_selected_booking_time(db, str(customer_user_id), data.preferred_start)
     return await _get_booking(db, request.id)
 
 
@@ -341,6 +394,8 @@ async def cancel_customer_booking(db: AsyncSession, booking_id: UUID, customer_i
 
     row.status = RequestStatus.CANCELLED
     if row.appointment:
+        await release_appointment_hold(db, row.appointment.id, "BOOKING_CANCELLED")
+        await cancel_appointment_notifications(db, row.appointment.id)
         row.appointment.status = AppointmentStatus.CANCELLED
         row.appointment.cancelled_at = utcnow()
         row.appointment.cancellation_reason = reason or "Khách hàng yêu cầu hủy"
@@ -445,6 +500,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
     )
     db.add(appointment)
     await db.flush()
+    hold = await create_hold_for_appointment(db, appointment, sale_user_id)
     row.status = RequestStatus.BOOKED
     db.add(Notification(
         user_id=row.customer_user_id,
@@ -456,9 +512,24 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
             "property_title": clean_property_title(row.property.title) if row.property else None,
             "starts_at": appointment.starts_at.isoformat(),
             "ends_at": appointment.ends_at.isoformat(),
+            "hold_code": hold.hold_code,
+            "hold_expires_at": hold.expires_at.isoformat(),
         },
         status=DeliveryStatus.PENDING,
     ))
+    record_event(
+        db,
+        "booking_confirmed",
+        customer_user_id=row.customer_user_id,
+        tour_request_id=row.id,
+        appointment_id=appointment.id,
+        properties={"sale_user_id": str(sale_user_id), "hold_code": hold.hold_code},
+    )
+    await schedule_booking_reminders(
+        db,
+        appointment,
+        clean_property_title(row.property.title) if row.property else "căn nhà",
+    )
 
     # Proactively inject confirmed booking message into Customer Chat
     target_conv_id = row.conversation_id
@@ -781,6 +852,8 @@ async def reschedule_customer_booking(
         # Cancel the old booking
         old.status = RequestStatus.CANCELLED
         if old.appointment:
+            await release_appointment_hold(db, old.appointment.id, "BOOKING_RESCHEDULED")
+            await cancel_appointment_notifications(db, old.appointment.id)
             old.appointment.status = AppointmentStatus.RESCHEDULED
             old.appointment.cancelled_at = utcnow()
             old.appointment.cancellation_reason = "Khách hàng yêu cầu dời lịch"

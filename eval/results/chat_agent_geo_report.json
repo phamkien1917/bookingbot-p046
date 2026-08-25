@@ -1,0 +1,389 @@
+{
+  "summary": {
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "total": 12
+  },
+  "results": [
+    {
+      "id": "NERA-094",
+      "category": "geo",
+      "turns": [
+        "Tìm căn hộ Hà Nội cách Bệnh viện Bạch Mai dưới 5 km đi xe"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "property_kind": "APARTMENT"
+        },
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội cách Bệnh viện Bạch Mai dưới 5 km đi xe",
+          "status": 200,
+          "elapsed_ms": 5352,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 ",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-095",
+      "category": "geo",
+      "turns": [
+        "Tìm nhà Cầu Giấy cách Hồ Gươm không quá 30 phút đi xe máy"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận Cầu Giấy"
+        },
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Cầu Giấy cách Hồ Gươm không quá 30 phút đi xe máy",
+          "status": 200,
+          "elapsed_ms": 2479,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **10 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ ĐỦ ĐỒ - G",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy"
+          },
+          "property_count": 10,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-096",
+      "category": "geo",
+      "turns": [
+        "Tìm căn hộ Hà Nội cách Đại học Bách Khoa dưới 20 phút đi bộ"
+      ],
+      "expect": {
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội cách Đại học Bách Khoa dưới 20 phút đi bộ",
+          "status": 200,
+          "elapsed_ms": 2760,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 ",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-097",
+      "category": "geo",
+      "turns": [
+        "Tìm nhà Quận 7 gần trường học"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "district": "Quận 7"
+        },
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Quận 7 gần trường học",
+          "status": 200,
+          "elapsed_ms": 2790,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Quận 7** cho bạn:\n\n**1. Nhà sổ hồng riêng Quận 7 - Giá tốt**\n2.95 tỷ · 26 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**2. 2PN, 3PN, Office, CĐT mở bán (bàn giao hoàn thiện) || Thanh toán 15% kí HĐMB**\n5.3 tỷ · 70 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**3. Nhà phố ngang 6m xây kiên cố 3 tầng 4 phòng ngủ diện tích sử dụng 109m² giá tốt**\n6.8 tỷ · 40.5 m² · 4 PN · Quận 7, H",
+          "criteria": {
+            "district": "Quận 7"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-098",
+      "category": "geo",
+      "turns": [
+        "Tìm căn hộ Cầu Giấy gần bệnh viện"
+      ],
+      "expect": {
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Cầu Giấy gần bệnh viện",
+          "status": 200,
+          "elapsed_ms": 6124,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **10 bất động sản** phù hợp nhất với tiêu chí **Cầu Giấy, Quận Cầu Giấy, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\n**2. Căn hộ B11D Nam Trung Yên. Cầu Giấy.**\n5.6 tỷ · 70 m² · 2 PN · Quận Cầu Giấy, Hà Nội\n\n**3. TRUNG TÂM Cầu Giấy - 3 NGỦ Đ",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 10,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-099",
+      "category": "geo",
+      "turns": [
+        "Tìm nhà Hà Nội gần trường học và bệnh viện"
+      ],
+      "expect": {
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Hà Nội gần trường học và bệnh viện",
+          "status": 200,
+          "elapsed_ms": 2908,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ",
+          "criteria": {
+            "province": "Hà Nội"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-100",
+      "category": "geo",
+      "turns": [
+        "Tìm căn hộ Hà Nội gần đại học và siêu thị"
+      ],
+      "expect": {
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội gần đại học và siêu thị",
+          "status": 200,
+          "elapsed_ms": 2401,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 ",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-101",
+      "category": "geo",
+      "turns": [
+        "Tìm nhà Đà Nẵng gần công viên"
+      ],
+      "expect": {
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Đà Nẵng gần công viên",
+          "status": 200,
+          "elapsed_ms": 2653,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **6 bất động sản** phù hợp nhất với tiêu chí **Đà Nẵng** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**2. Chỉ 2T7 Sở hữu ngay căn Penthouse S-Light Tower view Pháo Hoa Trung tâm Thành phố**\n2.78 tỷ · 59 m² ·",
+          "criteria": {
+            "province": "Đà Nẵng"
+          },
+          "property_count": 6,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-102",
+      "category": "geo",
+      "turns": [
+        {
+          "message": "Tìm nhà cách vị trí hiện tại của tôi dưới 5 km đi xe",
+          "request": {
+            "user_latitude": 21.0285,
+            "user_longitude": 105.8542
+          }
+        }
+      ],
+      "expect": {
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà cách vị trí hiện tại của tôi dưới 5 km đi xe",
+          "status": 200,
+          "elapsed_ms": 2817,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **20 bất động sản** phù hợp nhất cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Ph",
+          "criteria": {},
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-103",
+      "category": "geo",
+      "turns": [
+        "Tìm nhà cách vị trí hiện tại của tôi dưới 5 km"
+      ],
+      "expect": {
+        "contains_any": [
+          "quyền vị trí",
+          "địa danh cụ thể"
+        ],
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà cách vị trí hiện tại của tôi dưới 5 km",
+          "status": 200,
+          "elapsed_ms": 2307,
+          "failures": [],
+          "response": "Mình chưa nhận được quyền vị trí. Bạn có thể bật quyền vị trí cho trang này và hỏi lại, hoặc nhập một địa danh cụ thể (ví dụ: ‘cách Bệnh viện Bạch Mai dưới 5 km đi xe’).",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-104",
+      "category": "geo",
+      "turns": [
+        "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+        "Chọn căn 1",
+        "Căn này cách Bệnh viện Bạch Mai bao nhiêu km đi xe?"
+      ],
+      "expect": {
+        "geo_grounded": true,
+        "max_properties": 1
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 2520,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nó",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Chọn căn 1",
+          "status": 200,
+          "elapsed_ms": 3712,
+          "failures": [],
+          "response": "Bạn đã chọn **Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ** (1.36 tỷ, 35.0 m² tại Quận Thanh Xuân).\n\nBạn muốn xem chi tiết hay đặt lịch xem căn này vào ngày nào?",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT",
+            "district": "Quận Thanh Xuân"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 3,
+          "message": "Căn này cách Bệnh viện Bạch Mai bao nhiêu km đi xe?",
+          "status": 200,
+          "elapsed_ms": 2770,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\n### 🏠 Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ\n\n• **Giá niêm yết:** 1.36 tỷ\n• **Diện tích:** 35.0 m² (1 PN · 1 WC)\n• **Vị trí:** Ngách 102/51 Phố Hoàng Đạo Thành, Phường Hạ Đình, Quận Thanh Xuân, Hà Nội, Phường Hạ Đình, Quận Thanh Xuân, Hà Nội\n• **Mã căn:** `P_133324416`\n\nBạn có muốn Nera hỗ trợ **đặt lịch xem trực tiếp** căn này vào khung giờ nào không?",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT",
+            "district": "Quận Thanh Xuân"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-105",
+      "category": "geo",
+      "turns": [
+        "Tìm nhà Đà Nẵng gần bệnh viện"
+      ],
+      "expect": {
+        "geo_grounded": true,
+        "not_contains": [
+          "chắc chắn chỉ mất"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà Đà Nẵng gần bệnh viện",
+          "status": 200,
+          "elapsed_ms": 2217,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **6 bất động sản** phù hợp nhất với tiêu chí **Đà Nẵng** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**2. Chỉ 2T7 Sở hữu ngay căn Penthouse S-Light Tower view Pháo Hoa Trung tâm Thành phố**\n2.78 tỷ · 59 m² ·",
+          "criteria": {
+            "province": "Đà Nẵng"
+          },
+          "property_count": 6,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    }
+  ]
+}

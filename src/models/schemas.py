@@ -23,6 +23,8 @@ class ChatRequest(BaseModel):
         default=None,
         description="Trusted property context opened by the user",
     )
+    user_latitude: float | None = Field(default=None, ge=-90, le=90)
+    user_longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class ChatResponse(BaseModel):

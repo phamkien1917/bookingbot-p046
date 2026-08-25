@@ -13,10 +13,14 @@ from src.database.models import (
     AppointmentStatus,
     HoldStatus,
     PropertyHold,
+    RescheduleProposal,
     SlotStatus,
     TourSlotOption,
 )
+from src.services.analytics_service import record_event
 from src.services.booking_service import reassign_expired_requests
+from src.services.notification_service import dispatch_due_notifications
+from src.services.reschedule_service import propose_alternative_slots
 from src.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
@@ -84,6 +88,33 @@ async def check_running_late() -> None:
                 f"Sale {apt.sale_user_id} is running late on booking {apt.booking_code}. "
                 f"Delay: {delay_minutes:.1f} minutes"
             )
+            affected = await session.scalar(
+                select(Appointment).where(
+                    Appointment.sale_user_id == apt.sale_user_id,
+                    Appointment.id != apt.id,
+                    Appointment.status == AppointmentStatus.CONFIRMED,
+                    Appointment.starts_at >= now,
+                    Appointment.starts_at < now + timedelta(minutes=max(60, int(delay_minutes))),
+                ).order_by(Appointment.starts_at).limit(1)
+            )
+            if affected:
+                pending = await session.scalar(select(RescheduleProposal.id).where(
+                    RescheduleProposal.appointment_id == affected.id,
+                    RescheduleProposal.status == "PENDING",
+                    RescheduleProposal.expires_at > now,
+                ))
+                if not pending:
+                    try:
+                        await propose_alternative_slots(
+                            session,
+                            affected.id,
+                            affected.customer_user_id,
+                            desired_start=affected.starts_at + timedelta(minutes=30),
+                            reason="SALE_RUNNING_LATE",
+                        )
+                        logger.info("Proposed alternatives for affected booking %s", affected.booking_code)
+                    except Exception:
+                        logger.exception("Could not propose alternatives for %s", affected.booking_code)
 
         if late_appointments:
             logger.info(f"Found {len(late_appointments)} running late appointments")
@@ -148,10 +179,24 @@ async def check_no_shows() -> None:
 
         for apt in potential_no_shows:
             apt.status = AppointmentStatus.NO_SHOW
+            record_event(
+                session,
+                "appointment_no_show",
+                customer_user_id=apt.customer_user_id,
+                appointment_id=apt.id,
+            )
             logger.info(f"Marked no-show for booking: {apt.booking_code}")
 
         if potential_no_shows:
             logger.info(f"Marked {len(potential_no_shows)} no-show appointments")
+
+
+async def deliver_due_notifications() -> None:
+    """Dispatch due email/SMS/Zalo reminders with retry protection."""
+    async with get_session_context() as session:
+        sent, failed = await dispatch_due_notifications(session)
+        if sent or failed:
+            logger.info("Reminder delivery: %s sent, %s failed", sent, failed)
 
 
 def get_scheduler() -> AsyncIOScheduler:
@@ -221,6 +266,14 @@ async def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=30),
         id="check_no_shows",
         name="Check no-shows",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        deliver_due_notifications,
+        trigger=IntervalTrigger(minutes=1),
+        id="deliver_due_notifications",
+        name="Deliver booking reminders",
         replace_existing=True,
     )
 

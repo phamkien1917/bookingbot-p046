@@ -58,6 +58,10 @@ class AgentState(TypedDict, total=False):
     household_context: list[str]  # e.g. ["gia đình 4 người", "có con nhỏ", "nuôi thú cưng"]
     commute_landmark: str | None  # e.g. "Quận 1", "Sân bay Tân Sơn Nhất"
     max_commute_minutes: int | None
+    max_commute_km: float | None
+    travel_mode: str  # DRIVE, WALK, BICYCLE, TRANSIT, TWO_WHEELER
+    nearby_categories: list[str]
+    user_location: dict[str, float] | None  # Ephemeral; never persisted to conversation memory
     selected_properties: list[dict[str, Any]]  # Full property items matching search / current view
     search_results: list[dict[str, Any]]  # Preserved list of search result properties across turns
     current_property_id: str | None  # ID of property being discussed / selected
@@ -66,6 +70,7 @@ class AgentState(TypedDict, total=False):
 
     # ============== Booking & Scheduling ==============
     requested_date: str | None  # Target date (YYYY-MM-DD)
+    invalid_requested_date: bool  # User explicitly supplied a past/invalid date
     requested_hour: int | None  # Target hour (0-23)
     selected_slots: list[dict[str, Any]]  # Available slots proposed to customer
     selected_slot_index: int | None  # 0-indexed slot chosen by customer
@@ -125,11 +130,17 @@ def create_initial_agent_state(
         "household_context": stored_state.get("household_context", []),
         "commute_landmark": stored_state.get("commute_landmark"),
         "max_commute_minutes": stored_state.get("max_commute_minutes"),
+        "max_commute_km": stored_state.get("max_commute_km"),
+        "travel_mode": stored_state.get("travel_mode", "DRIVE"),
+        "nearby_categories": stored_state.get("nearby_categories", []),
+        "user_location": None,
         "selected_properties": stored_state.get("property_refs", []),
+        "search_results": stored_state.get("search_result_refs", stored_state.get("property_refs", [])),
         "current_property_id": stored_state.get("selected_property_id"),
         "selected_property_index": stored_state.get("selected_property_index"),
         "comparison_properties": [],
         "requested_date": stored_state.get("requested_date"),
+        "invalid_requested_date": False,
         "requested_hour": stored_state.get("requested_hour"),
         "selected_slots": stored_state.get("slots", []),
         "selected_slot_index": stored_state.get("selected_slot_index"),
