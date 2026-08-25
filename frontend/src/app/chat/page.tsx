@@ -263,7 +263,12 @@ function TypewriterMarkdown({
 }) {
   const [displayedLength, setDisplayedLength] = useState(() => (isStreaming ? 0 : content.length));
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
+
+  // Synced in an effect, not during render: writing a ref while rendering can
+  // leave the component showing a stale callback after a re-render.
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     if (!isStreaming) {
