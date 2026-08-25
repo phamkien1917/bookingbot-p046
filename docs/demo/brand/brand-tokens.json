@@ -1,0 +1,28 @@
+{
+  "brand": "Nera",
+  "tagline": "Tìm nhà bằng một cuộc trò chuyện",
+  "supportingLine": "AI hiểu nhu cầu · Dữ liệu có thật · Sale xác nhận",
+  "colors": {
+    "forest": "#14372F",
+    "deepForest": "#09241E",
+    "sage": "#DDE9E1",
+    "warmCanvas": "#F7F4ED",
+    "coral": "#E26D4F",
+    "ink": "#10261F",
+    "softGray": "#6D7A75",
+    "white": "#FFFFFF"
+  },
+  "typography": {
+    "title": "Be Vietnam Pro",
+    "body": "Inter",
+    "powerPointTitleFallback": "Aptos Display",
+    "powerPointBodyFallback": "Aptos"
+  },
+  "slide": {
+    "ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "safeMargin": 72,
+    "cardRadius": 24
+  }
+}

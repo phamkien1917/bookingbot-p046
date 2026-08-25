@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Nera cover slide template">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#09241E"/>
+      <stop offset="1" stop-color="#14372F"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="55%" cy="45%" r="65%">
+      <stop offset="0" stop-color="#DDE9E1" stop-opacity=".68"/>
+      <stop offset="1" stop-color="#DDE9E1" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#09241E" flood-opacity=".2"/>
+    </filter>
+  </defs>
+  <rect width="1920" height="1080" fill="#F7F4ED"/>
+  <path d="M0 0h1260c-105 210-128 408-70 594 54 176 5 338-147 486H0V0Z" fill="url(#bg)"/>
+  <circle cx="1140" cy="430" r="560" fill="url(#halo)" opacity=".34"/>
+  <path d="M0 865c275-80 510-72 706 24 132 65 269 66 411 2" fill="none" stroke="#DDE9E1" stroke-width="2" opacity=".32"/>
+  <path d="M75 225c260-175 555-196 885-64" fill="none" stroke="#E26D4F" stroke-width="2" opacity=".2"/>
+  <g transform="translate(104 86)">
+    <rect width="90" height="90" rx="22" fill="#F7F4ED"/>
+    <path d="M18 42 45 19l27 23-8 10-19-16-19 16-8-10Z" fill="#14372F"/>
+    <path d="M23 45h12l20 20V45h12v32H55L35 57v20H23V45Z" fill="#14372F"/>
+    <rect x="61" y="21" width="11" height="11" rx="3" fill="#E26D4F"/>
+  </g>
+  <text x="104" y="390" fill="#FFFFFF" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="82" font-weight="700">Nera</text>
+  <rect x="340" y="330" width="92" height="9" rx="5" fill="#E26D4F"/>
+  <text x="104" y="505" fill="#FFFFFF" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="62" font-weight="600">Tìm nhà bằng một cuộc trò chuyện</text>
+  <text x="104" y="585" fill="#BFD1C7" font-family="Inter, Aptos, Arial, sans-serif" font-size="27">AI hiểu nhu cầu  •  Dữ liệu có thật  •  Sale xác nhận</text>
+  <g filter="url(#shadow)">
+    <rect x="1270" y="140" width="500" height="800" rx="54" fill="#FFFFFF"/>
+    <rect x="1310" y="200" width="190" height="20" rx="10" fill="#DDE9E1"/>
+    <rect x="1310" y="250" width="400" height="170" rx="28" fill="#14372F"/>
+    <rect x="1390" y="455" width="320" height="150" rx="28" fill="#F1F4F0"/>
+    <rect x="1310" y="650" width="125" height="110" rx="20" fill="#F1F4F0"/>
+    <rect x="1450" y="650" width="125" height="110" rx="20" fill="#F1F4F0"/>
+    <rect x="1590" y="650" width="120" height="110" rx="20" fill="#F1F4F0"/>
+    <rect x="1310" y="820" width="400" height="70" rx="35" fill="#F7F4ED" stroke="#DDE9E1" stroke-width="2"/>
+    <circle cx="1675" cy="855" r="25" fill="#14372F"/>
+  </g>
+  <text x="104" y="998" fill="#9BB2A7" font-family="Inter, Aptos, Arial, sans-serif" font-size="18" letter-spacing="3">P-046  •  DEMO DAY</text>
+</svg>

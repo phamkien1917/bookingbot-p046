@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Nera symbol">
+  <rect width="256" height="256" rx="58" fill="#14372F"/>
+  <path d="M50 105 128 38l78 67-22 26-56-48-56 48-22-26Z" fill="#F7F4ED"/>
+  <path d="M64 112h34l60 60v-60h34v92h-34l-60-60v60H64v-92Z" fill="#F7F4ED"/>
+  <rect x="174" y="43" width="31" height="31" rx="8" fill="#E26D4F"/>
+</svg>

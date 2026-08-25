@@ -1,6 +1,10 @@
-# Booking Bot AI
+# Nera
 
-Hệ thống tìm bất động sản và đặt lịch xem nhà gồm FastAPI/LangGraph, Next.js, PostgreSQL và Redis (có fallback bộ nhớ khi Redis không chạy). Hệ thống có bốn vai trò: Khách hàng, Sale, Điều phối và Admin.
+Trợ lý AI tìm nhà và đặt lịch xem nhà qua hội thoại tự nhiên. Hệ thống gồm FastAPI/LangGraph, Next.js, PostgreSQL và Redis (có fallback bộ nhớ khi Redis không chạy), phục vụ bốn vai trò: Khách hàng, Sale, Điều phối và Admin.
+
+Bản chạy thật: https://www.nerahome.space/
+
+> Một số định danh kỹ thuật trong mã nguồn vẫn giữ tên cũ `bookingbot`/`visitops` (tên cookie phiên, user database, subdomain Render). Đổi những tên này sẽ làm hỏng phiên đăng nhập và kết nối đang chạy, nên giữ nguyên.
 
 ## Chạy nhanh trên Windows
 
@@ -60,7 +64,11 @@ riêng; không dùng hash demo cho người dùng thật hoặc hệ thống pro
 | Sale | `kien.sale@example.com` | `/sale` |
 | Admin | `admin.demo@example.com` | `/admin` |
 
-Tài khoản seed dùng mật khẩu demo chỉ được chấp nhận khi `APP_ENV=development`. Tài khoản khách đăng ký mới luôn được lưu bằng bcrypt. Trước khi deploy production, đặt `APP_ENV=production`, dùng `JWT_SECRET_KEY` ngẫu nhiên dài và thay hash demo trong dữ liệu seed.
+Tài khoản khách đăng ký mới luôn được lưu bằng bcrypt.
+
+**Hạn chế đã biết:** `verify_password` trong `src/services/auth_service.py` chấp nhận mật khẩu demo cho mọi tài khoản có hash bằng chuỗi giữ chỗ `DEMO_ONLY_REPLACE_WITH_ARGON2ID_HASH`, và **không kiểm tra `APP_ENV`**. Mười tài khoản seed trong `database/002_seed.sql` đang dùng đúng chuỗi giữ chỗ đó. Đây là lựa chọn có chủ đích để demo đăng nhập nhanh ở nhiều vai trò, nhưng không dùng được cho môi trường thật.
+
+Trước khi chạy thật với dữ liệu người dùng: thay toàn bộ hash seed bằng hash bcrypt sinh ngẫu nhiên, xoá nhánh so sánh `DEMO_PASSWORD_HASH` trong `verify_password`, đặt `APP_ENV=production` và dùng `JWT_SECRET_KEY` ngẫu nhiên đủ dài.
 
 ## Luồng nghiệp vụ
 
