@@ -10,7 +10,7 @@ class TokenData(BaseModel):
 class UserRegister(BaseModel):
     full_name: str = Field(..., json_schema_extra={"example": "Nguyen Van A"}, min_length=2)
     email: EmailStr = Field(..., json_schema_extra={"example": "nguyenvana@gmail.com"})
-    password: str = Field(..., json_schema_extra={"example": "matkhau123"}, min_length=6)
+    password: str = Field(..., json_schema_extra={"example": "matkhau123"}, min_length=8)
     phone: str = Field(..., json_schema_extra={"example": "0912345678"}, pattern=r'^\+?[0-9]{8,15}$')
 
 class UserResponse(BaseModel):
@@ -35,7 +35,7 @@ class UserUpdate(BaseModel):
 
 class PasswordUpdate(BaseModel):
     current_password: str
-    new_password: str = Field(..., min_length=6)
+    new_password: str = Field(..., min_length=8)
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -43,7 +43,6 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    email: EmailStr
-    new_password: str = Field(..., min_length=6)
-    reset_token: str | None = None
+    token: str = Field(..., min_length=20)
+    new_password: str = Field(..., min_length=8)
 

@@ -22,6 +22,11 @@ from src.agents.state import AgentState
 logger = logging.getLogger(__name__)
 
 
+def _route_after_worker(state: AgentState) -> str:
+    """Escalate worker failures into the durable HITL queue."""
+    return "hitl" if state.get("awaiting_human") and not state.get("hitl_case_id") else "respond"
+
+
 def build_agent_graph() -> StateGraph:
     """Build the compiled multi-agent state graph."""
     graph = StateGraph(AgentState)
@@ -53,8 +58,8 @@ def build_agent_graph() -> StateGraph:
 
     # All worker nodes transition to respond node to finalize the output
     graph.add_edge("inventory", "respond")
-    graph.add_edge("booking", "respond")
-    graph.add_edge("assignment", "respond")
+    graph.add_conditional_edges("booking", _route_after_worker, {"hitl": "hitl", "respond": "respond"})
+    graph.add_conditional_edges("assignment", _route_after_worker, {"hitl": "hitl", "respond": "respond"})
     graph.add_edge("hitl", "respond")
     graph.add_edge("respond", END)
 

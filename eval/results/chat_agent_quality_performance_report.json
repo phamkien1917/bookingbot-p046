@@ -1,0 +1,499 @@
+{
+  "summary": {
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0,
+    "total": 17
+  },
+  "results": [
+    {
+      "id": "NERA-001",
+      "category": "persona",
+      "turns": [
+        "Xin chào Nera"
+      ],
+      "expect": {
+        "no_property_cards": true,
+        "actions_min": 1
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Xin chào Nera",
+          "status": 200,
+          "elapsed_ms": 8914,
+          "failures": [],
+          "response": "Chào bạn! Tôi là Nera, trợ lý BĐS của bạn. Tôi có thể giúp gì cho bạn hôm nay?",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-002",
+      "category": "persona",
+      "turns": [
+        "Hello"
+      ],
+      "expect": {
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Hello",
+          "status": 200,
+          "elapsed_ms": 2900,
+          "failures": [],
+          "response": "Chào bạn! Tôi là Nera, trợ lý BĐS của bạn. Có điều gì tôi có thể giúp bạn hôm nay?",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-003",
+      "category": "persona",
+      "turns": [
+        "Chào buổi sáng"
+      ],
+      "expect": {
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Chào buổi sáng",
+          "status": 200,
+          "elapsed_ms": 2959,
+          "failures": [],
+          "response": "Chào bạn! Tôi là Nera, trợ lý BĐS của bạn. Bạn có cần giúp gì về bất động sản hôm nay không?",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-004",
+      "category": "persona",
+      "turns": [
+        "Cảm ơn bạn"
+      ],
+      "expect": {
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Cảm ơn bạn",
+          "status": 200,
+          "elapsed_ms": 2708,
+          "failures": [],
+          "response": "Cảm ơn bạn đã trò chuyện! Nếu bạn cần thêm thông tin hay có bất kỳ câu hỏi nào về bất động sản, hãy cho tôi biết nhé!",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-005",
+      "category": "persona",
+      "turns": [
+        "Tạm biệt nhé"
+      ],
+      "expect": {
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tạm biệt nhé",
+          "status": 200,
+          "elapsed_ms": 2854,
+          "failures": [],
+          "response": "Tạm biệt! Nếu bạn cần hỗ trợ gì trong tương lai, đừng ngần ngại quay lại nhé. Chúc bạn một ngày tốt lành!",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-006",
+      "category": "persona",
+      "turns": [
+        "Bạn có thể giúp gì cho tôi?"
+      ],
+      "expect": {
+        "contains_any": [
+          "bất động sản",
+          "tìm nhà",
+          "đặt lịch"
+        ],
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Bạn có thể giúp gì cho tôi?",
+          "status": 200,
+          "elapsed_ms": 2664,
+          "failures": [],
+          "response": "Mình có thể giúp bạn tìm bất động sản theo khu vực, ngân sách và nhu cầu; so sánh các căn, kiểm tra thông tin chi tiết và hỗ trợ đặt lịch xem nhà. Bạn muốn bắt đầu bằng khu vực hay khoảng giá nào?",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-007",
+      "category": "persona",
+      "turns": [
+        "Tôi chưa biết bắt đầu từ đâu"
+      ],
+      "expect": {
+        "response_non_empty": true,
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi chưa biết bắt đầu từ đâu",
+          "status": 200,
+          "elapsed_ms": 3081,
+          "failures": [],
+          "response": "Chào bạn! Tôi là Nera, trợ lý bất động sản của bạn. Nếu bạn chưa biết bắt đầu từ đâu trong việc tìm kiếm nhà, tôi có thể hỗ trợ bạn xác định nhu cầu và tiêu chí của mình. Bạn có thể cho tôi biết bạn đang tìm kiếm loại nhà gì, khu vực nào, hay tầm giá ra sao không?",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-008",
+      "category": "persona",
+      "turns": [
+        "Nera là ai?"
+      ],
+      "expect": {
+        "contains_any": [
+          "Nera",
+          "bất động sản"
+        ],
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Nera là ai?",
+          "status": 200,
+          "elapsed_ms": 2877,
+          "failures": [],
+          "response": "Nera là trợ lý ảo của bạn trong lĩnh vực bất động sản, giúp bạn tìm kiếm và đặt lịch xem nhà một cách dễ dàng. Nếu bạn có câu hỏi về bất động sản, đừng ngần ngại hỏi nhé!",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-009",
+      "category": "persona",
+      "turns": [
+        "Bạn nói ngắn gọn thôi"
+      ],
+      "expect": {
+        "response_non_empty": true,
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Bạn nói ngắn gọn thôi",
+          "status": 200,
+          "elapsed_ms": 3576,
+          "failures": [],
+          "response": "Chào bạn! Tôi là Nera, trợ lý BĐS của bạn. Nếu bạn có bất kỳ câu hỏi nào về bất động sản hay cần tìm kiếm nhà, hãy cho tôi biết nhé!",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-010",
+      "category": "persona",
+      "turns": [
+        "Cám ơn nhiều nha, bye"
+      ],
+      "expect": {
+        "response_non_empty": true,
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Cám ơn nhiều nha, bye",
+          "status": 200,
+          "elapsed_ms": 3008,
+          "failures": [],
+          "response": "Cảm ơn bạn! Chúc bạn một ngày tốt lành! Tạm biệt!",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-144",
+      "category": "performance",
+      "turns": [
+        "Xin chào"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 5000,
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Xin chào",
+          "status": 200,
+          "elapsed_ms": 2658,
+          "failures": [],
+          "response": "Chào bạn! Tôi là Nera, trợ lý BĐS của bạn. Tôi có thể giúp gì cho bạn hôm nay?",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-145",
+      "category": "performance",
+      "turns": [
+        "Tìm căn hộ Hà Nội dưới 5 tỷ"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 12000,
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "max_price": 5000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội dưới 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 3304,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 5 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² ·",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 5000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-146",
+      "category": "performance",
+      "turns": [
+        "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+        "Chọn căn 2",
+        "So sánh căn này với căn 1"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 15000,
+        "search_pool_min": 3
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 2671,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 PN · Quận Cầu Giấy, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nó",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 2,
+          "message": "Chọn căn 2",
+          "status": 200,
+          "elapsed_ms": 3353,
+          "failures": [],
+          "response": "Bạn đã chọn **CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay** (1.59 tỷ, 35.0 m² tại Quận Nam Từ Liêm).\n\nBạn muốn xem chi tiết hay đặt lịch xem căn này vào ngày nào?",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT",
+            "district": "Nam Từ Liêm"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded"
+        },
+        {
+          "turn": 3,
+          "message": "So sánh căn này với căn 1",
+          "status": 200,
+          "elapsed_ms": 8861,
+          "failures": [],
+          "response": "Chào bạn! Rất vui được hỗ trợ bạn trong việc so sánh các bất động sản. Dưới đây là bảng so sánh giữa căn hộ mini Hoàng Đạo Thành và căn hộ CCMN Mỹ Đình để bạn có thể đánh giá dễ dàng hơn.\n\n| Tiêu chí                | Căn Hộ Mini Hoàng Đạo Thành                | CCMN Mỹ Đình                                 |\n|-------------------------|---------------------------------------------|---------------------------------------------|\n| Giá bán                 | 1.36 tỷ                                    ",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT",
+            "district": "Nam Từ Liêm"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-147",
+      "category": "performance",
+      "turns": [
+        "Tìm căn hộ Hà Nội gần bệnh viện"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 20000,
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội gần bệnh viện",
+          "status": 200,
+          "elapsed_ms": 2747,
+          "failures": [],
+          "response": "⚠️ Chưa thể xác minh khoảng cách/tiện ích vì Geo Service chưa được cấu hình.\n\nNera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 ",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-148",
+      "category": "quality",
+      "turns": [
+        "Tìm nhà"
+      ],
+      "expect": {
+        "contains_any": [
+          "khu vực",
+          "ngân sách",
+          "phòng ngủ"
+        ],
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà",
+          "status": 200,
+          "elapsed_ms": 3434,
+          "failures": [],
+          "response": "Để mình tìm được căn hộ/nhà đất ưng ý nhất cho bạn, bạn chia sẻ thêm một vài thông tin nhé:\n- **Khu vực mong muốn** (ví dụ: Quận 7, Cầu Giấy, Bình Thạnh...)\n- **Khoảng ngân sách** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Loại hình & số phòng ngủ** (ví dụ: căn hộ 2PN, nhà phố...)",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-149",
+      "category": "quality",
+      "turns": [
+        "Căn nào tốt nhất?"
+      ],
+      "expect": {
+        "contains_any": [
+          "tiêu chí",
+          "danh sách",
+          "nhu cầu"
+        ],
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Căn nào tốt nhất?",
+          "status": 200,
+          "elapsed_ms": 3729,
+          "failures": [],
+          "response": "Mình chưa có danh sách hoặc tiêu chí để xác định căn nào tốt nhất. Bạn hãy cho mình biết nhu cầu, khu vực và ngân sách; hoặc yêu cầu tìm một danh sách trước, rồi mình sẽ so sánh minh bạch cho bạn.",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct"
+        }
+      ]
+    },
+    {
+      "id": "NERA-150",
+      "category": "quality",
+      "turns": [
+        "Tôi cần một căn hoàn hảo, rẻ, trung tâm, rộng, pháp lý tốt"
+      ],
+      "expect": {
+        "response_non_empty": true,
+        "not_contains": [
+          "chắc chắn hoàn hảo"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi cần một căn hoàn hảo, rẻ, trung tâm, rộng, pháp lý tốt",
+          "status": 200,
+          "elapsed_ms": 2932,
+          "failures": [],
+          "response": "Để mình tìm được căn hộ/nhà đất ưng ý nhất cho bạn, bạn chia sẻ thêm một vài thông tin nhé:\n- **Khu vực mong muốn** (ví dụ: Quận 7, Cầu Giấy, Bình Thạnh...)\n- **Khoảng ngân sách** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Loại hình & số phòng ngủ** (ví dụ: căn hộ 2PN, nhà phố...)",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,8 @@
-from src.services.search_criteria_service import build_search_criteria, extract_search_criteria
+from src.services.search_criteria_service import (
+    build_search_criteria,
+    extract_search_criteria,
+    validate_search_criteria,
+)
 
 
 def test_booking_phrase_is_not_misclassified_as_land() -> None:
@@ -184,6 +188,71 @@ def test_interleave_properties_by_province() -> None:
     assert "Hà Nội" in provs
     assert "Quảng Ninh" in provs
     assert "Bắc Giang" in provs
+
+
+def test_rental_orientation_legal_floor_and_furniture_filters() -> None:
+    criteria, groups = extract_search_criteria(
+        "Tìm thuê căn hộ hướng Đông Nam từ tầng 5 đến tầng 12, sổ hồng riêng, nội thất đầy đủ"
+    )
+    assert criteria["transaction_type"] == "RENT"
+    assert criteria["property_kind"] == "APARTMENT"
+    assert criteria["orientation"] == "Đông Nam"
+    assert criteria["min_floor"] == 5
+    assert criteria["max_floor"] == 12
+    assert criteria["legal_status"] == "Sổ hồng riêng"
+    assert criteria["furniture_status"] == "Nội thất đầy đủ"
+    assert "transaction" in groups
+
+
+def test_contradictory_price_range_is_reported() -> None:
+    criteria, _ = extract_search_criteria("Tìm nhà trên 8 tỷ nhưng dưới 3 tỷ")
+    assert criteria["min_price"] == 8_000_000_000
+    assert criteria["max_price"] == 3_000_000_000
+    assert validate_search_criteria(criteria) == [
+        "mức giá tối thiểu đang lớn hơn mức giá tối đa"
+    ]
+
+
+def test_acceptance_parser_regressions() -> None:
+    cases = [
+        (
+            "Tìm nhà ở TP HCM dưới 10 tỷ",
+            {"province": "Hồ Chí Minh", "max_price": 10_000_000_000},
+        ),
+        (
+            "Tìm căn hộ Hà Nội từ 3 đến 5 tỷ",
+            {"min_price": 3_000_000_000, "max_price": 5_000_000_000},
+        ),
+        (
+            "Muốn thuê căn 2PN khoảng 15 đến 20 triệu ở Hà Nội",
+            {
+                "transaction_type": "RENT",
+                "min_price": 15_000_000,
+                "max_price": 20_000_000,
+            },
+        ),
+        (
+            "Tìm nhà bán ở Đà Nẵng",
+            {"transaction_type": "SALE", "province": "Đà Nẵng"},
+        ),
+        (
+            "Không thuê nữa, tôi muốn mua dưới 5 tỷ",
+            {"transaction_type": "SALE", "max_price": 5_000_000_000},
+        ),
+    ]
+
+    for message, expected in cases:
+        criteria, _ = extract_search_criteria(message)
+        for key, value in expected.items():
+            assert criteria[key] == value
+
+
+def test_floor_follow_up_replaces_both_old_bounds() -> None:
+    previous = {"province": "Hà Nội", "min_floor": 10, "max_floor": 10}
+    merged = build_search_criteria("Đổi sang từ tầng 15 trở lên", previous)
+
+    assert merged["min_floor"] == 15
+    assert "max_floor" not in merged
 
 
 

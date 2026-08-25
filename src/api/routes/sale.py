@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -10,20 +11,27 @@ from src.database import get_session
 from src.database.models import (
     Appointment,
     AppointmentStatus,
+    PropertyHold,
     SaleProfile,
     User,
     UserRole,
 )
 from src.schemas.booking import BookingAction
+from src.services.analytics_service import record_event
 from src.services.booking_service import (
     accept_sale_request,
     list_sale_requests,
     reject_sale_request,
 )
-from src.services.route_optimizer import optimize_daily_route
+from src.services.property_hold_service import extend_property_hold, release_appointment_hold
+from src.services.route_optimizer import optimize_daily_route_plan
 from src.utils.time import utcnow
 
 router = APIRouter(prefix="/sale", tags=["sale"])
+
+
+class HoldExtensionRequest(BaseModel):
+    minutes: int | None = Field(default=None, ge=1, le=120)
 
 
 @router.get("/overview")
@@ -101,14 +109,20 @@ async def optimize_route(
     user: User = Depends(require_roles(UserRole.SALE)),
     db: AsyncSession = Depends(get_session),
 ):
-    """Optimize the appointment route for a specific date using TSP."""
+    """Build a time-window and traffic-aware itinerary for a Sale/day."""
     try:
-        optimized, total_distance_km = await optimize_daily_route(db, user.id, date)
+        plan = await optimize_daily_route_plan(db, user.id, date)
         return {
             "message": "Route optimized successfully",
-            "count": len(optimized),
-            "appointment_ids": [str(appointment.id) for appointment in optimized],
-            "total_distance_km": round(total_distance_km, 2),
+            "count": len(plan.appointments),
+            "appointment_ids": [str(appointment.id) for appointment in plan.appointments],
+            "total_distance_km": round(plan.total_distance_km, 2),
+            "total_duration_minutes": plan.total_duration_minutes,
+            "provider": plan.provider,
+            "traffic_aware": plan.traffic_aware,
+            "feasible": plan.feasible,
+            "legs": plan.legs,
+            "warnings": plan.warnings,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -128,6 +142,44 @@ async def accept_request(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/appointments/{appointment_id}/hold/extend")
+async def extend_hold(
+    appointment_id: UUID,
+    payload: HoldExtensionRequest,
+    user: User = Depends(require_roles(UserRole.SALE)),
+    db: AsyncSession = Depends(get_session),
+):
+    appointment = await db.get(Appointment, appointment_id)
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lịch hẹn")
+    if appointment.sale_user_id != user.id:
+        raise HTTPException(status_code=403, detail="Lịch hẹn không thuộc về bạn")
+    hold = await db.scalar(select(PropertyHold).where(PropertyHold.appointment_id == appointment_id))
+    if not hold:
+        raise HTTPException(status_code=404, detail="Lịch hẹn chưa có lượt giữ căn")
+    try:
+        updated = await extend_property_hold(db, hold.id, user.id, minutes=payload.minutes)
+        return {"id": str(updated.id), "hold_code": updated.hold_code, "expires_at": updated.expires_at}
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/appointments/{appointment_id}/hold/release")
+async def release_hold(
+    appointment_id: UUID,
+    action: BookingAction,
+    user: User = Depends(require_roles(UserRole.SALE)),
+    db: AsyncSession = Depends(get_session),
+):
+    appointment = await db.get(Appointment, appointment_id)
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lịch hẹn")
+    if appointment.sale_user_id != user.id:
+        raise HTTPException(status_code=403, detail="Lịch hẹn không thuộc về bạn")
+    hold = await release_appointment_hold(db, appointment_id, action.reason or "SALE_RELEASED")
+    return {"released": hold is not None, "hold_id": str(hold.id) if hold else None}
 
 
 @router.post("/requests/{booking_id}/reject")
@@ -165,6 +217,13 @@ async def _update_appointment_status(
     if complete:
         appointment.checked_out_at = utcnow()
     appointment.status = new_status
+    record_event(
+        db,
+        f"appointment_{new_status.value.lower()}",
+        customer_user_id=appointment.customer_user_id,
+        appointment_id=appointment.id,
+        properties={"sale_user_id": str(sale_user_id)},
+    )
     await db.commit()
     return {
         "id": str(appointment.id),

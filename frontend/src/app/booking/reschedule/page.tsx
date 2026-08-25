@@ -11,6 +11,7 @@ import { apiFetch } from "@/lib/api";
 import type { AvailabilitySlot, Booking } from "@/lib/types";
 
 const CUSTOMER_ROLES = ["CUSTOMER"] as const;
+interface RescheduleProposal { id: string; sale_user_id: string; starts_at: string; ends_at: string; expires_at: string }
 
 function dateKey(value: Date) {
   const year = value.getFullYear();
@@ -29,6 +30,7 @@ function RescheduleContent() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
+  const [proposals, setProposals] = useState<RescheduleProposal[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -75,7 +77,32 @@ function RescheduleContent() {
       });
       router.push(`/booking/hold?booking_id=${newBooking.id}`);
     } catch (reason) {
+      try {
+        const alternatives = await apiFetch<RescheduleProposal[]>(`/bookings/${bookingId}/reschedule/proposals`, {
+          method: "POST",
+          body: JSON.stringify({ desired_start: selectedSlot.starts_at, reason: "SCHEDULE_CONFLICT" }),
+        });
+        setProposals(alternatives);
+        setError("Khung giờ vừa xung đột. Lịch cũ vẫn được giữ cho đến khi bạn xác nhận một lựa chọn thay thế.");
+        return;
+      } catch {
+        // Keep the original conflict message when no alternative exists.
+      }
       setError(reason instanceof Error ? reason.message : "Không thể dời lịch xem");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const confirmProposal = async (proposal: RescheduleProposal) => {
+    if (!bookingId) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const newBooking = await apiFetch<Booking>(`/bookings/${bookingId}/reschedule/proposals/${proposal.id}/confirm`, { method: "POST" });
+      router.push(`/booking/hold?booking_id=${newBooking.id}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Đề xuất đã hết hiệu lực");
     } finally {
       setSubmitting(false);
     }
@@ -95,6 +122,20 @@ function RescheduleContent() {
             
             {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-[1.5rem] mb-6 shadow-sm">{error}</div>}
             
+            {proposals.length > 0 && (
+              <section className="mb-6 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
+                <h2 className="font-semibold">Khung giờ thay thế — cần bạn xác nhận</h2>
+                <p className="mt-1 text-xs text-[var(--muted)]">Hệ thống chưa thay đổi lịch cũ.</p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {proposals.map((proposal) => (
+                    <button key={proposal.id} onClick={() => void confirmProposal(proposal)} disabled={submitting} className="rounded-xl bg-white px-4 py-3 text-sm font-semibold shadow-sm disabled:opacity-50">
+                      {new Date(proposal.starts_at).toLocaleString("vi-VN")}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {loading ? <div className="py-20 grid place-items-center"><FaSpinner className="animate-spin text-3xl text-[var(--forest)]" /></div> : booking ? (
               <div className="grid md:grid-cols-[300px_1fr] gap-8 mb-8">
                 {/* Old Booking Info */}

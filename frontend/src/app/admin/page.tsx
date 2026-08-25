@@ -13,7 +13,14 @@ import type { Booking, User, UserRole } from "@/lib/types";
 interface AdminOverview { stats: { users: number; properties: number; bookings: number; pending: number; conversion_rate: number; no_shows: number }; recent_bookings: Booking[] }
 interface DailyBooking { date: string; total: number; confirmed: number; cancelled: number; no_show: number }
 interface WeeklyConversion { week_label: string; total: number; confirmed: number; rate: number }
-interface Analytics { daily_bookings: DailyBooking[]; status_distribution: Record<string, number>; weekly_conversion: WeeklyConversion[] }
+interface Analytics {
+  daily_bookings: DailyBooking[];
+  status_distribution: Record<string, number>;
+  weekly_conversion: WeeklyConversion[];
+  conversion_funnel: { requests: number; confirmed: number; appointments: number; completed: number; no_show: number; request_to_confirmed_rate: number; appointment_completion_rate: number; no_show_rate: number };
+  reminder_performance: { scheduled: number; sent: number; delivery_success_rate: number; reminded_appointments: number; reminded_no_shows: number; reminded_no_show_rate: number };
+}
+interface HitlCase { id: string; case_code: string; reason: string; context: Record<string, unknown>; status: string; created_at: string; expires_at: string | null }
 
 const statusLabel: Record<string, string> = { WAITING_APPROVAL: "Chờ Sale", BOOKED: "Đã xác nhận", CANCELLED: "Đã hủy", REJECTED: "Bị từ chối", EXPIRED: "Hết hạn", APPROVED: "Đã duyệt" };
 const statusStyle: Record<string, string> = { WAITING_APPROVAL: "bg-amber-50 text-amber-700", BOOKED: "bg-emerald-50 text-emerald-700", CANCELLED: "bg-stone-100 text-stone-600", REJECTED: "bg-red-50 text-red-700", EXPIRED: "bg-red-50 text-red-700" };
@@ -120,6 +127,7 @@ function AdminDashboardContent() {
   const router = useRouter();
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [hitlCases, setHitlCases] = useState<HitlCase[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<UserRole | "">("");
@@ -130,12 +138,14 @@ function AdminDashboardContent() {
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     try {
-      const [ov, an] = await Promise.all([
+      const [ov, an, hitl] = await Promise.all([
         apiFetch<AdminOverview>("/admin/overview"),
         apiFetch<Analytics>("/admin/analytics"),
+        apiFetch<HitlCase[]>("/admin/hitl-cases?status=PENDING"),
       ]);
       setOverview(ov);
       setAnalytics(an);
+      setHitlCases(hitl);
       if (user?.role === "ADMIN") setUsers(await apiFetch<User[]>(`/admin/users${role ? `?role=${role}` : ""}`));
       setError("");
     } catch (reason) {
@@ -155,6 +165,18 @@ function AdminDashboardContent() {
     try { await apiFetch(`/admin/users/${target.id}/status`, { method: "PATCH", body: JSON.stringify({ status: next }) }); await load(true); } catch { setError("Không cập nhật được tài khoản."); }
   }
   async function handleLogout() { await logout(); router.replace("/login"); }
+  async function resolveHitl(caseId: string, action: "APPROVE" | "REJECT" | "OVERRIDE") {
+    const message = window.prompt("Ghi chú cho khách/nhân viên (không bắt buộc):") ?? "";
+    try {
+      await apiFetch(`/admin/hitl-cases/${caseId}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({ action, message, metadata: {} }),
+      });
+      await load(true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không xử lý được HITL case");
+    }
+  }
 
   const sidebar = (
     <aside className={`bg-[var(--ink)] p-5 text-white lg:sticky lg:top-0 lg:min-h-screen lg:w-72 ${sidebarOpen ? "fixed inset-0 z-50" : "hidden lg:block"}`}>
@@ -169,6 +191,7 @@ function AdminDashboardContent() {
         <a href="#overview" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm"><FaChartLine /> Sức khỏe hệ thống</a>
         <a href="#analytics" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaCalendarAlt /> Phân tích & biểu đồ</a>
         <a href="#bookings" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaBell /> Booking pipeline</a>
+        <a href="#hitl" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaShieldAlt /> HITL queue ({hitlCases.length})</a>
         <Link href="/admin/properties" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm hover:bg-white/10"><FaChartLine /> Kho Bất động sản</Link>
         {user?.role === "ADMIN" && (
           <>
@@ -242,6 +265,17 @@ function AdminDashboardContent() {
           </div>
         </section>
 
+        <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Request → xác nhận", `${analytics?.conversion_funnel?.request_to_confirmed_rate ?? 0}%`, `${analytics?.conversion_funnel?.confirmed ?? 0}/${analytics?.conversion_funnel?.requests ?? 0}`],
+            ["Hoàn thành lịch xem", `${analytics?.conversion_funnel?.appointment_completion_rate ?? 0}%`, `${analytics?.conversion_funnel?.completed ?? 0} hoàn thành`],
+            ["No-show rate", `${analytics?.conversion_funnel?.no_show_rate ?? 0}%`, `${analytics?.conversion_funnel?.no_show ?? 0} no-show`],
+            ["Reminder success", `${analytics?.reminder_performance?.delivery_success_rate ?? 0}%`, `${analytics?.reminder_performance?.sent ?? 0}/${analytics?.reminder_performance?.scheduled ?? 0} đã gửi`],
+          ].map(([label, value, note]) => (
+            <div key={label} className="rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-2 text-3xl font-semibold">{value}</p><p className="mt-2 text-xs text-[var(--muted)]">{note}</p></div>
+          ))}
+        </section>
+
         {/* Operations alert + pipeline */}
         <div className="mb-8 grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
           <section className="rounded-[1.6rem] bg-[var(--forest)] p-6 text-white">
@@ -265,6 +299,26 @@ function AdminDashboardContent() {
             </div>
           </section>
         </div>
+
+        <section id="hitl" className="mb-10">
+          <div className="mb-4"><p className="text-xs font-bold uppercase tracking-[.15em] text-[var(--coral)]">Human in the loop</p><h2 className="mt-1 text-xl font-semibold">Yêu cầu chờ điều phối viên</h2></div>
+          <div className="space-y-3">
+            {hitlCases.map((item) => (
+              <article key={item.id} className="rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div><p className="font-mono text-xs text-[var(--muted)]">{item.case_code}</p><h3 className="mt-1 font-semibold">{item.reason}</h3><p className="mt-2 text-xs text-[var(--muted)]">{new Date(item.created_at).toLocaleString("vi-VN")}</p></div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => void resolveHitl(item.id, "APPROVE")} className="rounded-full bg-[var(--forest)] px-4 py-2 text-xs font-semibold text-white">Duyệt</button>
+                    <button onClick={() => void resolveHitl(item.id, "OVERRIDE")} className="rounded-full border border-black/10 px-4 py-2 text-xs font-semibold">Can thiệp</button>
+                    <button onClick={() => void resolveHitl(item.id, "REJECT")} className="rounded-full bg-red-50 px-4 py-2 text-xs font-semibold text-red-700">Từ chối</button>
+                  </div>
+                </div>
+                <pre className="mt-4 overflow-x-auto rounded-xl bg-[#f7f7f3] p-3 text-xs">{JSON.stringify(item.context, null, 2)}</pre>
+              </article>
+            ))}
+            {hitlCases.length === 0 && <div className="rounded-[1.5rem] border border-black/5 bg-white p-8 text-center text-sm text-[var(--muted)]">Không có yêu cầu HITL đang chờ.</div>}
+          </div>
+        </section>
 
         {/* Booking table */}
         <section id="bookings" className="mb-10">

@@ -18,7 +18,7 @@ from src.api.routes.auth import get_current_user, get_optional_current_user
 from src.database import get_session
 from src.database.models import User, UserRole
 from src.models.schemas import ChatRequest, ChatResponse
-from src.services.chat_ai_service import get_chat_ai_service
+from src.services.analytics_service import record_event
 from src.services.chat_state_service import normalize_text
 from src.services.conversation_service import (
     delete_persistent_session,
@@ -32,6 +32,7 @@ from src.services.customer_memory_service import (
     memory_summary,
     remember_feedback,
     remember_search_criteria,
+    remember_time_preferences,
 )
 from src.services.memory import get_short_term_memory
 from src.utils.time import utcnow
@@ -181,11 +182,18 @@ async def _execute_chat_turn(
                     if key in {
                         "region", "district", "province", "property_kind", "min_price", "max_price",
                         "min_bedrooms", "max_bedrooms", "exact_bedrooms", "min_bathrooms", "min_area", "area_or_ward", "ward",
+                        "transaction_type", "orientation", "legal_status", "furniture_status", "min_floor", "max_floor",
                     }
                 }
 
         if request.property_id:
             agent_state["current_property_id"] = str(request.property_id)
+        if request.user_latitude is not None and request.user_longitude is not None:
+            agent_state["user_location"] = {
+                "latitude": request.user_latitude,
+                "longitude": request.user_longitude,
+            }
+            agent_state["commute_landmark"] = "Vị trí của bạn"
 
         # Execute LangGraph Multi-Agent
         final_state = await run_agent(agent_state, on_stage=on_stage)
@@ -214,11 +222,18 @@ async def _execute_chat_turn(
             "criteria": final_state.get("search_criteria", {}),
             "soft_preferences": final_state.get("soft_preferences", []),
             "household_context": final_state.get("household_context", []),
-            "commute_landmark": final_state.get("commute_landmark"),
+            "commute_landmark": (
+                None if final_state.get("commute_landmark") == "Vị trí của bạn"
+                else final_state.get("commute_landmark")
+            ),
             "max_commute_minutes": final_state.get("max_commute_minutes"),
+            "max_commute_km": final_state.get("max_commute_km"),
+            "travel_mode": final_state.get("travel_mode", "DRIVE"),
+            "nearby_categories": final_state.get("nearby_categories", []),
             "monthly_income_vnd": final_state.get("monthly_income_vnd"),
             "own_capital_vnd": final_state.get("own_capital_vnd"),
             "property_refs": raw_properties if properties else (metadata.get("chat_state", {}).get("property_refs", []) if intent in _PROPERTY_RELEVANT_INTENTS else []),
+            "search_result_refs": final_state.get("search_results") or metadata.get("chat_state", {}).get("search_result_refs", []),
             "selected_property_id": final_state.get("current_property_id"),
             "selected_property_index": final_state.get("selected_property_index"),
             "requested_date": final_state.get("requested_date"),
@@ -230,6 +245,8 @@ async def _execute_chat_turn(
             "pending_action": final_state.get("pending_action"),
             "phase": final_state.get("phase", "IDLE"),
         }
+        if settings.app_env != "production" and final_state.get("error"):
+            stored_chat_state["debug_error"] = str(final_state["error"])
         metadata["chat_state"] = stored_chat_state
         metadata["insights"] = insights
 
@@ -244,9 +261,18 @@ async def _execute_chat_turn(
         })
 
         if customer_id:
+            if intent == "SEARCH_PROPERTY":
+                record_event(
+                    db,
+                    "property_search",
+                    customer_user_id=customer_uuid,
+                    session_id=session_id,
+                    properties={"criteria": final_state.get("search_criteria") or {}},
+                )
             if intent == "SEARCH_PROPERTY" and final_state.get("search_criteria"):
                 await remember_search_criteria(db, customer_id, final_state.get("search_criteria"))
             await remember_feedback(db, customer_id, request.message)
+            await remember_time_preferences(db, customer_id, request.message)
             await save_persistent_session(db, session_id, customer_id, messages, metadata)
 
         try:
@@ -375,19 +401,35 @@ async def chat_stream(
 @router.get("/status")
 async def agent_status():
     """Report the production chat path currently serving requests."""
-    ai_service = get_chat_ai_service()
+    from src.config import get_settings
+    from src.services.geo_service import get_geo_service
+
+    settings = get_settings()
     return {
         "status": "ready",
-        "chat_engine": "grounded-llm-v1",
-        "llm_configured": ai_service.configured,
-        "booking_source": "domain-services",
+        "chat_engine": "langgraph-multi-agent-v2",
+        "active_agents": ["supervisor", "inventory", "booking", "hitl", "respond"],
+        "llm_configured": bool(settings.openrouter_api_key or settings.openai_api_key),
+        "geo_configured": get_geo_service().configured,
+        "booking_source": "booking-domain-service",
     }
+
+
+@router.get("/status/geo")
+async def geo_provider_status():
+    """Run real Google Maps capability probes in non-production environments."""
+    from src.config import get_settings
+    from src.services.geo_service import get_geo_service
+
+    if get_settings().app_env == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+    return await get_geo_service().diagnose_capabilities()
 
 
 @router.get("/session/{session_id}")
 async def get_chat_session(
     session_id: str,
-    user: User = Depends(get_current_user),
+    user: User | None = Depends(get_optional_current_user),
     db: AsyncSession = Depends(get_session),
 ):
     """Get session data.
@@ -398,20 +440,24 @@ async def get_chat_session(
     Returns:
         Session data including messages
     """
-    session_data = await get_persistent_session(db, session_id, str(user.id))
+    user_id_str = str(user.id) if user else None
+    session_data = None
+    if user_id_str:
+        session_data = await get_persistent_session(db, session_id, user_id_str)
     if not session_data:
         memory = get_short_term_memory()
         session_data = await memory.get_session(session_id)
         if session_data:
             meta_customer_id = session_data.get("metadata", {}).get("customer_id")
-            if meta_customer_id and str(meta_customer_id) != str(user.id):
+            if meta_customer_id and user_id_str and str(meta_customer_id) != user_id_str:
                 raise HTTPException(status_code=404, detail="Session not found")
 
     if not session_data:
         raise HTTPException(status_code=404, detail="Session not found")
 
     metadata = session_data.get("metadata", {})
-    metadata["customer_id"] = str(user.id)
+    if user_id_str:
+        metadata["customer_id"] = user_id_str
 
     return {
         "session_id": session_id,

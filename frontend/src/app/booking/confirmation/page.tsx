@@ -71,6 +71,7 @@ function ConfirmationContent() {
                 <section className="bg-white rounded-[1.5rem] p-8 border border-black/5 shadow-sm">
                   <h2 className="font-bold text-xl mb-6">Chi tiết lịch hẹn</h2>
                   <dl className="space-y-4 text-sm">
+                    {booking.hold && <div><dt className="text-[var(--muted)] mb-1">Giữ căn</dt><dd className="font-bold font-mono">{booking.hold.hold_code} · {booking.hold.status}</dd><dd className="text-xs text-[var(--muted)]">Đến {new Date(booking.hold.expires_at).toLocaleString("vi-VN")}</dd></div>}
                     <div><dt className="text-[var(--muted)] mb-1">Mã booking</dt><dd className="font-bold font-mono text-lg">{booking.appointment.booking_code}</dd></div>
                     <div><dt className="text-[var(--muted)] mb-1">Bất động sản</dt><dd className="font-bold">{booking.property.title}</dd></div>
                     <div><dt className="text-[var(--muted)] mb-1">Thời gian</dt><dd className="font-bold">{new Date(booking.appointment.starts_at).toLocaleString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</dd></div>

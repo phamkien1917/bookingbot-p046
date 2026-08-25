@@ -4,6 +4,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -13,6 +14,8 @@ from src.database import get_session
 from src.database.models import (
     Appointment,
     AppointmentStatus,
+    DeliveryStatus,
+    Notification,
     Property,
     PropertyKind,
     PropertyStatus,
@@ -26,9 +29,16 @@ from src.database.models import (
 from src.schemas.admin import PropertyCreate, PropertyUpdate, SaleProfileUpdate
 from src.schemas.booking import UserStatusUpdate
 from src.services.booking_service import list_all_bookings
+from src.services.hitl_service import list_hitl_cases, resolve_hitl_case, serialize_hitl_case
 from src.utils.time import utcnow
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class HitlDecisionRequest(BaseModel):
+    action: str = Field(pattern="^(APPROVE|REJECT|OVERRIDE)$")
+    message: str | None = Field(default=None, max_length=1000)
+    metadata: dict = Field(default_factory=dict)
 
 
 @router.get("/overview")
@@ -56,6 +66,38 @@ async def admin_overview(
         },
         "recent_bookings": await list_all_bookings(db, limit=20),
     }
+
+
+@router.get("/hitl-cases")
+async def coordinator_hitl_queue(
+    status: str = Query(default="PENDING", max_length=20),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.COORDINATOR)),
+    db: AsyncSession = Depends(get_session),
+):
+    return await list_hitl_cases(db, status=status)
+
+
+@router.post("/hitl-cases/{case_id}/resolve")
+async def coordinator_resolve_hitl(
+    case_id: UUID,
+    payload: HitlDecisionRequest,
+    reviewer: User = Depends(require_roles(UserRole.ADMIN, UserRole.COORDINATOR)),
+    db: AsyncSession = Depends(get_session),
+):
+    try:
+        case = await resolve_hitl_case(
+            db,
+            case_id,
+            reviewer.id,
+            action=payload.action,
+            message=payload.message,
+            metadata=payload.metadata,
+        )
+        return serialize_hitl_case(case)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/users")
@@ -184,10 +226,59 @@ async def admin_analytics(
     ) or 0
     dist["no_show"] = no_shows_total
 
+    total_requests = await db.scalar(select(func.count(TourRequest.id))) or 0
+    confirmed_requests = await db.scalar(
+        select(func.count(TourRequest.id)).where(TourRequest.status == RequestStatus.BOOKED)
+    ) or 0
+    completed_appointments = await db.scalar(
+        select(func.count(Appointment.id)).where(Appointment.status == AppointmentStatus.COMPLETED)
+    ) or 0
+    total_appointments = await db.scalar(select(func.count(Appointment.id))) or 0
+
+    reminder_scheduled = await db.scalar(select(func.count(Notification.id)).where(
+        Notification.template_key.like("booking_reminder_%"),
+        Notification.channel != "IN_APP",
+    )) or 0
+    reminder_sent = await db.scalar(select(func.count(Notification.id)).where(
+        Notification.template_key.like("booking_reminder_%"),
+        Notification.channel != "IN_APP",
+        Notification.status.in_([DeliveryStatus.SENT, DeliveryStatus.DELIVERED]),
+    )) or 0
+    reminded_appointments = select(Notification.appointment_id).where(
+        Notification.template_key.like("booking_reminder_%"),
+        Notification.status.in_([DeliveryStatus.SENT, DeliveryStatus.DELIVERED]),
+        Notification.appointment_id.is_not(None),
+    ).distinct().subquery()
+    reminded_no_shows = await db.scalar(
+        select(func.count(Appointment.id)).where(
+            Appointment.id.in_(select(reminded_appointments.c.appointment_id)),
+            Appointment.status == AppointmentStatus.NO_SHOW,
+        )
+    ) or 0
+    reminded_total = await db.scalar(select(func.count()).select_from(reminded_appointments)) or 0
+
     return {
         "daily_bookings": daily,
         "status_distribution": dist,
         "weekly_conversion": weekly,
+        "conversion_funnel": {
+            "requests": total_requests,
+            "confirmed": confirmed_requests,
+            "appointments": total_appointments,
+            "completed": completed_appointments,
+            "no_show": no_shows_total,
+            "request_to_confirmed_rate": round(confirmed_requests / total_requests * 100, 1) if total_requests else 0.0,
+            "appointment_completion_rate": round(completed_appointments / total_appointments * 100, 1) if total_appointments else 0.0,
+            "no_show_rate": round(no_shows_total / total_appointments * 100, 1) if total_appointments else 0.0,
+        },
+        "reminder_performance": {
+            "scheduled": reminder_scheduled,
+            "sent": reminder_sent,
+            "delivery_success_rate": round(reminder_sent / reminder_scheduled * 100, 1) if reminder_scheduled else 0.0,
+            "reminded_appointments": reminded_total,
+            "reminded_no_shows": reminded_no_shows,
+            "reminded_no_show_rate": round(reminded_no_shows / reminded_total * 100, 1) if reminded_total else 0.0,
+        },
     }
 
 

@@ -3,6 +3,7 @@ from src.services.affordability import (
     estimate_affordability,
     explain,
     format_vnd,
+    purchase_guidance_lines,
 )
 
 
@@ -68,6 +69,38 @@ def test_explanation_names_every_assumption_it_relies_on() -> None:
     assert "10%/năm" in text  # the interest rate
     assert "20 năm" in text  # the term
     assert "tham khảo" in text  # it does not present itself as a bank decision
+
+
+def test_purchase_guidance_scales_with_income() -> None:
+    """The consultation reply used to carry a fixed range for every income.
+
+    Someone earning 50tr a month must not be told the same price ceiling as
+    someone earning 15tr, so the two texts have to differ.
+    """
+    modest = purchase_guidance_lines(estimate_affordability(15_000_000))  # type: ignore[arg-type]
+    comfortable = purchase_guidance_lines(estimate_affordability(50_000_000))  # type: ignore[arg-type]
+
+    assert modest != comfortable
+    assert "1.5 – 2 tỷ" not in modest  # the old hard-coded range
+    assert "5 – 8 triệu" not in modest
+
+
+def test_purchase_guidance_is_markdown_bullets_with_a_caveat() -> None:
+    lines = purchase_guidance_lines(estimate_affordability(17_500_000)).strip().split("\n")  # type: ignore[arg-type]
+
+    assert len(lines) == 4
+    assert all(line.startswith("- ") for line in lines)
+    assert "tham khảo" in lines[-1]
+
+
+def test_purchase_guidance_mentions_savings_when_they_are_known() -> None:
+    known = purchase_guidance_lines(
+        estimate_affordability(17_500_000, own_capital_vnd=800_000_000)  # type: ignore[arg-type]
+    )
+    assumed = purchase_guidance_lines(estimate_affordability(17_500_000))  # type: ignore[arg-type]
+
+    assert "800 triệu vốn tự có" in known
+    assert "Nếu bạn có sẵn 30%" in assumed
 
 
 def test_vnd_formatting_matches_how_listings_are_written() -> None:

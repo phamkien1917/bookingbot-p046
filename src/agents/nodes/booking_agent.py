@@ -15,7 +15,7 @@ from sqlalchemy import or_, select
 
 from src.agents.state import AgentState, AgentType, Intent
 from src.database.connection import get_session_context
-from src.database.models import Appointment, Property, TourRequest, UserRole
+from src.database.models import Appointment, Property, RequestStatus, TourRequest, UserRole
 from src.exceptions import BookingConflictError, BookingNotFoundError
 from src.schemas.booking import TourRequestCreate
 from src.services.booking_service import (
@@ -27,6 +27,7 @@ from src.services.booking_service import (
     reschedule_customer_booking,
 )
 from src.services.chat_state_service import LOCAL_TZ
+from src.services.reschedule_service import confirm_reschedule_proposal, propose_alternative_slots
 from src.utils.property_text import clean_property_title, match_property_by_title
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,13 @@ def _format_slots_markdown(slots: list[dict[str, Any]], property_title: str, tar
     return "\n".join(lines)
 
 
-async def _find_tour_request_id(customer_id: UUID, code: str | None, active_id: str | None) -> UUID | None:
+async def _find_tour_request_id(
+    customer_id: UUID,
+    code: str | None,
+    active_id: str | None,
+    *,
+    latest_if_missing: bool = False,
+) -> UUID | None:
     async with get_session_context() as session:
         if code:
             stmt = (
@@ -67,6 +74,20 @@ async def _find_tour_request_id(customer_id: UUID, code: str | None, active_id: 
                 return UUID(str(active_id))
             except (TypeError, ValueError):
                 return None
+        if latest_if_missing:
+            stmt = (
+                select(TourRequest.id)
+                .where(
+                    TourRequest.customer_user_id == customer_id,
+                    TourRequest.status.in_([
+                        RequestStatus.WAITING_APPROVAL,
+                        RequestStatus.BOOKED,
+                    ]),
+                )
+                .order_by(TourRequest.created_at.desc())
+                .limit(1)
+            )
+            return await session.scalar(stmt)
     return None
 
 
@@ -78,6 +99,20 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
     customer_role = state.get("customer_role")
     is_authenticated = customer_id is not None and customer_role == UserRole.CUSTOMER
     active_code = state.get("active_request_code")
+
+    if state.get("invalid_requested_date") and intent in (
+        Intent.BOOK_APPOINTMENT,
+        Intent.RESCHEDULE,
+    ):
+        return {
+            "response": (
+                "Ngày trong quá khứ không hợp lệ để đặt lịch xem nhà. "
+                "Bạn vui lòng chọn một ngày khác trong tương lai."
+            ),
+            "phase": "AWAITING_DATE",
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": ["Ngày mai", "Thứ Bảy tuần này"],
+        }
 
     # Resume booking after login if user is in AWAITING_AUTH and says confirm/continue
     if state.get("phase") == "AWAITING_AUTH" and is_authenticated and intent in (Intent.CONFIRM, Intent.BOOK_APPOINTMENT, Intent.SELECT_SLOT):
@@ -130,7 +165,12 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
             }
 
         # Step B: Trigger cancel
-        request_id = await _find_tour_request_id(customer_id, active_code, state.get("active_request_id"))
+        request_id = await _find_tour_request_id(
+            customer_id,
+            active_code,
+            state.get("active_request_id"),
+            latest_if_missing=True,
+        )
         if not request_id:
             return {
                 "response": "Bạn muốn hủy lịch hẹn nào? Vui lòng cung cấp mã yêu cầu (ví dụ: `TR-XXXXX` hoặc `BK-XXXXX`).",
@@ -156,7 +196,11 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
                 "current_agent": AgentType.RESPOND,
             }
 
-        request_id = await _find_tour_request_id(customer_id, active_code, state.get("active_request_id"))
+        request_id = await _find_tour_request_id(
+            customer_id,
+            active_code,
+            state.get("active_request_id"),
+        )
         async with get_session_context() as session:
             if not request_id:
                 bookings = await get_my_tour_requests(session, customer_id)
@@ -241,7 +285,12 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
                 "current_agent": AgentType.RESPOND,
             }
 
-        request_id = await _find_tour_request_id(customer_id, active_code, state.get("active_request_id"))
+        request_id = await _find_tour_request_id(
+            customer_id,
+            active_code,
+            state.get("active_request_id"),
+            latest_if_missing=True,
+        )
         if not request_id:
             return {
                 "response": "Bạn muốn dời lịch hẹn nào? Vui lòng gửi kèm mã `TR-XXXXX` hoặc `BK-XXXXX`.",
@@ -268,10 +317,17 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
 
         target_date = date.fromisoformat(target_date_str)
         async with get_session_context() as session:
-            avail = await list_available_slots(session, property_id, target_date)
+            avail = await list_available_slots(session, property_id, target_date, customer_id)
             slots = avail.get("slots", [])
 
         if not slots:
+            if avail.get("unavailable_reason") == "NO_SALE_AVAILABLE":
+                return {
+                    "awaiting_human": True,
+                    "hitl_reason": "NO_SALE_AVAILABLE",
+                    "hitl_context": {"property_id": str(property_id), "requested_date": target_date.isoformat()},
+                    "response": "Chưa có sale phụ trách khả dụng; yêu cầu đang được chuyển cho điều phối viên.",
+                }
             return {
                 "active_request_id": str(request_id),
                 "current_property_id": str(property_id),
@@ -337,7 +393,14 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
 
         try:
             async with get_session_context() as session:
-                if action.startswith("RESCHEDULE:"):
+                if action.startswith("CONFIRM_RESCHEDULE_PROPOSAL:"):
+                    booking = await confirm_reschedule_proposal(
+                        session,
+                        UUID(slot["id"]),
+                        customer_id,
+                    )
+                    verb = "dời lịch hẹn"
+                elif action.startswith("RESCHEDULE:"):
                     req_id = UUID(action.split(":", 1)[1])
                     booking = await reschedule_customer_booking(
                         session, req_id, customer_id, UUID(slot["sale_user_id"]), start, end
@@ -410,6 +473,41 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
                 "suggested_actions": ["Kiểm tra trạng thái lịch", "Tìm thêm bất động sản"],
             }
         except (BookingConflictError, BookingNotFoundError, ValueError) as exc:
+            if action.startswith("RESCHEDULE:"):
+                try:
+                    req_id = UUID(action.split(":", 1)[1])
+                    async with get_session_context() as session:
+                        current = await get_customer_booking(session, req_id, customer_id)
+                        if current.appointment:
+                            proposals = await propose_alternative_slots(
+                                session,
+                                current.appointment.id,
+                                customer_id,
+                                desired_start=start,
+                                reason="SCHEDULE_CONFLICT",
+                            )
+                        else:
+                            proposals = []
+                    if proposals:
+                        proposal_lines = [
+                            f"**{index}.** {datetime.fromisoformat(item['starts_at']).astimezone(LOCAL_TZ).strftime('%H:%M %d/%m/%Y')}"
+                            for index, item in enumerate(proposals, 1)
+                        ]
+                        return {
+                            "phase": "AWAITING_SLOT",
+                            "pending_action": f"CONFIRM_RESCHEDULE_PROPOSAL:{req_id}",
+                            "selected_slots": proposals,
+                            "selected_slot_index": None,
+                            "response": (
+                                "Khung giờ vừa bị xung đột. Lịch cũ chưa thay đổi. "
+                                "Mình đã tìm các lựa chọn thay thế:\n\n"
+                                + "\n".join(proposal_lines)
+                                + "\n\nBạn chọn phương án số mấy để xác nhận dời lịch?"
+                            ),
+                            "suggested_actions": [f"Chọn khung giờ {i}" for i in range(1, len(proposals) + 1)],
+                        }
+                except (BookingConflictError, BookingNotFoundError, ValueError):
+                    pass
             return {
                 "phase": "AWAITING_DATE",
                 "selected_slots": [],
@@ -481,7 +579,12 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
         }
 
     async with get_session_context() as session:
-        avail = await list_available_slots(session, UUID(prop_id), target_date)
+        avail = await list_available_slots(
+            session,
+            UUID(prop_id),
+            target_date,
+            customer_id,
+        )
         slots = avail.get("slots", [])
 
     req_hour = state.get("requested_hour")
@@ -489,6 +592,13 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
         slots.sort(key=lambda s: abs(datetime.fromisoformat(s["starts_at"]).hour - req_hour))
 
     if not slots:
+        if avail.get("unavailable_reason") == "NO_SALE_AVAILABLE":
+            return {
+                "awaiting_human": True,
+                "hitl_reason": "NO_SALE_AVAILABLE",
+                "hitl_context": {"property_id": prop_id, "requested_date": target_date.isoformat()},
+                "response": "Chưa có sale phụ trách khả dụng; yêu cầu đang được chuyển cho điều phối viên.",
+            }
         return {
             "current_property_id": prop_id,
             "phase": "AWAITING_DATE",

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaArrowLeft, FaCheckCircle, FaEye, FaEyeSlash, FaKey, FaLock, FaMagic } from "react-icons/fa";
@@ -16,6 +16,15 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [resetToken, setResetToken] = useState("");
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("token");
+    if (token) {
+      setResetToken(token);
+      setStep(2);
+    }
+  }, []);
 
   async function handleVerifyEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,17 +32,17 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const res = await apiFetch<{ message: string; exists: boolean; email?: string }>("/auth/forgot-password", {
+      const res = await apiFetch<{ message: string; dev_reset_token?: string }>("/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email }),
       });
 
-      if (!res.exists) {
-        setError("Không tìm thấy tài khoản tương ứng với email này. Vui lòng kiểm tra lại.");
-        return;
+      if (res.dev_reset_token) {
+        setResetToken(res.dev_reset_token);
+        setStep(2);
+      } else {
+        setSuccessMsg(res.message);
       }
-
-      setStep(2);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Đã xảy ra lỗi khi kiểm tra email.");
     } finally {
@@ -45,8 +54,13 @@ export default function ForgotPasswordPage() {
     event.preventDefault();
     setError("");
 
-    if (newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự.");
+    if (!resetToken) {
+      setError("Liên kết đặt lại mật khẩu không hợp lệ. Vui lòng yêu cầu liên kết mới.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("Mật khẩu mới phải có ít nhất 8 ký tự.");
       return;
     }
 
@@ -60,7 +74,7 @@ export default function ForgotPasswordPage() {
       const res = await apiFetch<{ message: string }>("/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({
-          email,
+          token: resetToken,
           new_password: newPassword,
         }),
       });
@@ -111,8 +125,8 @@ export default function ForgotPasswordPage() {
             </h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
               {step === 1
-                ? "Nhập email đăng ký của bạn để xác thực và đặt lại mật khẩu mới."
-                : `Thiết lập mật khẩu mới cho tài khoản ${email}.`}
+                ? "Nhập email đăng ký. Nếu tài khoản tồn tại, chúng tôi sẽ gửi một liên kết bảo mật."
+                : "Thiết lập mật khẩu mới bằng liên kết bảo mật đã được gửi cho bạn."}
             </p>
           </div>
 
@@ -125,7 +139,7 @@ export default function ForgotPasswordPage() {
           {successMsg && (
             <div role="status" className="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3.5 text-sm font-medium text-emerald-800">
               <FaCheckCircle className="shrink-0 text-lg text-emerald-600" />
-              <span>{successMsg} Đang chuyển hướng về trang Đăng nhập…</span>
+              <span>{successMsg}{step === 2 ? " Đang chuyển hướng về trang Đăng nhập…" : ""}</span>
             </div>
           )}
 
@@ -163,8 +177,8 @@ export default function ForgotPasswordPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
-                    minLength={6}
-                    placeholder="Ít nhất 6 ký tự"
+                    minLength={8}
+                    placeholder="Ít nhất 8 ký tự"
                     className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 pr-12 font-normal outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
                   />
                   <button
@@ -187,7 +201,7 @@ export default function ForgotPasswordPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     placeholder="Nhập lại mật khẩu mới"
                     className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 pr-12 font-normal outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
                   />
@@ -204,7 +218,11 @@ export default function ForgotPasswordPage() {
 
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => {
+                  setStep(1);
+                  setResetToken("");
+                  setSuccessMsg("");
+                }}
                 className="w-full text-center text-xs font-semibold text-[var(--muted)] hover:text-[var(--forest)]"
               >
                 Đổi email khác

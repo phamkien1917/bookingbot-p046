@@ -3,6 +3,7 @@
 Queries real estate database with exact SQL constraints and formats grounded responses.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -18,6 +19,11 @@ from src.agents.state import AgentState, AgentType, Intent
 from src.database.connection import get_session_context
 from src.database.models import Property, PropertyKind, PropertyStatus
 from src.services.chat_state_service import normalize_text
+from src.services.geo_service import (
+    GEO_NO_BASE_RESULTS_NOTE,
+    GEO_NOT_CONFIGURED_NOTE,
+    get_geo_service,
+)
 from src.services.llm import get_llm
 from src.services.search_criteria_service import REGION_PROVINCES, extract_search_criteria
 from src.utils.property_text import clean_property_title, get_search_variations, match_property_by_title
@@ -70,11 +76,17 @@ def serialize_property_item(prop: Property) -> dict[str, Any]:
         "ward": prop.ward,
         "district": prop.district,
         "province": prop.province,
+        "latitude": _num(prop.latitude),
+        "longitude": _num(prop.longitude),
         "area_sqm": _num(prop.area_sqm),
         "bedrooms": prop.bedrooms,
         "bathrooms": prop.bathrooms,
+        "floor_number": prop.floor_number,
+        "orientation": prop.orientation,
+        "legal_status": prop.legal_status,
         "list_price": _num(prop.list_price),
         "currency": prop.currency,
+        "features": prop.features or {},
         "media": media_payload,
         "image": media_payload[0]["url"] if media_payload else None,
     }
@@ -190,6 +202,22 @@ async def query_properties_from_db(
             filters.append(Property.bathrooms >= criteria["min_bathrooms"])
         if criteria.get("min_area") is not None and criteria["min_area"] > 0:
             filters.append(Property.area_sqm >= criteria["min_area"])
+        if criteria.get("min_floor") is not None:
+            filters.append(Property.floor_number >= criteria["min_floor"])
+        if criteria.get("max_floor") is not None:
+            filters.append(Property.floor_number <= criteria["max_floor"])
+        if criteria.get("orientation"):
+            filters.append(Property.orientation.ilike(f"%{criteria['orientation']}%"))
+        if criteria.get("legal_status"):
+            filters.append(Property.legal_status.ilike(f"%{criteria['legal_status']}%"))
+        if criteria.get("transaction_type"):
+            filters.append(Property.features["listing_type"].astext == criteria["transaction_type"])
+        if criteria.get("furniture_status"):
+            filters.append(
+                Property.features["furniture_status"].astext.ilike(
+                    f"%{criteria['furniture_status']}%"
+                )
+            )
 
         is_broad_region_search = bool(region and not province and not district and not area_target)
         query_limit = 100 if is_broad_region_search else effective_limit
@@ -311,6 +339,18 @@ def format_criteria_summary(criteria: dict[str, Any]) -> str:
         area_val = _num(criteria["min_area"])
         if area_val is not None:
             parts.append(f"từ {area_val:g} m²")
+    if criteria.get("transaction_type") == "RENT":
+        parts.append("cho thuê")
+    elif criteria.get("transaction_type") == "SALE":
+        parts.append("mua bán")
+    if criteria.get("orientation"):
+        parts.append(f"hướng {criteria['orientation']}")
+    if criteria.get("legal_status"):
+        parts.append(str(criteria["legal_status"]))
+    if criteria.get("min_floor") is not None and criteria.get("max_floor") == criteria.get("min_floor"):
+        parts.append(f"tầng {criteria['min_floor']}")
+    elif criteria.get("min_floor") is not None or criteria.get("max_floor") is not None:
+        parts.append(f"tầng {criteria.get('min_floor', '—')}–{criteria.get('max_floor', '—')}")
 
     return ", ".join(parts)
 
@@ -343,15 +383,34 @@ def format_search_results_markdown(
     blocks = []
     for index, item in enumerate(display_items, 1):
         location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
-        price = _price_text(item.get("list_price"))
+        is_rental = criteria.get("transaction_type") == "RENT"
+        price = _price_text(item.get("list_price")) + ("/tháng" if is_rental else "")
         area_num = _num(item.get("area_sqm"))
         area = f"{area_num:g} m²" if area_num is not None else ""
         beds = f"{item.get('bedrooms')} PN" if item.get("bedrooms") is not None else ""
         specs = " · ".join(filter(None, [price, area, beds, location]))
+        distance = item.get("distance_evidence") or {}
+        if distance:
+            specs += (
+                f"\n🚗 {distance.get('distance_km')} km · "
+                f"{distance.get('duration_minutes')} phút đến {distance.get('destination')} "
+                f"({distance.get('travel_mode')})"
+            )
+        nearby = item.get("nearby_evidence") or []
+        if nearby:
+            nearest = nearby[0]
+            specs += f"\n📍 Gần {nearest.get('name')} (~{nearest.get('straight_line_km')} km đường chim bay)"
         blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{specs}")
 
     body = "\n\n".join(blocks)
     note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
+
+    rental_note = (
+        "\n\n*Giá trên là giá thuê theo tháng. Tiền cọc, phí quản lý và điều kiện thuê "
+        "cần được xác nhận lại với chủ tin.*"
+        if criteria.get("transaction_type") == "RENT"
+        else ""
+    )
 
     # When the ceiling came from stated income, show the working before the list.
     # A price range the customer cannot check is worse than no range at all.
@@ -364,10 +423,14 @@ def format_search_results_markdown(
             "Hoặc bạn muốn xem chi tiết căn nào, cứ nói nhé! 😊"
         )
 
-    return f"{prefix}{intro}\n\n{body}{note}\n\n{closing}"
+    return f"{prefix}{intro}\n\n{body}{note}{rental_note}\n\n{closing}"
 
 
-def format_property_details_markdown(item: dict[str, Any]) -> str:
+def format_property_details_markdown(
+    item: dict[str, Any],
+    *,
+    include_description: bool = True,
+) -> str:
     location = ", ".join(filter(None, [item.get("address_line"), item.get("ward"), item.get("district"), item.get("province")]))
     desc = str(item.get("description") or "").strip()
     if len(desc) > 300:
@@ -380,7 +443,7 @@ def format_property_details_markdown(item: dict[str, Any]) -> str:
         f"• **Vị trí:** {location or 'Chưa cập nhật'}",
         f"• **Mã căn:** `{item.get('code') or item.get('id')}`",
     ]
-    if desc:
+    if desc and include_description:
         lines.append(f"\n**Mô tả nổi bật:**\n{desc}")
 
     lines.append("\nBạn có muốn Nera hỗ trợ **đặt lịch xem trực tiếp** căn này vào khung giờ nào không?")
@@ -465,16 +528,23 @@ async def format_intelligent_comparison(items: list[dict[str, Any]], query: str)
                     "area_sqm": it.get("area_sqm"),
                     "bedrooms": it.get("bedrooms"),
                     "bathrooms": it.get("bathrooms"),
+                    "floor_number": it.get("floor_number"),
+                    "orientation": it.get("orientation"),
+                    "legal_status": it.get("legal_status"),
+                    "features": it.get("features", {}),
                     "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
                     "description": str(it.get("description", ""))[:350],
                 }
                 for idx, it in enumerate(items, 1)
             ]
         }
-        res = await llm.ainvoke([
-            SystemMessage(content=sys_prompt),
-            HumanMessage(content=json.dumps(context, ensure_ascii=False))
-        ])
+        res = await asyncio.wait_for(
+            llm.ainvoke([
+                SystemMessage(content=sys_prompt),
+                HumanMessage(content=json.dumps(context, ensure_ascii=False)),
+            ]),
+            timeout=6,
+        )
         if res and res.content and len(res.content.strip()) > 30:
             return res.content.strip()
     except Exception as e:
@@ -484,7 +554,11 @@ async def format_intelligent_comparison(items: list[dict[str, Any]], query: str)
     return "\n".join(table_lines)
 
 
-def resolve_comparison_targets(query: str, pool: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def resolve_comparison_targets(
+    query: str,
+    pool: list[dict[str, Any]],
+    current_property_id: str | None = None,
+) -> list[dict[str, Any]]:
     """Intelligently resolve which properties to compare from user natural query."""
     if not pool:
         return []
@@ -519,6 +593,14 @@ def resolve_comparison_targets(query: str, pool: list[dict[str, Any]]) -> list[d
             idx = int(m.group(1)) - 1
             if 0 <= idx < len(pool) and idx not in found_indices:
                 found_indices.append(idx)
+
+    if len(found_indices) == 1 and current_property_id:
+        current_idx = next(
+            (idx for idx, item in enumerate(pool) if item.get("id") == current_property_id),
+            None,
+        )
+        if current_idx is not None and current_idx not in found_indices:
+            found_indices.insert(0, current_idx)
 
     if len(found_indices) >= 2:
         return [pool[i] for i in found_indices]
@@ -577,6 +659,11 @@ async def answer_feature_question_on_properties(query: str, pool: list[dict[str,
                     "price": _price_text(it.get("list_price")),
                     "area_sqm": it.get("area_sqm"),
                     "bedrooms": it.get("bedrooms"),
+                    "bathrooms": it.get("bathrooms"),
+                    "floor_number": it.get("floor_number"),
+                    "orientation": it.get("orientation"),
+                    "legal_status": it.get("legal_status"),
+                    "features": it.get("features", {}),
                     "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
                     "description": str(it.get("description", ""))[:400],
                 }
@@ -651,6 +738,12 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         or "min_bedrooms" in det_crit
         or "min_area" in det_crit
         or "limit" in det_crit
+        or any(key in det_crit for key in (
+            "transaction_type", "orientation", "legal_status", "furniture_status",
+            "min_floor", "max_floor",
+        ))
+        or state.get("nearby_categories")
+        or state.get("commute_landmark")
         or re.search(r"\b(tim|tim kiem|mua|xem|loc|kiem|co can nao o|co nha nao o|co can nao duoi|co can nao tren)\b", q_low)
     )
 
@@ -667,7 +760,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     # Step 1: Handle COMPARE_PROPERTIES
     if intent == Intent.COMPARE_PROPERTIES:
-        props = resolve_comparison_targets(query, search_pool)
+        props = resolve_comparison_targets(query, search_pool, current_prop_id)
 
         if len(props) < 2:
             # Query top available properties in the same area to compare
@@ -727,7 +820,46 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
                 chosen = loaded[0]
 
         if chosen:
-            detailed_response = await format_intelligent_property_review(chosen, query)
+            geo_note = None
+            detail_geo_requested = bool(
+                state.get("commute_landmark")
+                or state.get("nearby_categories")
+                or state.get("max_commute_km") is not None
+                or state.get("max_commute_minutes") is not None
+            )
+            if detail_geo_requested:
+                geo_result = await get_geo_service().enrich_and_filter(
+                    [chosen],
+                    destination=state.get("commute_landmark"),
+                    destination_coordinates=(
+                        (state["user_location"]["latitude"], state["user_location"]["longitude"])
+                        if state.get("user_location") else None
+                    ),
+                    travel_mode=state.get("travel_mode", "DRIVE"),
+                    nearby_categories=state.get("nearby_categories", []),
+                )
+                if geo_result.properties:
+                    chosen = geo_result.properties[0]
+                geo_note = geo_result.note
+            if detail_geo_requested:
+                # Geo answers must be deterministic. Listing descriptions and an
+                # unconstrained LLM may contain unverified "near" or km claims.
+                detailed_response = format_property_details_markdown(
+                    chosen,
+                    include_description=False,
+                )
+            else:
+                detailed_response = await format_intelligent_property_review(chosen, query)
+            if chosen.get("distance_evidence"):
+                evidence = chosen["distance_evidence"]
+                detailed_response = (
+                    f"**Khoảng cách đã xác minh:** {evidence['distance_km']} km, khoảng "
+                    f"{evidence['duration_minutes']} phút đến {evidence['destination']} "
+                    f"({evidence['travel_mode']}, {evidence['provider']}).\n\n"
+                    + detailed_response
+                )
+            elif geo_note:
+                detailed_response = f"⚠️ {geo_note}\n\n{detailed_response}"
             return {
                 "current_property_id": chosen["id"],
                 "selected_properties": [chosen],
@@ -776,7 +908,10 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     # Step 4: Default -> SEARCH_PROPERTY
     q_norm = normalize_text(query)
-    if re.search(r"\b(thay doi nhu cau|doi nhu cau|nhu cau moi|xoa tieu chi|muon thay doi)\b", q_norm):
+    if (
+        re.search(r"\b(thay doi nhu cau|doi nhu cau|nhu cau moi|xoa tieu chi|muon thay doi)\b", q_norm)
+        and not det_crit
+    ):
         return {
             "response": "Dạ vâng! Nera đã làm mới yêu cầu tìm kiếm cho bạn.\n\nBạn hãy chia sẻ nhu cầu mới nhé:\n- **Khu vực bạn muốn tìm** (ví dụ: Cầu Giấy, Nam Từ Liêm, Quận 7...)\n- **Khoảng ngân sách mong muốn** (ví dụ: dưới 5 tỷ, 15-20 triệu/tháng...)\n- **Số phòng ngủ & Loại nhà** (ví dụ: Căn hộ 2PN, Nhà phố...)",
             "response_kind": "ASK_CRITERIA",
@@ -796,8 +931,18 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         or criteria.get("region")
         or criteria.get("area_or_ward")
         or criteria.get("ward")
+        or criteria.get("property_kind")
         or criteria.get("min_price")
         or criteria.get("max_price")
+        or criteria.get("transaction_type")
+        or criteria.get("orientation")
+        or criteria.get("legal_status")
+        or criteria.get("furniture_status")
+        or criteria.get("min_floor") is not None
+        or criteria.get("max_floor") is not None
+        or state.get("commute_landmark")
+        or state.get("user_location")
+        or state.get("nearby_categories")
     )
 
     is_resume = bool(re.search(
@@ -805,7 +950,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         q_norm,
     )) or bool(state.get("is_resume_search"))
 
-    if not criteria or not any(criteria.values()) or not has_core_filters:
+    if not has_core_filters:
         mem_sum = state.get("memory_summary")
         if mem_sum and is_resume:
             return {
@@ -849,6 +994,37 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         limit=search_limit,
         exclude_ids=exclude_ids if is_asking_other else None,
     )
+
+    geo_requested = bool(
+        state.get("commute_landmark")
+        or state.get("nearby_categories")
+        or state.get("max_commute_km") is not None
+        or state.get("max_commute_minutes") is not None
+    )
+    geo_note = None
+    if geo_requested:
+        geo_service = get_geo_service()
+        if not properties:
+            geo_note = (
+                GEO_NOT_CONFIGURED_NOTE
+                if not geo_service.configured
+                else GEO_NO_BASE_RESULTS_NOTE
+            )
+        else:
+            geo_result = await geo_service.enrich_and_filter(
+                properties,
+                destination=state.get("commute_landmark"),
+                destination_coordinates=(
+                    (state["user_location"]["latitude"], state["user_location"]["longitude"])
+                    if state.get("user_location") else None
+                ),
+                travel_mode=state.get("travel_mode", "DRIVE"),
+                max_km=state.get("max_commute_km"),
+                max_minutes=state.get("max_commute_minutes"),
+                nearby_categories=state.get("nearby_categories", []),
+            )
+            properties = geo_result.properties
+            geo_note = geo_result.note
 
     if is_asking_other and not properties:
         summary = format_criteria_summary(criteria)
@@ -907,10 +1083,29 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     if not properties:
         summary = format_criteria_summary(criteria)
+        if geo_requested and not geo_note:
+            geo_note = (
+                "Đã xác minh bằng Google Maps nhưng không có căn nào vượt qua đầy đủ "
+                "tiêu chí khoảng cách/thời gian di chuyển đã yêu cầu."
+            )
+        if criteria.get("transaction_type") == "RENT":
+            return {
+                "selected_properties": [],
+                "search_results": [],
+                "response": (
+                    "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. "
+                    "Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, "
+                    "ngân sách thuê hoặc chuyển sang nhu cầu mua."
+                ),
+                "response_kind": "SEARCH_NO_RESULTS",
+                "phase": "SEARCH_NO_RESULTS",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": ["Đổi khu vực thuê", "Điều chỉnh ngân sách", "Tìm nhà để mua"],
+            }
         return {
             "selected_properties": [],
             "search_results": [],
-            "response": f"Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **{summary or 'hiện tại'}**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
+            "response": f"{(geo_note + chr(10) + chr(10)) if geo_note else ''}Rất tiếc mình chưa tìm thấy bất động sản nào khớp hoàn toàn với tiêu chí **{summary or 'hiện tại'}**.\n\n💡 **Gợi ý điều chỉnh:**\n- Thử nới rộng ngân sách hoặc mở rộng sang các quận lân cận\n- Giảm bớt yêu cầu số phòng ngủ hoặc diện tích tối thiểu\n\nMình vẫn đang giữ các tiêu chí khác của bạn. Bạn muốn điều chỉnh phần nào?",
             "response_kind": "SEARCH_NO_RESULTS",
             "phase": "SEARCH_NO_RESULTS",
             "current_agent": AgentType.RESPOND,
@@ -930,7 +1125,9 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         "search_results": properties,
         "current_property_id": None,
         "selected_property_index": None,
-        "response": format_search_results_markdown(
+        "response": (
+            f"⚠️ {geo_note}\n\n" if geo_note else ""
+        ) + format_search_results_markdown(
             properties, criteria, soft_prefs, state.get("affordability_note")
         ),
         "response_kind": "SEARCH_RESULTS",

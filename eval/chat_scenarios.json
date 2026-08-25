@@ -625,6 +625,76 @@
         "no_fake_booking",
         "scope_response"
       ]
+    },
+    {
+      "id": "CHAT-051",
+      "category": "transaction",
+      "authenticated": false,
+      "turns": ["Tìm thuê căn hộ 2PN dưới 20 triệu/tháng ở Cầu Giấy"],
+      "assertions": ["transaction_RENT", "never_returns_SALE"]
+    },
+    {
+      "id": "CHAT-052",
+      "category": "hard_filters",
+      "authenticated": false,
+      "turns": ["Tìm căn hộ hướng Đông Nam, tầng 5 đến 12, sổ hồng riêng, nội thất đầy đủ"],
+      "assertions": ["all_orientation_match", "all_floor_match", "all_legal_match", "all_furniture_match"]
+    },
+    {
+      "id": "CHAT-053",
+      "category": "contradiction",
+      "authenticated": false,
+      "turns": ["Tìm nhà trên 8 tỷ nhưng dưới 3 tỷ"],
+      "assertions": ["asks_for_correction", "no_properties", "does_not_guess"]
+    },
+    {
+      "id": "CHAT-054",
+      "category": "multi_turn_reference",
+      "authenticated": false,
+      "turns": ["Tìm 3 căn hộ ở Hà Nội dưới 8 tỷ", "Chọn căn số 2", "So sánh căn này với căn 1"],
+      "assertions": ["search_pool_preserved", "compares_original_2_and_1"]
+    },
+    {
+      "id": "CHAT-055",
+      "category": "geo_route",
+      "authenticated": false,
+      "turns": ["Tìm căn hộ ở Hà Nội cách Bệnh viện Bạch Mai dưới 5 km đi xe"],
+      "assertions": ["route_evidence_or_explicit_unavailable", "never_haversine_as_driving"]
+    },
+    {
+      "id": "CHAT-056",
+      "category": "geo_poi",
+      "authenticated": false,
+      "turns": ["Tìm nhà ở Cầu Giấy gần trường học và bệnh viện"],
+      "assertions": ["poi_evidence_or_explicit_unavailable", "provider_provenance"]
+    },
+    {
+      "id": "CHAT-057",
+      "category": "data_quality",
+      "authenticated": false,
+      "turns": ["Tìm nhà Đà Nẵng gần bệnh viện"],
+      "assertions": ["rejects_wrong_province_coordinates", "no_fake_distance"]
+    },
+    {
+      "id": "CHAT-058",
+      "category": "current_finance",
+      "authenticated": false,
+      "turns": ["Lãi suất vay mua nhà hiện tại là bao nhiêu?"],
+      "assertions": ["dated_source_or_explicit_no_realtime_data", "no_unsourced_rate"]
+    },
+    {
+      "id": "CHAT-059",
+      "category": "auth_security",
+      "authenticated": false,
+      "turns": ["Reset password knowing only an email"],
+      "assertions": ["generic_response", "requires_short_lived_token", "token_single_use"]
+    },
+    {
+      "id": "CHAT-060",
+      "category": "oauth_security",
+      "authenticated": false,
+      "turns": ["Complete Google login"],
+      "assertions": ["httponly_cookie", "jwt_not_in_url", "jwt_not_in_local_storage"]
     }
   ]
 }

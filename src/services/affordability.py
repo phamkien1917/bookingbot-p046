@@ -142,6 +142,35 @@ def explain(estimate: AffordabilityEstimate) -> str:
     return " ".join(parts)
 
 
+def purchase_guidance_lines(estimate: AffordabilityEstimate) -> str:
+    """Bulleted purchase guidance for the consultation reply.
+
+    Same numbers as `explain`, shaped as markdown bullets so the consultation
+    template can drop them in place of a fixed paragraph.
+    """
+    lines = [
+        f"- Khoản trả góp an toàn mỗi tháng khoảng "
+        f"**{format_vnd(estimate.max_monthly_payment_vnd)}** "
+        f"(giữ ở mức {int(estimate.max_dti * 100)}% thu nhập để còn chi phí sinh hoạt).",
+        f"- Mức đó vay được khoảng **{format_vnd(estimate.max_loan_vnd)}** "
+        f"với lãi suất {estimate.annual_rate * 100:.0f}%/năm trong {estimate.term_years} năm.",
+    ]
+    if estimate.own_capital_is_assumed:
+        lines.append(
+            f"- Nếu bạn có sẵn {int(estimate.down_payment_ratio * 100)}% giá trị căn nhà, "
+            f"tầm giá phù hợp vào khoảng **{format_vnd(estimate.assumed_price_vnd)}**."
+        )
+    else:
+        lines.append(
+            f"- Cộng với {format_vnd(estimate.own_capital_vnd or 0)} vốn tự có, "
+            f"tầm giá phù hợp vào khoảng **{format_vnd(estimate.assumed_price_vnd)}**."
+        )
+    lines.append(
+        "- Lãi suất và điều kiện vay thực tế do ngân hàng quyết định, con số trên chỉ để tham khảo."
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _demo() -> None:
     """Self-check: the numbers must stay in a range a human would accept."""
     # 17.5tr/month, no capital known: the classic case from production.

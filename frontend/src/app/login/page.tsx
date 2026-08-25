@@ -26,17 +26,22 @@ function LoginForm() {
   const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(null);
   const [form, setForm] = useState({ full_name: "", email: "", phone: "", password: "" });
 
-  // Handle Google OAuth redirect callback token if present in URL
+  // Google OAuth completes with a server-set HttpOnly cookie. No bearer token
+  // is exposed through the URL or browser storage.
   useEffect(() => {
-    const googleToken = searchParams.get("google_token");
-    if (googleToken) {
-      localStorage.setItem("nera_auth_token", googleToken);
-      document.cookie = `bookingbot_session=${googleToken}; path=/; max-age=604800; samesite=lax`;
-      void refresh().then(() => {
-        const next = searchParams.get("next");
-        router.replace(next || "/");
-        router.refresh();
-      });
+    const googleCode = searchParams.get("google_code");
+    if (googleCode) {
+      void apiFetch<{ success: boolean }>("/auth/google/exchange", {
+        method: "POST",
+        body: JSON.stringify({ code: googleCode }),
+      }).then(() => refresh()).then(() => {
+          const next = searchParams.get("next");
+          router.replace(next || "/");
+          router.refresh();
+        }).catch((reason) => {
+          setError(reason instanceof Error ? reason.message : "Không thể hoàn tất đăng nhập Google.");
+          router.replace("/login");
+        });
     }
   }, [searchParams, refresh, router]);
 
@@ -209,7 +214,7 @@ function LoginForm() {
               value={form.password}
               onChange={(event) => setForm({ ...form, password: event.target.value })}
               required
-              minLength={6}
+              minLength={8}
               className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 pr-12 font-normal outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
             />
             <button

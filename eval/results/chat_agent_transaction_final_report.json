@@ -1,0 +1,288 @@
+{
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "total": 8
+  },
+  "results": [
+    {
+      "id": "NERA-061",
+      "category": "transaction",
+      "turns": [
+        "Tôi muốn mua căn hộ ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "SALE",
+          "property_kind": "APARTMENT"
+        },
+        "property_all": [
+          {
+            "path": "features.listing_type",
+            "op": "eq",
+            "value": "SALE"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi muốn mua căn hộ ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 3915,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, mua bán** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Căn Hộ Mini Hoàng Đạo Thành. Thanh Xuân- Thoáng Đẹp Rộng, Giá Rẻ**\n1.36 tỷ · 35 m² · 1 PN · Quận Thanh Xuân, Hà Nội\n\n**2. CCMN Mỹ Đình, Có Sổ Hồng Từng Căn, Giá Rẻ, Bàn Giao Ngay**\n1.59 tỷ · 35 m² · 1 PN · Quận Nam Từ Liêm, Hà Nội\n\n**3. Ccmini 6 tầng Ngõ 45 đường Võ Chí Công Phường Nghĩa Đô**\n1.63 tỷ · 38 m² · 1 P",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT",
+            "transaction_type": "SALE"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-062",
+      "category": "transaction",
+      "turns": [
+        "Tôi muốn thuê căn hộ ở Cầu Giấy dưới 20 triệu"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "district": "Quận Cầu Giấy",
+          "max_price": 20000000
+        },
+        "property_all": [
+          {
+            "path": "features.listing_type",
+            "op": "eq",
+            "value": "RENT"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi muốn thuê căn hộ ở Cầu Giấy dưới 20 triệu",
+          "status": 200,
+          "elapsed_ms": 2357,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "district": "Quận Cầu Giấy",
+            "area_or_ward": "Cầu Giấy",
+            "ward": "Cầu Giấy",
+            "max_price": 20000000,
+            "property_kind": "APARTMENT",
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-063",
+      "category": "transaction",
+      "turns": [
+        "Tìm nhà cho thuê ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "province": "Hà Nội"
+        },
+        "property_all": [
+          {
+            "path": "features.listing_type",
+            "op": "eq",
+            "value": "RENT"
+          }
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà cho thuê ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 5408,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "province": "Hà Nội",
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-064",
+      "category": "transaction",
+      "turns": [
+        "Cần mua nhà Quận 7 dưới 8 tỷ"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "SALE",
+          "district": "Quận 7",
+          "max_price": 8000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Cần mua nhà Quận 7 dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 2666,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Quận 7, tối đa 8 tỷ, mua bán** cho bạn:\n\n**1. Nhà sổ hồng riêng Quận 7 - Giá tốt**\n2.95 tỷ · 26 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**2. 2PN, 3PN, Office, CĐT mở bán (bàn giao hoàn thiện) || Thanh toán 15% kí HĐMB**\n5.3 tỷ · 70 m² · 2 PN · Quận 7, Hồ Chí Minh\n\n**3. Nhà phố ngang 6m xây kiên cố 3 tầng 4 phòng ngủ diện tích sử dụng 109m² giá tốt**\n6.8 tỷ · 40.5 m² · 4 PN · Quận 7, Hồ Chí Minh\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, ",
+          "criteria": {
+            "district": "Quận 7",
+            "max_price": 8000000000,
+            "transaction_type": "SALE"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-065",
+      "category": "transaction",
+      "turns": [
+        "Muốn thuê căn 2PN khoảng 15 đến 20 triệu ở Hà Nội"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "min_price": 15000000,
+          "max_price": 20000000,
+          "min_bedrooms": 2
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Muốn thuê căn 2PN khoảng 15 đến 20 triệu ở Hà Nội",
+          "status": 200,
+          "elapsed_ms": 3207,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "province": "Hà Nội",
+            "min_price": 15000000,
+            "max_price": 20000000,
+            "min_bedrooms": 2,
+            "max_bedrooms": 2,
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-066",
+      "category": "transaction",
+      "turns": [
+        "Tìm nhà bán ở Đà Nẵng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "SALE",
+          "province": "Đà Nẵng"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm nhà bán ở Đà Nẵng",
+          "status": 200,
+          "elapsed_ms": 3248,
+          "failures": [],
+          "response": "Nera đã tìm thấy **6 bất động sản** phù hợp nhất với tiêu chí **Đà Nẵng, mua bán** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Chỉ 2,5 tỷ sở hữu ngay căn hộ view biển Full nội thất, Bàn giao ngay, Khai thác đến 25 triệu/tháng**\n2.5 tỷ · 38 m² · 1 PN · Quận Sơn Trà, Đà Nẵng\n\n**2. Chỉ 2T7 Sở hữu ngay căn Penthouse S-Light Tower view Pháo Hoa Trung tâm Thành phố**\n2.78 tỷ · 59 m² · 2 PN · Quận Cẩm Lệ, Đà Nẵng\n\n**3. Căn hộ S-Light Tower Đà Nẵng 2 phò",
+          "criteria": {
+            "province": "Đà Nẵng",
+            "transaction_type": "SALE"
+          },
+          "property_count": 6,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-067",
+      "category": "transaction",
+      "turns": [
+        "Tôi cần thuê, không phải mua, ở Bình Thạnh"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "district": "Quận Bình Thạnh"
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tôi cần thuê, không phải mua, ở Bình Thạnh",
+          "status": 200,
+          "elapsed_ms": 2744,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "district": "Quận Bình Thạnh",
+            "transaction_type": "RENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    },
+    {
+      "id": "NERA-068",
+      "category": "transaction",
+      "turns": [
+        "Tìm căn hộ thuê full nội thất dưới 25 triệu/tháng"
+      ],
+      "expect": {
+        "criteria_equals": {
+          "transaction_type": "RENT",
+          "furniture_status": "Nội thất đầy đủ",
+          "max_price": 25000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ thuê full nội thất dưới 25 triệu/tháng",
+          "status": 200,
+          "elapsed_ms": 3106,
+          "failures": [],
+          "response": "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, ngân sách thuê hoặc chuyển sang nhu cầu mua.",
+          "criteria": {
+            "max_price": 25000000,
+            "property_kind": "APARTMENT",
+            "transaction_type": "RENT",
+            "furniture_status": "Nội thất đầy đủ"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded"
+        }
+      ]
+    }
+  ]
+}
