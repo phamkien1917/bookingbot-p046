@@ -618,28 +618,8 @@ function ChatContent() {
   const initialPrompt = searchParams.get("prompt");
   const isNewParam = searchParams.get("new") === "1";
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sessionId, setSessionId] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const stored = window.sessionStorage.getItem("nera_chat_session_id");
-      if (stored) return stored;
-    }
-    return crypto.randomUUID();
-  });
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (typeof window !== "undefined") {
-      const storedId = window.sessionStorage.getItem("nera_chat_session_id");
-      if (storedId) {
-        const cached = window.sessionStorage.getItem(`nera_chat_messages_${storedId}`);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-          } catch { }
-        }
-      }
-    }
-    return [greeting];
-  });
+  const [sessionId, setSessionId] = useState<string>("");
+  const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [streamingIndex, setStreamingIndex] = useState<number | null>(null);
   const [input, setInput] = useState("");
@@ -797,7 +777,7 @@ function ChatContent() {
     }
   }, [sessionId, messages]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading, streamingIndex]);
 
   useEffect(() => {
     if (!propertyId || propertyLoaded.current) return;
@@ -931,24 +911,33 @@ function ChatContent() {
       return;
     }
     const stored = window.sessionStorage.getItem("nera_chat_session_id");
-    if (stored) {
-      setSessionId(stored);
-      if (user && !propertyId && !sessionLoadedOnMount.current) {
-        sessionLoadedOnMount.current = true;
-        void apiFetch<SessionDetail>(`/session/${stored}`)
-          .then(data => {
-            if (data.messages && data.messages.length > 0) {
-              setMessages(data.messages.map(m => ({
-                role: m.role.toLowerCase() === "user" ? "user" : "assistant",
-                content: m.content,
-                properties: m.properties,
-                aiMode: m.ai_mode,
-                aiModel: m.ai_model,
-              })));
-            }
-          })
-          .catch(() => { });
-      }
+    const activeId = stored || crypto.randomUUID();
+    setSessionId(activeId);
+    window.sessionStorage.setItem("nera_chat_session_id", activeId);
+
+    const cached = window.sessionStorage.getItem(`nera_chat_messages_${activeId}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      } catch { }
+    } else if (stored && user && !propertyId && !sessionLoadedOnMount.current) {
+      sessionLoadedOnMount.current = true;
+      void apiFetch<SessionDetail>(`/session/${stored}`)
+        .then(data => {
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages.map(m => ({
+              role: m.role.toLowerCase() === "user" ? "user" : "assistant",
+              content: m.content,
+              properties: m.properties,
+              aiMode: m.ai_mode,
+              aiModel: m.ai_model,
+            })));
+          }
+        })
+        .catch(() => { });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, initialPrompt, propertyId, isNewParam]);
@@ -1061,99 +1050,103 @@ function ChatContent() {
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mx-auto max-w-3xl space-y-6">
-            {messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className="animate-message-in">
-                {message.role === "user" ? (
-                  <div className="flex justify-end">
-                    <div className="w-fit max-w-[80%] rounded-[1.35rem] rounded-tr-xs bg-[var(--ink)] px-5 py-3 text-[15px] leading-relaxed text-white shadow-xs whitespace-pre-line break-words">
-                      {message.content}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-3">
-                    <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs">
-                      <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-4.5 w-4.5" />
-                    </span>
-                    <div className="w-fit max-w-[88%] min-w-0 space-y-3">
-                      <div className="w-fit max-w-full rounded-[1.35rem] rounded-tl-xs border border-black/5 bg-white px-5 py-3.5 text-[15px] leading-relaxed text-stone-800 shadow-xs">
-                        <div className="prose prose-sm max-w-none text-stone-800 leading-relaxed">
-                          <TypewriterMarkdown
-                            content={message.content}
-                            isStreaming={streamingIndex === index}
-                            onComplete={() => setStreamingIndex(null)}
-                          />
-                        </div>
+            {messages.map((message, index) => {
+              const isTypingThisMessage = streamingIndex === index;
+
+              return (
+                <div key={`${message.role}-${index}`} className="animate-message-in">
+                  {message.role === "user" ? (
+                    <div className="flex justify-end">
+                      <div className="w-fit max-w-[80%] rounded-[1.35rem] rounded-tr-xs bg-[var(--ink)] px-5 py-3 text-[15px] leading-relaxed text-white shadow-xs whitespace-pre-line break-words">
+                        {message.content}
                       </div>
-
-                      {/* Quick reply chips */}
-                      {message.quickReplies && message.quickReplies.length > 0 && index === messages.length - 1 && (
-                        <div className="flex flex-wrap gap-2">
-                          {message.quickReplies.map(chip => (
-                            <button
-                              key={chip}
-                              disabled={loading}
-                              onClick={() => void send(undefined, chip)}
-                              className={`rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm ${loading ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
-                                }`}
-                            >
-                              {chip}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Auth required */}
-                      {message.authRequired && index === messages.length - 1 && (
-                        <Link href="/login?next=/chat" className="inline-flex rounded-full bg-[var(--forest)] px-5 py-2.5 text-xs font-semibold text-white">
-                          Đăng nhập để tiếp tục
-                        </Link>
-                      )}
-
-                      {/* Property cards */}
-                      {message.properties && message.properties.length > 0 && (() => {
-                        const isExpanded = expandedCards[index] ?? false;
-                        const totalCards = message.properties.length;
-                        const displayed = isExpanded ? message.properties : message.properties.slice(0, 5);
-                        const hasMore = totalCards > 5;
-
-                        return (
-                          <div className="space-y-3 pt-1">
-                            {displayed.map((property, pi) => (
-                              <PropertyCard
-                                key={property.id}
-                                property={property}
-                                insights={insights}
-                                savedIds={savedIds}
-                                animDelay={pi * 60}
-                                onDetail={() => setSelected(property)}
-                                onSave={() => void save(property)}
-                                onBook={() => book(property)}
-                                onReject={() => setFeedbackProperty(property)}
-                              />
-                            ))}
-
-                            {hasMore && (
-                              <button
-                                type="button"
-                                onClick={() => setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))}
-                                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--forest)]/20 bg-[#f4f8f4] hover:bg-[#e8f1e8] px-4 py-3.5 text-xs font-semibold text-[var(--forest)] shadow-xs transition-all hover:border-[var(--forest)]/40 active:scale-[0.99] cursor-pointer"
-                              >
-                                <span>
-                                  {isExpanded
-                                    ? "Thu gọn danh sách (chỉ hiện 5 căn đầu)"
-                                    : `Xem tất cả ${totalCards} bất động sản (còn ${totalCards - 5} căn khác)`}
-                                </span>
-                                <FaChevronDown className={`transition-transform duration-200 text-xs ${isExpanded ? "rotate-180" : ""}`} />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })()}
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs">
+                        <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-4.5 w-4.5" />
+                      </span>
+                      <div className="w-fit max-w-[88%] min-w-0 space-y-3">
+                        <div className="w-fit max-w-full rounded-[1.35rem] rounded-tl-xs border border-black/5 bg-white px-5 py-3.5 text-[15px] leading-relaxed text-stone-800 shadow-xs">
+                          <div className="prose prose-sm max-w-none text-stone-800 leading-relaxed">
+                            <TypewriterMarkdown
+                              content={message.content}
+                              isStreaming={isTypingThisMessage}
+                              onComplete={() => setStreamingIndex(null)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Quick reply chips - only shown after typing finishes */}
+                        {!isTypingThisMessage && message.quickReplies && message.quickReplies.length > 0 && index === messages.length - 1 && (
+                          <div className="flex flex-wrap gap-2 animate-message-in">
+                            {message.quickReplies.map(chip => (
+                              <button
+                                key={chip}
+                                disabled={loading}
+                                onClick={() => void send(undefined, chip)}
+                                className={`rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-medium text-[var(--ink)] transition hover:-translate-y-0.5 hover:border-[var(--sage)] hover:shadow-sm ${loading ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                                  }`}
+                              >
+                                {chip}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Auth required - only shown after typing finishes */}
+                        {!isTypingThisMessage && message.authRequired && index === messages.length - 1 && (
+                          <Link href="/login?next=/chat" className="inline-flex rounded-full bg-[var(--forest)] px-5 py-2.5 text-xs font-semibold text-white animate-message-in">
+                            Đăng nhập để tiếp tục
+                          </Link>
+                        )}
+
+                        {/* Property cards - only cascade in after typing completes */}
+                        {!isTypingThisMessage && message.properties && message.properties.length > 0 && (() => {
+                          const isExpanded = expandedCards[index] ?? false;
+                          const totalCards = message.properties.length;
+                          const displayed = isExpanded ? message.properties : message.properties.slice(0, 5);
+                          const hasMore = totalCards > 5;
+
+                          return (
+                            <div className="space-y-3 pt-1">
+                              {displayed.map((property, pi) => (
+                                <PropertyCard
+                                  key={property.id}
+                                  property={property}
+                                  insights={insights}
+                                  savedIds={savedIds}
+                                  animDelay={pi * 180}
+                                  onDetail={() => setSelected(property)}
+                                  onSave={() => void save(property)}
+                                  onBook={() => book(property)}
+                                  onReject={() => setFeedbackProperty(property)}
+                                />
+                              ))}
+
+                              {hasMore && (
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }))}
+                                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--forest)]/20 bg-[#f4f8f4] hover:bg-[#e8f1e8] px-4 py-3.5 text-xs font-semibold text-[var(--forest)] shadow-xs transition-all hover:border-[var(--forest)]/40 active:scale-[0.99] cursor-pointer animate-message-in"
+                                >
+                                  <span>
+                                    {isExpanded
+                                      ? "Thu gọn danh sách (chỉ hiện 5 căn đầu)"
+                                      : `Xem tất cả ${totalCards} bất động sản (còn ${totalCards - 5} căn khác)`}
+                                  </span>
+                                  <FaChevronDown className={`transition-transform duration-200 text-xs ${isExpanded ? "rotate-180" : ""}`} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {loading && (
               <div className="flex animate-message-in items-start gap-3">
