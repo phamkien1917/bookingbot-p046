@@ -22,14 +22,15 @@ Phẩm chất & phong cách của bạn:
 - Tự nhiên, ấm áp, tận tâm, chuyên nghiệp, thông thái và am hiểu sâu sắc thị trường bất động sản Việt Nam (TP.HCM, Hà Nội, Đà Nẵng...).
 - Nắm vững các quy định pháp luật (Luật Đất đai, Luật Nhà ở, thủ tục công chứng, sang tên sổ đỏ, đặt cọc an toàn).
 - Nắm vững tài chính & ngân hàng (tính toán phương án vay 70%, lãi suất thả nổi, thời gian ân hạn, khả năng chi trả hàng tháng).
-- Hiểu phong thủy ứng dụng thực tế (hướng nhà, ánh sáng, thông gió, cảnh quan).
+- Am hiểu phong thủy & kiến trúc ứng dụng thực tế (các hướng nhà Đông/Tây/Nam/Bắc/Đông Nam/Tây Bắc, đón gió nồm, tránh nắng gắt, thông gió, cảnh quan, ban công).
 - Thấu hiểu hoàn cảnh khách hàng (gia đình có con nhỏ cần gần trường, người đi làm cần tiện đường, người đầu tư cần tiềm năng sinh lời).
 
 Nguyên tắc phản hồi:
-1. Tuyệt đối không bịa đặt các thông số kỹ thuật (giá, diện tích, phòng) nếu không có trong dữ liệu.
-2. Trả lời mạch lạc, dễ hiểu, dùng Markdown đẹp mắt (bullet points, in đậm các ý chính, dùng emoji tinh tế).
-3. Luôn kết thúc bằng một câu gợi mở tự nhiên hoặc hướng dẫn bước tiếp theo phù hợp.
-4. Nếu người dùng hỏi các câu hỏi hoàn toàn ngoài lề (thời tiết, làm thơ, viết code...), hãy trả lời ngắn gọn, lịch sự và khéo léo kết nối lại về chủ đề nhà đất.
+1. Đối với các câu hỏi kiến thức bất động sản / tư vấn chuyên môn / so sánh khái niệm (ví dụ: so sánh các hướng nhà, so sánh chung cư và nhà đất, so sánh sổ đỏ và sổ hồng, quy trình mua nhà...): Hãy phân tích chuyên sâu, toàn diện và thực tế (ưu nhược điểm, ánh sáng, nhiệt độ, phong thủy, đối tượng phù hợp, giải pháp khắc phục...).
+2. Đối với câu hỏi về căn nhà cụ thể trong giỏ hàng: Tuyệt đối không bịa đặt các thông số kỹ thuật (giá, diện tích, phòng) nếu không có trong dữ liệu.
+3. Trả lời mạch lạc, dễ hiểu, dùng Markdown đẹp mắt (bảng so sánh, bullet points, in đậm các ý chính, dùng emoji tinh tế).
+4. Luôn kết thúc bằng một câu gợi mở tự nhiên hoặc hỏi nhu cầu tiếp theo để hỗ trợ khách hàng tốt nhất.
+5. Nếu người dùng hỏi các câu hỏi hoàn toàn ngoài lề (thời tiết, làm thơ, viết code...), hãy trả lời ngắn gọn, lịch sự và khéo léo kết nối lại về chủ đề nhà đất.
 """
 
 _CONVERSATIONAL_INTENTS = {
@@ -105,13 +106,35 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
                         "trong đó và giữ nguyên phần nêu giả định. TUYỆT ĐỐI không tự tính lại khoản vay, "
                         "tiền trả góp hay tầm giá từ thu nhập của khách."
                     )
-                prompt_messages = [
-                    SystemMessage(content=system_prompt),
-                    HumanMessage(
-                        content=f"Ngữ cảnh hiện tại:\n{json.dumps(context_info, ensure_ascii=False)}\n\n"
+                if intent == Intent.CONSULTATION_QA:
+                    system_prompt += (
+                        "\n\nBẠN ĐANG TRẢ LỜI CÂU HỎI TƯ VẤN KIẾN THỨC BẤT ĐỘNG SẢN / SO SÁNH KHÁI NIỆM:\n"
+                        "- Vận dụng kiến thức chuyên môn bất động sản để giải đáp, phân tích chi tiết và so sánh toàn diện các mặt "
+                        "(ánh sáng, nhiệt độ, gió mùa, phong thủy, pháp lý, kiến trúc vi khí hậu Việt Nam, ưu/nhược điểm, lời khuyên thực tế...).\n"
+                        "- Trả lời trực tiếp và đầy đủ vào câu hỏi của khách hàng ngay lập tức.\n"
+                        "- TUYỆT ĐỐI KHÔNG hỏi ngược lại hay yêu cầu khách cung cấp thêm thông số kỹ thuật (như giá, diện tích, số phòng) "
+                        "nếu khách đang hỏi về kiến thức chung hoặc so sánh hướng nhà / loại hình / pháp lý."
+                    )
+                    human_content = (
+                        f"Câu hỏi của khách hàng: \"{query}\"\n\n"
+                        "Hãy trả lời chi tiết, khoa học, có cấu trúc rõ ràng (dùng Markdown, bullet points) và đưa ra lời khuyên chuyên gia:"
+                    )
+                    if affordability_note:
+                        human_content = (
+                            f"Phân tích tài chính đã tính toán:\n{affordability_note}\n\n"
+                            f"Câu hỏi của khách: \"{query}\"\n\n"
+                            "Hãy trả lời tư vấn cho khách dựa trên phân tích trên:"
+                        )
+                else:
+                    human_content = (
+                        f"Ngữ cảnh hiện tại:\n{json.dumps(context_info, ensure_ascii=False)}\n\n"
                         f"Tin nhắn mới của khách: \"{query}\"\n\n"
                         "Hãy trả lời khách hàng một cách xuất sắc, tận tâm và tự nhiên nhất:"
-                    ),
+                    )
+
+                prompt_messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=human_content),
                 ]
                 res = await llm.ainvoke(prompt_messages)
                 final_response = res.content if hasattr(res, "content") else str(res)
@@ -182,6 +205,8 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
             "Tìm nhà phố liền kề",
             "Kiểm tra lịch xem nhà",
         ]
+    elif state.get("suggested_actions"):
+        suggested_actions = list(state["suggested_actions"])
     elif (
         state.get("phase") == "SEARCH_NO_RESULTS"
         or (not state.get("selected_properties") and intent == Intent.SEARCH_PROPERTY)
@@ -191,8 +216,6 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
             "Điều chỉnh khoảng ngân sách",
             "Xem tất cả căn đang có",
         ]
-    elif state.get("suggested_actions"):
-        suggested_actions = list(state["suggested_actions"])
     elif state.get("selected_properties"):
         count = len(state["selected_properties"])
         suggested_actions = [f"Chọn căn số {i}" for i in range(1, min(count + 1, 4))]

@@ -172,7 +172,12 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     else:
         minimum = re.search(r"(?:tren|tu|toi thieu|it nhat|>=)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)", text)
         maximum = re.search(
-            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|tam|len|noi len|tang len)\s*"
+            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|len|noi len|tang len)\s*"
+            r"(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
+            text,
+        )
+        target = re.search(
+            r"(?:khoang|tam|co|quanh|xung quanh|gia|dung|chinh xac)\s*"
             r"(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
             text,
         )
@@ -182,10 +187,17 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         if maximum:
             criteria["max_price"] = _vnd_amount(*maximum.groups())
             groups.add("budget")
-        if not minimum and not maximum:
+        elif target:
+            val = _vnd_amount(*target.groups())
+            criteria["target_price"] = val
+            criteria["min_price"] = round(val * 0.8)
+            criteria["max_price"] = round(val * 1.2)
+            groups.add("budget")
+        if not minimum and not maximum and not target:
             bare_price = re.search(r"\b(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\b", text)
             if bare_price and not re.search(rf"\b(?:tang|pn|phong|nam|thang|m2|met)\s*{bare_price.group(1)}\b", text):
-                criteria["max_price"] = _vnd_amount(*bare_price.groups())
+                val = _vnd_amount(*bare_price.groups())
+                criteria["max_price"] = val
                 groups.add("budget")
 
     bedrooms = re.search(r"(\d+)\s*(?:phong ngu|pn|ngu)", text)

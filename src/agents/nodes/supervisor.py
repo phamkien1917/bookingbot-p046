@@ -333,7 +333,14 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         elif re.search(r"\b(dat lich|xem nha|hen xem)\b", norm_query):
             inferred_intent = Intent.BOOK_APPOINTMENT
         elif re.search(r"\b(so sanh)\b", norm_query):
-            inferred_intent = Intent.COMPARE_PROPERTIES
+            is_concept_comparison = bool(re.search(
+                r"\b(huong\s*(?:dong|tay|nam|bac|dong nam|dong bac|tay nam|tay bac)|chung cu\s*(?:va|voi|hay)\s*nha|so do\s*(?:va|voi)\s*so hong|mua\s*(?:va|voi|hay)\s*thue|lai suat\s*(?:co dinh|tha noi))\b",
+                norm_query,
+            ))
+            if is_concept_comparison and not re.search(r"\b(can 1|can 2|can so|can nay|cac can)\b", norm_query):
+                inferred_intent = Intent.CONSULTATION_QA
+            else:
+                inferred_intent = Intent.COMPARE_PROPERTIES
         elif det_criteria or re.search(r"\b(tim|can ho|chung cu|nha|biet thu|dat nen)\b", norm_query):
             inferred_intent = Intent.SEARCH_PROPERTY
 
@@ -554,6 +561,13 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     ):
         intent = Intent.CONSULTATION_QA
 
+    # General real estate concept comparison (orientations, legal, house types) routed to CONSULTATION_QA
+    if re.search(r"\b(so sanh|khac nhau|khac gi|uu nhuoc diem)\b", norm_query) and re.search(
+        r"\b(huong\s*(?:dong|tay|nam|bac|dong nam|dong bac|tay nam|tay bac)|chung cu\s*(?:va|voi|hay)\s*nha|so do\s*(?:va|voi)\s*so hong|mua\s*(?:va|voi|hay)\s*thue|lai suat\s*(?:co dinh|tha noi))\b",
+        norm_query,
+    ) and not re.search(r"\b(can 1|can 2|can so|can nay|cac can|can ho nay)\b", norm_query):
+        intent = Intent.CONSULTATION_QA
+
     # Monthly income affordability guidance
     income_match = re.search(
         r"\b(lam|thu nhap|luong|kiem duoc)\b\s*(\d+(?:[.,]\d+)?)\s*(?:-|den|toi)?\s*(\d+(?:[.,]\d+)?)?\s*(?:trieu|tr)\s*(?:/|\s*moi\s*|\s*hang\s*)thang\b",
@@ -645,6 +659,44 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         if schedule:
             affordability_note = explain_loan_calculation(schedule)
             merged_criteria.clear()  # Clear accidental property filters
+
+    # Financial feasibility inquiry (e.g. "tôi có tài chính 3 triệu muốn mua nhà tầm 3 tỷ được không")
+    feasibility_match = re.search(
+        r"\b(?:tai chinh|thu nhap|von|tiet kiem|co)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\b.*\b(?:mua|nham|nham mua)\b.*\b(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\b",
+        normalize_text(query),
+    )
+    if feasibility_match and re.search(r"\b(duoc|duoc khong|co duoc|co the|on khong|hop ly|kha thi|nen khong)\b", normalize_text(query)):
+        intent = Intent.CONSULTATION_QA
+        current_agent = AgentType.RESPOND
+        merged_criteria.clear()
+
+        cap_val = float(feasibility_match.group(1).replace(",", "."))
+        cap_unit = feasibility_match.group(2)
+        cap_vnd = int(round(cap_val * (1_000_000_000 if cap_unit in {"ty", "ti"} else 1_000_000)))
+
+        prop_val = float(feasibility_match.group(3).replace(",", "."))
+        prop_unit = feasibility_match.group(4)
+        prop_vnd = int(round(prop_val * (1_000_000_000 if prop_unit in {"ty", "ti"} else 1_000_000)))
+
+        down_payment_vnd = int(round(prop_vnd * 0.3))
+        loan_vnd = prop_vnd - down_payment_vnd
+
+        # Monthly payment estimate for 20 years at 9%
+        r_month = 0.09 / 12
+        n_months = 240
+        monthly_payment = int(round(loan_vnd * (r_month * (1 + r_month)**n_months) / ((1 + r_month)**n_months - 1)))
+        min_safe_income = int(round(monthly_payment / 0.4))
+
+        understanding.direct_response = (
+            f"Với mức tài chính / thu nhập **{format_vnd(cap_vnd)}**, bạn **chưa đủ điều kiện tài chính để mua nhà tầm {format_vnd(prop_vnd)}** ở thời điểm hiện tại.\n\n"
+            f"📊 **Bài toán tài chính để mua căn nhà {format_vnd(prop_vnd)}:**\n"
+            f"- **Vốn tự có ban đầu (tối thiểu 30%):** Cần khoảng **{format_vnd(down_payment_vnd)}** để thanh toán đợt đầu.\n"
+            f"- **Khoản vay ngân hàng (70% ~ {format_vnd(loan_vnd)}):** Vay trong 20 năm (lãi suất ~9%/năm), mỗi tháng bạn cần trả góp cả gốc và lãi khoảng **{format_vnd(monthly_payment)}/tháng**.\n"
+            f"- **Thu nhập an toàn (DTI ≤ 40%):** Thu nhập hàng tháng của bạn hoặc gia đình cần đạt từ **{format_vnd(min_safe_income)}/tháng** trở lên để vừa trả nợ vừa đảm bảo sinh hoạt.\n\n"
+            f"💡 **Lời khuyên từ Nera:**\n"
+            f"- Với tài chính {format_vnd(cap_vnd)}/tháng, phương án phù hợp nhất hiện tại là **thuê căn hộ/phòng trọ** trong tầm giá 1 – 2 triệu/tháng và tích lũy thêm vốn.\n"
+            f"- Khi vốn tự có đạt từ 30% trở lên, Nera sẽ hỗ trợ bạn lập phương án vay chi tiết để mua nhà nhé!"
+        )
 
     # Promote compound intent (selecting a property AND requesting booking)
     norm_query = normalize_text(query)
@@ -747,12 +799,18 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     ):
         llm_landmark = None
 
+    # For general CONSULTATION_QA (without explicit affordability direct response),
+    # let respond_node generate the complete, rich real estate consultation.
+    direct_resp = understanding.direct_response
+    if intent == Intent.CONSULTATION_QA and not affordability_note and direct_resp and ("căn nhà" in direct_resp or "thông tin" in direct_resp):
+        direct_resp = None
+
     # Construct state updates
     updates: dict[str, Any] = {
         "current_agent": current_agent,
         "intent": intent,
         "confidence": understanding.confidence,
-        "direct_response": understanding.direct_response,
+        "direct_response": direct_resp,
         "search_criteria": merged_criteria,
         "soft_preferences": soft_prefs,
         "household_context": household_ctx,

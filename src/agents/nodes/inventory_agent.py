@@ -12,7 +12,7 @@ from typing import Any
 from uuid import UUID
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from src.agents.state import AgentState, AgentType, Intent
@@ -222,11 +222,22 @@ async def query_properties_from_db(
         is_broad_region_search = bool(region and not province and not district and not area_target)
         query_limit = 100 if is_broad_region_search else effective_limit
 
+        order_clauses = []
+        if criteria.get("max_price") is not None and criteria.get("min_price") is None:
+            order_clauses.append(func.abs(Property.list_price - criteria["max_price"]).asc())
+        elif criteria.get("min_price") is not None and criteria.get("max_price") is not None:
+            mid_price = (criteria["min_price"] + criteria["max_price"]) / 2
+            order_clauses.append(func.abs(Property.list_price - mid_price).asc())
+        elif criteria.get("min_price") is not None:
+            order_clauses.append(Property.list_price.asc())
+
+        order_clauses.append(Property.published_at.desc().nullslast())
+
         stmt = (
             select(Property)
             .options(selectinload(Property.media))
             .where(*filters)
-            .order_by(Property.list_price.asc().nullslast(), Property.published_at.desc().nullslast())
+            .order_by(*order_clauses)
             .limit(query_limit)
         )
         rows = (await session.execute(stmt)).scalars().all()
@@ -445,8 +456,10 @@ async def format_intelligent_search_results(
             "Bạn là Nera – Trợ lý AI kiêm chuyên viên tư vấn bất động sản cao cấp hàng đầu, phong thái tự nhiên, thông minh, ấm áp và súc tích.\n"
             "Bạn vừa tìm được danh sách các bất động sản phù hợp từ kho dữ liệu có thật của hệ thống.\n\n"
             "Quy tắc phản hồi chuẩn mực:\n"
-            "- Lời mở đầu: Tự nhiên, ngắn gọn (1-2 câu). Nếu là khách quay lại (`is_resume`), hãy chào mừng và nhắc nhẹ nhu cầu đã nhớ một cách tinh tế.\n"
-            "- Danh sách các căn nổi bật: Trình bày rõ ràng 3 đến 5 căn đầu tiên theo format đánh số:\n"
+            "- Lời mở đầu & Phân tích mức giá: Tuân thủ nghiêm ngặt trường `price_analysis` (nếu có):\n"
+            "  + Nếu có căn đúng mức giá yêu cầu (hoặc sát trong khoảng 2-5%): Nêu rõ có bao nhiêu căn đúng giá hoặc sát nhất với ngân sách khách hỏi. Nếu có hiển thị thêm các căn rẻ hơn ở phía sau, hãy giới thiệu như phương án tham khảo thêm, tuyệt đối không gộp chung coi như tất cả đều là mức giá đó.\n"
+            "  + Nếu không có căn nào đúng giá: Thành thật nêu rõ 'Hiện tại trong kho dữ liệu chưa có căn đúng chính xác [Giá], Nera xin gợi ý các căn có mức giá gần nhất hiện có ([Mức giá])' và hỏi khách có muốn xem phân khúc trên hay dưới mức giá này không.\n"
+            "- Danh sách các căn nổi bật: Trình bày rõ ràng các căn đầu tiên theo format đánh số:\n"
             "  **1. [Tên BĐS]**\n"
             "  [Giá] · [Diện tích] m² · [Số PN] PN · [Địa chỉ/Quận, Tỉnh/TP]\n"
             "  *(Gợi ý/Điểm cộng: 1 câu nhận xét ngắn gọn vì sao căn này đáng chú ý đối với tiêu chí của khách)*\n"
@@ -469,6 +482,52 @@ async def format_intelligent_search_results(
             for p in items[:display_limit]
         ]
 
+        target_price = criteria.get("target_price")
+        if not target_price:
+            if criteria.get("min_price") and criteria.get("max_price"):
+                target_price = int(round((criteria["min_price"] + criteria["max_price"]) / 2))
+            else:
+                target_price = criteria.get("max_price") or criteria.get("min_price")
+
+        price_analysis: dict[str, Any] | None = None
+        if target_price and items:
+            diffs = [
+                abs(float(p.get("list_price") or 0) - float(target_price)) / float(target_price)
+                for p in items[:display_limit]
+                if p.get("list_price")
+            ]
+            has_exact = any(d <= 0.01 for d in diffs)
+            has_close = any(d <= 0.05 for d in diffs)
+            min_diff = min(diffs) if diffs else 0
+            if has_exact or has_close:
+                exact_count = sum(1 for d in diffs if d <= 0.01)
+                close_count = sum(1 for d in diffs if d <= 0.05)
+                price_analysis = {
+                    "status": "EXACT_OR_CLOSE_MATCH",
+                    "exact_matches_count": exact_count,
+                    "close_matches_count": close_count,
+                    "target_price": _price_text(target_price),
+                    "instruction": (
+                        f"Có {exact_count} căn đúng chính xác và {close_count} căn rất sát "
+                        f"(trong khoảng chênh lệch dưới 5%) với mức giá {_price_text(target_price)} khách hỏi. "
+                        f"Hãy nêu rõ các căn đúng/sát giá này. Các căn có mức giá thấp hơn ở sau (như 3.7 - 3.8 tỷ) "
+                        f"chỉ là phương án tham khảo thêm trong tầm ngân sách, không giới thiệu chung là đúng {_price_text(target_price)}."
+                    ),
+                }
+            elif min_diff > 0.08:
+                nearest_price = items[0].get("list_price")
+                price_analysis = {
+                    "status": "NO_EXACT_MATCH",
+                    "target_price": _price_text(target_price),
+                    "nearest_price": _price_text(nearest_price) if nearest_price else "—",
+                    "instruction": (
+                        f"Trong kho dữ liệu hiện tại KHÔNG CÓ căn nào đúng chính xác mức giá {_price_text(target_price)}. "
+                        f"Căn có giá gần nhất hiện có là {_price_text(nearest_price)}. "
+                        f"Hãy nêu rõ ràng điều này cho khách biết rằng Nera chọn lọc các căn có mức giá gần nhất hiện có, "
+                        f"và hỏi khách có muốn xem các căn ở phân khúc trên hay dưới {_price_text(target_price)} không."
+                    ),
+                }
+
         payload = {
             "customer_query": query,
             "search_criteria": criteria,
@@ -476,6 +535,7 @@ async def format_intelligent_search_results(
             "total_found": len(items),
             "is_resume_user": is_resume,
             "memory_summary": memory_summary,
+            "price_analysis": price_analysis,
             "top_properties": candidate_items,
         }
         if affordability_note:
@@ -1168,6 +1228,60 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
                     "Điều chỉnh ngân sách",
                 ],
             }
+        if criteria.get("target_price") or (criteria.get("min_price") and criteria.get("max_price")):
+            target_p = criteria.get("target_price") or ((criteria["min_price"] + criteria["max_price"]) / 2)
+            location_name = criteria.get("district") or criteria.get("province") or "khu vực này"
+
+            # Query location without price filter to analyze available segments
+            loc_criteria = {k: v for k, v in criteria.items() if k not in ("min_price", "max_price", "target_price")}
+            all_loc_props = await query_properties_from_db(loc_criteria, limit=20)
+
+            lower_props = [p for p in all_loc_props if (p.get("list_price") or 0) < target_p]
+            higher_props = [p for p in all_loc_props if (p.get("list_price") or 0) > target_p]
+
+            max_lower = max((p.get("list_price") or 0) for p in lower_props) if lower_props else None
+            min_higher = min((p.get("list_price") or 0) for p in higher_props) if higher_props else None
+
+            min_window_str = _price_text(criteria.get("min_price", round(target_p * 0.8)))
+            max_window_str = _price_text(criteria.get("max_price", round(target_p * 1.2)))
+
+            lines = [
+                f"Hiện tại trong kho dữ liệu tại **{location_name}**, Nera chưa có bất động sản nào trong tầm giá **{min_window_str} – {max_window_str}** (quanh mức **{_price_text(target_p)}** bạn yêu cầu).\n",
+            ]
+
+            if max_lower or min_higher:
+                lines.append(f"📊 **Các phân khúc hiện có tại {location_name}:**")
+                if max_lower:
+                    lines.append(f"- Phân khúc giá thấp hơn: **dưới {_price_text(max_lower)}**")
+                if min_higher:
+                    lines.append(f"- Phân khúc cao cấp hơn: **từ {_price_text(min_higher)} trở lên**")
+                lines.append("")
+
+            lines.append("💡 **Gợi ý từ Nera:**")
+            lines.append(f"- Mở rộng tìm kiếm tầm giá {_price_text(target_p)} sang các quận lân cận")
+            if max_lower:
+                lines.append(f"- Tham khảo các căn dưới {_price_text(max_lower)} tại {location_name}")
+            if min_higher:
+                lines.append(f"- Tham khảo các căn từ {_price_text(min_higher)} tại {location_name}")
+
+            suggested = [f"Tìm nhà {_price_text(target_p)} ở quận lân cận"]
+            if max_lower:
+                suggested.append(f"Xem căn dưới {_price_text(max_lower)} ở {location_name}")
+            if min_higher:
+                suggested.append(f"Xem căn từ {_price_text(min_higher)} ở {location_name}")
+            if len(suggested) < 3:
+                suggested.append("Tư vấn khu vực phù hợp")
+
+            return {
+                "selected_properties": [],
+                "search_results": [],
+                "response": "\n".join(lines),
+                "response_kind": "SEARCH_NO_RESULTS",
+                "phase": "SEARCH_NO_RESULTS",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": suggested[:3],
+            }
+
         if criteria.get("transaction_type") == "RENT":
             return {
                 "selected_properties": [],
