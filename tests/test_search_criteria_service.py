@@ -256,3 +256,29 @@ def test_floor_follow_up_replaces_both_old_bounds() -> None:
 
 
 
+
+
+def test_renters_who_never_say_thue_are_still_read_as_renting() -> None:
+    """A student asking for a room is not a buyer.
+
+    Matching only on "thuê" sent these queries down the SALE path, which is why
+    someone looking for a room near VinUni was shown homes for sale.
+    """
+    cases = [
+        "tôi học ở VinUni muốn tìm phòng gần trường",
+        "cần phòng trọ dưới 3 triệu",
+        "có nhà trọ nào gần đây không",
+        "em muốn ở ghép với 2 bạn nữa",
+        "gần ký túc xá có chỗ nào không",
+    ]
+
+    for message in cases:
+        criteria, groups = extract_search_criteria(message)
+        assert criteria.get("transaction_type") == "RENT", message
+        assert "transaction" in groups
+
+
+def test_bedroom_counts_are_not_mistaken_for_a_rental_request() -> None:
+    for message in ("tìm căn 2 phòng ngủ ở Cầu Giấy", "cần phòng ngủ hướng Nam"):
+        criteria, _ = extract_search_criteria(message)
+        assert criteria.get("transaction_type") != "RENT", message

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from src.utils.property_text import clean_property_title
+from src.utils.property_text import clean_property_description, clean_property_title
 
 
 class PropertyMediaSchema(BaseModel):
@@ -52,6 +52,13 @@ class PropertySchema(BaseModel):
     def format_title(cls, v: Any) -> Any:
         if isinstance(v, str):
             return clean_property_title(v) or v
+        return v
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def format_description(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return clean_property_description(v)
         return v
 
 class PropertyListResponse(BaseModel):

@@ -19,10 +19,12 @@ from src.agents.state import AgentState, AgentType, Intent
 from src.services.affordability import (
     calculate_loan_schedule,
     estimate_affordability,
-    explain as explain_affordability,
     explain_loan_calculation,
     format_vnd,
     purchase_guidance_lines,
+)
+from src.services.affordability import (
+    explain as explain_affordability,
 )
 from src.services.chat_state_service import (
     LOCAL_TZ,
