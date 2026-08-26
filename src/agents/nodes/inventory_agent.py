@@ -483,13 +483,8 @@ async def format_intelligent_search_results(
         ]
 
         target_price = criteria.get("target_price")
-        if not target_price:
-            if criteria.get("min_price") and criteria.get("max_price"):
-                target_price = int(round((criteria["min_price"] + criteria["max_price"]) / 2))
-            else:
-                target_price = criteria.get("max_price") or criteria.get("min_price")
-
         price_analysis: dict[str, Any] | None = None
+
         if target_price and items:
             diffs = [
                 abs(float(p.get("list_price") or 0) - float(target_price)) / float(target_price)
@@ -510,7 +505,7 @@ async def format_intelligent_search_results(
                     "instruction": (
                         f"Có {exact_count} căn đúng chính xác và {close_count} căn rất sát "
                         f"(trong khoảng chênh lệch dưới 5%) với mức giá {_price_text(target_price)} khách hỏi. "
-                        f"Hãy nêu rõ các căn đúng/sát giá này. Các căn có mức giá thấp hơn ở sau (như 3.7 - 3.8 tỷ) "
+                        f"Hãy nêu rõ các căn đúng/sát giá này. Các căn có mức giá thấp hơn ở sau "
                         f"chỉ là phương án tham khảo thêm trong tầm ngân sách, không giới thiệu chung là đúng {_price_text(target_price)}."
                     ),
                 }
@@ -527,6 +522,19 @@ async def format_intelligent_search_results(
                         f"và hỏi khách có muốn xem các căn ở phân khúc trên hay dưới {_price_text(target_price)} không."
                     ),
                 }
+        elif criteria.get("max_price") and items:
+            max_p = criteria["max_price"]
+            price_analysis = {
+                "status": "BUDGET_CEILING",
+                "max_price": _price_text(max_p),
+                "instruction": (
+                    f"Khách hàng tìm kiếm bất động sản trong tầm ngân sách DƯỚI / TỐI ĐA {_price_text(max_p)}. "
+                    f"Tất cả các căn hộ bên dưới đều thỏa mãn hoàn hảo điều kiện ngân sách này. "
+                    f"TUYỆT ĐỐI KHÔNG NÓI 'chưa có căn đúng chính xác {_price_text(max_p)}' hay 'không có căn đúng {_price_text(max_p)}', "
+                    f"bởi vì khách hàng chỉ yêu cầu trần ngân sách dưới {_price_text(max_p)} chứ không đòi hỏi đúng chính xác {_price_text(max_p)}. "
+                    f"Hãy giới thiệu tự nhiên các căn hộ nổi bật nhất trong tầm ngân sách dưới {_price_text(max_p)}."
+                ),
+            }
 
         payload = {
             "customer_query": query,
