@@ -63,3 +63,6 @@ scratch/
 
 # Demo & presentation notes
 DEMO_SCRIPT*
+
+# AI traces (local only)
+.ai-traces/

@@ -17,8 +17,8 @@ logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 from src.services.knowledge_base import get_answer, search_property_by_name
-from src.agents.nodes.supervisor import classify_intent
-from src.agents.state import create_initial_state
+from src.agents.nodes.supervisor import supervisor_node
+from src.agents.state import create_initial_agent_state
 from src.agents.graph import get_agent_graph
 
 
@@ -51,19 +51,23 @@ async def trace_query(query_text: str):
     # -------------------------------------------------------------
     print("\n[BƯỚC 2] Phân loại ý định & Trích xuất Entities (Supervisor)...")
     messages = [{"role": "user", "content": query_text}]
-    intent_res = await classify_intent(messages, session_id="trace_debug")
-    
-    print(f"  -> Intent:     {intent_res.get('intent')}")
-    print(f"  -> Confidence: {intent_res.get('confidence')}")
-    print(f"  -> Entities:   {json.dumps(intent_res.get('entities', {}), ensure_ascii=False, indent=6)}")
+    state = create_initial_agent_state(session_id="trace_session", query=query_text)
+    state["messages"] = messages
+
+    supervisor_out = await supervisor_node(state)
+
+    print(f"  -> Intent:     {supervisor_out.get('intent')}")
+    print(f"  -> Confidence: {supervisor_out.get('confidence')}")
+    print(f"  -> Routing:    {supervisor_out.get('current_agent')}")
+    print(f"  -> Criteria:   {json.dumps(supervisor_out.get('search_criteria', {}), ensure_ascii=False, indent=6)}")
 
     # -------------------------------------------------------------
     # BƯỚC 3: CHẠY TOÀN BỘ AGENT GRAPH (LANGGRAPH)
     # -------------------------------------------------------------
     print("\n[BƯỚC 3] Thực thi qua LangGraph Pipeline (Supervisor -> Inventory -> Respond)...")
-    state = create_initial_state(session_id="trace_session", query=query_text)
+    state = create_initial_agent_state(session_id="trace_session", query=query_text)
     state["messages"] = messages
-    
+
     graph = get_agent_graph()
     final_state = await graph.ainvoke(state)
 
