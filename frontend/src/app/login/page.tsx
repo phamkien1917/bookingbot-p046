@@ -1,17 +1,17 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FaBrain, FaEye, FaEyeSlash, FaMagic, FaSpinner } from "react-icons/fa";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FaBrain, FaEye, FaEyeSlash, FaSpinner } from "react-icons/fa";
 import { postLoginDestination, useAuth } from "@/components/AuthProvider";
 import { apiFetch } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 const demos = [
-  { label: "Khách hàng", email: "customer.demo@example.com" },
-  { label: "Sale", email: "kien.sale@example.com" },
-  { label: "Admin", email: "admin.demo@example.com" },
+  { label: "Khách xem nhà", email: "customer@example.com" },
+  { label: "Sale phụ trách", email: "sale@example.com" },
+  { label: "Admin điều phối", email: "admin@example.com" },
 ];
 
 function LoginForm() {
@@ -24,25 +24,47 @@ function LoginForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ full_name: "", email: "", phone: "", password: "" });
 
-  // Google OAuth completes with a server-set HttpOnly cookie. No bearer token
-  // is exposed through the URL or browser storage.
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    full_name: "",
+    phone: "",
+  });
+
+  // Handle Google OAuth callback code from URL query params
   useEffect(() => {
-    const googleCode = searchParams.get("google_code");
-    if (googleCode) {
-      void apiFetch<{ success: boolean }>("/auth/google/exchange", {
-        method: "POST",
-        body: JSON.stringify({ code: googleCode }),
-      }).then(() => refresh()).then(() => {
-          const next = searchParams.get("next");
-          router.replace(next || "/");
-          router.refresh();
-        }).catch((reason) => {
-          setError(reason instanceof Error ? reason.message : "Không thể hoàn tất đăng nhập Google.");
-          router.replace("/login");
+    const code = searchParams.get("code");
+    if (!code) return;
+
+    let isMounted = true;
+    async function exchangeOAuthCode(authCode: string) {
+      setGoogleLoading(true);
+      setError("");
+      try {
+        const data = await apiFetch<{ token: string; user: User }>("/auth/google/callback", {
+          method: "POST",
+          body: JSON.stringify({ code: authCode }),
         });
+
+        if (!isMounted) return;
+        if (data.token) {
+          localStorage.setItem("nera_auth_token", data.token);
+          await refresh();
+          setAuthenticatedUser(data.user);
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err instanceof Error ? err.message : "Đăng nhập Google thất bại.");
+      } finally {
+        if (isMounted) setGoogleLoading(false);
+      }
     }
+
+    void exchangeOAuthCode(code);
+    return () => {
+      isMounted = false;
+    };
   }, [searchParams, refresh, router]);
 
   useEffect(() => {
@@ -87,10 +109,7 @@ function LoginForm() {
   return (
     <div className="w-full max-w-md">
       <Link href="/" className="mb-9 flex items-center gap-3 lg:hidden">
-        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--ink)] text-white">
-          <FaMagic />
-        </span>
-        <strong>Nera</strong>
+        <img src="/brand/logo/nera-logo-primary.svg" alt="Nera" className="h-8 w-auto" />
       </Link>
       <div className="mb-8">
         <span className="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-[#e5eee6] text-[var(--forest)]">
@@ -230,7 +249,7 @@ function LoginForm() {
 
         <button
           disabled={loading}
-          className="w-full rounded-2xl bg-[var(--ink)] py-3.5 font-semibold text-white transition hover:bg-[var(--forest)] disabled:opacity-50"
+          className="w-full rounded-2xl bg-[var(--ink)] py-3.5 font-semibold text-white transition hover:bg-[var(--forest)] disabled:opacity-50 cursor-pointer"
         >
           {loading ? "Đang xử lý…" : isRegister ? "Tạo tài khoản" : "Tiếp tục"}
         </button>
@@ -241,7 +260,7 @@ function LoginForm() {
           setIsRegister((value) => !value);
           setError("");
         }}
-        className="mt-5 w-full text-sm font-semibold text-[var(--forest)]"
+        className="mt-5 w-full text-sm font-semibold text-[var(--forest)] cursor-pointer"
       >
         {isRegister ? "Đã có tài khoản? Đăng nhập" : "Lần đầu đến đây? Tạo tài khoản người mua"}
       </button>
@@ -262,7 +281,7 @@ function LoginForm() {
                     password: "Demo@123",
                   }))
                 }
-                className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:border-[var(--sage)] hover:text-[var(--forest)]"
+                className="rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:border-[var(--sage)] hover:text-[var(--forest)] cursor-pointer"
               >
                 {demo.label}
               </button>
@@ -280,10 +299,7 @@ export default function LoginPage() {
       <section className="relative hidden overflow-hidden bg-[var(--ink)] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="absolute -right-32 top-28 h-96 w-96 rounded-full bg-[#477462]/35 blur-3xl" />
         <Link href="/" className="relative flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10">
-            <FaMagic className="text-[#b9d5bf]" />
-          </span>
-          <span className="text-xl font-semibold tracking-[-.03em]">Nera</span>
+          <img src="/brand/logo/nera-logo-reverse.svg" alt="Nera" className="h-8 w-auto" />
         </Link>
         <div className="relative max-w-lg">
           <p className="text-xs font-bold uppercase tracking-[.2em] text-[#b9d5bf]">Trải nghiệm tiếp nối</p>

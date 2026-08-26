@@ -973,9 +973,8 @@ function ChatContent() {
       >
         <div className="flex h-full w-72 flex-col">
           <div className="flex items-center justify-between border-b border-white/10 p-5">
-            <Link href="/" className="flex items-center gap-3 font-semibold">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10"><FaMagic className="text-[#a9c9b0]" /></span>
-              <span>Nera<small className="block text-[10px] font-medium uppercase tracking-[.16em] text-white/45">AI home companion</small></span>
+            <Link href="/" className="flex items-center gap-3">
+              <img src="/brand/logo/nera-logo-reverse.svg" alt="Nera" className="h-7 w-auto" />
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -1041,7 +1040,9 @@ function ChatContent() {
                 <FaBars />
               </button>
             )}
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span>
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs">
+              <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-5 w-5" />
+            </span>
             <div>
               <h1 className="font-semibold">Nera đang ở đây</h1>
               <p className="text-xs text-[var(--muted)]">Nói tự nhiên, không cần điền form</p>
@@ -1070,7 +1071,9 @@ function ChatContent() {
                   </div>
                 ) : (
                   <div className="flex items-start gap-3">
-                    <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs"><FaMagic /></span>
+                    <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs">
+                      <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-4.5 w-4.5" />
+                    </span>
                     <div className="w-fit max-w-[88%] min-w-0 space-y-3">
                       <div className="w-fit max-w-full rounded-[1.35rem] rounded-tl-xs border border-black/5 bg-white px-5 py-3.5 text-[15px] leading-relaxed text-stone-800 shadow-xs">
                         <div className="prose prose-sm max-w-none text-stone-800 leading-relaxed">
@@ -1155,7 +1158,7 @@ function ChatContent() {
             {loading && (
               <div className="flex animate-message-in items-start gap-3">
                 <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs animate-pulse">
-                  <FaMagic />
+                  <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-4.5 w-4.5" />
                 </span>
                 <div className="flex items-center gap-3 rounded-[1.35rem] rounded-tl-xs bg-white px-5 py-4 shadow-xs border border-stone-100">
                   <div className="flex gap-1.5">

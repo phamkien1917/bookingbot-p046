@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Nera brand board">
+  <rect width="1920" height="1080" fill="#F7F4ED"/>
+  <rect x="0" y="0" width="770" height="1080" fill="#09241E"/>
+  <g transform="translate(92 90)">
+    <rect width="118" height="118" rx="29" fill="#F7F4ED"/>
+    <path d="M24 55 59 25l35 30-10 12-25-21-25 21-10-12Z" fill="#14372F"/>
+    <path d="M30 60h15l28 28V60h15v42H73L45 74v28H30V60Z" fill="#14372F"/>
+    <rect x="80" y="28" width="15" height="15" rx="4" fill="#E26D4F"/>
+  </g>
+  <text x="92" y="350" fill="#FFFFFF" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="104" font-weight="700">Nera</text>
+  <text x="92" y="452" fill="#FFFFFF" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="46" font-weight="600">Tìm nhà bằng một</text>
+  <text x="92" y="516" fill="#FFFFFF" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="46" font-weight="600">cuộc trò chuyện</text>
+  <rect x="92" y="570" width="96" height="8" rx="4" fill="#E26D4F"/>
+  <text x="92" y="650" fill="#BFD1C7" font-family="Inter, Aptos, Arial, sans-serif" font-size="24">AI hiểu nhu cầu</text>
+  <text x="92" y="695" fill="#BFD1C7" font-family="Inter, Aptos, Arial, sans-serif" font-size="24">Dữ liệu có thật</text>
+  <text x="92" y="740" fill="#BFD1C7" font-family="Inter, Aptos, Arial, sans-serif" font-size="24">Sale xác nhận</text>
+  <text x="92" y="990" fill="#6F8D80" font-family="Inter, Aptos, Arial, sans-serif" font-size="16" letter-spacing="4">P-046 • BRAND SYSTEM 2026</text>
+  <text x="850" y="120" fill="#10261F" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="48" font-weight="700">Nhận diện cốt lõi</text>
+  <text x="850" y="165" fill="#6D7A75" font-family="Inter, Aptos, Arial, sans-serif" font-size="21">Ấm áp như một người đồng hành. Chính xác như một sản phẩm dữ liệu.</text>
+  <text x="850" y="250" fill="#E26D4F" font-family="Inter, Aptos, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="4">COLOR SYSTEM</text>
+  <g font-family="Inter, Aptos, Arial, sans-serif">
+    <rect x="850" y="290" width="180" height="150" rx="22" fill="#14372F"/>
+    <text x="870" y="410" fill="#FFFFFF" font-size="17" font-weight="700">Nera Forest</text>
+    <text x="870" y="432" fill="#BFD1C7" font-size="14">#14372F</text>
+    <rect x="1050" y="290" width="180" height="150" rx="22" fill="#DDE9E1"/>
+    <text x="1070" y="410" fill="#14372F" font-size="17" font-weight="700">Living Sage</text>
+    <text x="1070" y="432" fill="#6D7A75" font-size="14">#DDE9E1</text>
+    <rect x="1250" y="290" width="180" height="150" rx="22" fill="#F7F4ED" stroke="#D8DDD8"/>
+    <text x="1270" y="410" fill="#14372F" font-size="17" font-weight="700">Warm Canvas</text>
+    <text x="1270" y="432" fill="#6D7A75" font-size="14">#F7F4ED</text>
+    <rect x="1450" y="290" width="180" height="150" rx="22" fill="#E26D4F"/>
+    <text x="1470" y="410" fill="#FFFFFF" font-size="17" font-weight="700">Signal Coral</text>
+    <text x="1470" y="432" fill="#FFE4DB" font-size="14">#E26D4F</text>
+    <rect x="1650" y="290" width="180" height="150" rx="22" fill="#10261F"/>
+    <text x="1670" y="410" fill="#FFFFFF" font-size="17" font-weight="700">Ink</text>
+    <text x="1670" y="432" fill="#BFD1C7" font-size="14">#10261F</text>
+  </g>
+  <text x="850" y="525" fill="#E26D4F" font-family="Inter, Aptos, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="4">TYPE &amp; UI LANGUAGE</text>
+  <text x="850" y="620" fill="#10261F" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="54" font-weight="700">Hiểu đúng trước khi gợi ý.</text>
+  <text x="850" y="670" fill="#6D7A75" font-family="Inter, Aptos, Arial, sans-serif" font-size="24">Be Vietnam Pro / Aptos Display — headline</text>
+  <text x="850" y="710" fill="#6D7A75" font-family="Inter, Aptos, Arial, sans-serif" font-size="20">Inter / Aptos — body, data and interface</text>
+  <rect x="850" y="775" width="300" height="120" rx="24" fill="#FFFFFF" stroke="#E1E5E1"/>
+  <circle cx="905" cy="835" r="23" fill="#14372F"/>
+  <path d="m895 835 8 8 14-18" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="945" y="827" fill="#10261F" font-family="Inter, Aptos, Arial, sans-serif" font-size="19" font-weight="700">Dữ liệu có thật</text>
+  <text x="945" y="858" fill="#6D7A75" font-family="Inter, Aptos, Arial, sans-serif" font-size="15">Có nguồn, có thể kiểm tra</text>
+  <rect x="1180" y="775" width="300" height="120" rx="24" fill="#DDE9E1"/>
+  <circle cx="1235" cy="835" r="23" fill="#E26D4F"/>
+  <path d="M1224 839c4-16 16-23 29-18-2 15-12 24-29 18Z" fill="#FFFFFF"/>
+  <text x="1275" y="827" fill="#10261F" font-family="Inter, Aptos, Arial, sans-serif" font-size="19" font-weight="700">AI giải thích</text>
+  <text x="1275" y="858" fill="#6D7A75" font-family="Inter, Aptos, Arial, sans-serif" font-size="15">Nói rõ vì sao phù hợp</text>
+  <rect x="1510" y="775" width="320" height="120" rx="24" fill="#14372F"/>
+  <circle cx="1565" cy="835" r="23" fill="#F7F4ED"/>
+  <path d="M1555 835h20M1565 825v20" stroke="#14372F" stroke-width="5" stroke-linecap="round"/>
+  <text x="1605" y="827" fill="#FFFFFF" font-family="Inter, Aptos, Arial, sans-serif" font-size="19" font-weight="700">Sale xác nhận</text>
+  <text x="1605" y="858" fill="#BFD1C7" font-family="Inter, Aptos, Arial, sans-serif" font-size="15">Con người chốt lịch thật</text>
+  <text x="850" y="990" fill="#6D7A75" font-family="Inter, Aptos, Arial, sans-serif" font-size="18">Style: editorial product design · calm technology · verified human service</text>
+</svg>
