@@ -426,6 +426,78 @@ def format_search_results_markdown(
     return f"{prefix}{intro}\n\n{body}{note}{rental_note}\n\n{closing}"
 
 
+async def format_intelligent_search_results(
+    items: list[dict[str, Any]],
+    criteria: dict[str, Any],
+    soft_prefs: list[str],
+    query: str,
+    affordability_note: str | None = None,
+    is_resume: bool = False,
+    memory_summary: str | None = None,
+) -> str:
+    """Generate a dynamic, natural, and insightful property introduction using LLM."""
+    if not items:
+        return format_search_results_markdown(items, criteria, soft_prefs, affordability_note)
+
+    try:
+        llm = get_llm()._create_chat_model()
+        sys_prompt = (
+            "Bạn là Nera – Trợ lý AI kiêm chuyên viên tư vấn bất động sản cao cấp hàng đầu, phong thái tự nhiên, thông minh, ấm áp và súc tích.\n"
+            "Bạn vừa tìm được danh sách các bất động sản phù hợp từ kho dữ liệu có thật của hệ thống.\n\n"
+            "Quy tắc phản hồi chuẩn mực:\n"
+            "- Lời mở đầu: Tự nhiên, ngắn gọn (1-2 câu). Nếu là khách quay lại (`is_resume`), hãy chào mừng và nhắc nhẹ nhu cầu đã nhớ một cách tinh tế.\n"
+            "- Danh sách các căn nổi bật: Trình bày rõ ràng 3 đến 5 căn đầu tiên theo format đánh số:\n"
+            "  **1. [Tên BĐS]**\n"
+            "  [Giá] · [Diện tích] m² · [Số PN] PN · [Địa chỉ/Quận, Tỉnh/TP]\n"
+            "  *(Gợi ý/Điểm cộng: 1 câu nhận xét ngắn gọn vì sao căn này đáng chú ý đối với tiêu chí của khách)*\n"
+            "- Tuyệt đối GIỮ NGUYÊN các thông số thực tế (giá niêm yết, diện tích, số phòng ngủ, vị trí) từ dữ liệu cung cấp, KHÔNG được bịa đặt số liệu khác.\n"
+            "- Lời kết: Thân thiện, tự nhiên mời khách bấm chọn căn để xem chi tiết, so sánh hoặc đặt lịch xem nhà."
+        )
+
+        display_limit = criteria.get("limit") or 5
+        candidate_items = [
+            {
+                "id": p.get("id"),
+                "title": p.get("title"),
+                "price": _price_text(p.get("list_price")),
+                "area_sqm": p.get("area_sqm"),
+                "bedrooms": p.get("bedrooms"),
+                "location": ", ".join(filter(None, [p.get("district"), p.get("province")])),
+                "features": p.get("features") or {},
+                "description": str(p.get("description") or "")[:200],
+            }
+            for p in items[:display_limit]
+        ]
+
+        payload = {
+            "customer_query": query,
+            "search_criteria": criteria,
+            "soft_preferences": soft_prefs,
+            "total_found": len(items),
+            "is_resume_user": is_resume,
+            "memory_summary": memory_summary,
+            "top_properties": candidate_items,
+        }
+        if affordability_note:
+            payload["affordability_calculation"] = affordability_note
+
+        res = await llm.ainvoke([
+            SystemMessage(content=sys_prompt),
+            HumanMessage(
+                content=f"Dữ liệu tìm kiếm từ hệ thống:\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n\n"
+                f"Hãy phản hồi cho khách hàng thật xuất sắc, tự nhiên và chuyên nghiệp:"
+            ),
+        ])
+        content = str(res.content).strip()
+        if content and len(content) > 50:
+            prefix = f"{affordability_note}\n\n---\n\n" if affordability_note and affordability_note not in content else ""
+            return f"{prefix}{content}"
+    except Exception as exc:
+        logger.warning(f"Intelligent search formatting failed: {exc}. Using deterministic fallback.")
+
+    return format_search_results_markdown(items, criteria, soft_prefs, affordability_note)
+
+
 def format_property_details_markdown(
     item: dict[str, Any],
     *,
@@ -1044,29 +1116,16 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     # Check if returning user continuation
     if is_resume and properties:
-        criteria_summary = format_criteria_summary(criteria) or state.get("memory_summary") or "sở thích đã lưu"
-        total_count = len(properties)
-        display_items = properties[:5] if total_count > 5 else properties
-        intro = f"Chào bạn quay lại! Dựa trên nhu cầu bạn đã quan tâm trước đó (**{criteria_summary}**), Nera đã chọn lọc **{total_count} bất động sản** phù hợp nhất cho bạn đây"
-        if total_count > 5:
-            intro += " (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):"
-        else:
-            intro += ":"
-
-        blocks = []
-        for index, item in enumerate(display_items, 1):
-            location = ", ".join(filter(None, [item.get("district"), item.get("province")])) or "Chưa cập nhật"
-            price = _price_text(item.get("list_price"))
-            area_num = _num(item.get("area_sqm"))
-            area = f"{area_num:g} m²" if area_num is not None else ""
-            beds = f"{item.get('bedrooms')} PN" if item.get("bedrooms") is not None else ""
-            specs = " · ".join(filter(None, [price, area, beds, location]))
-            blocks.append(f"**{index}. {item.get('title', 'Bất động sản')}**\n{specs}")
-
-        body = "\n\n".join(blocks)
-        note = f"\n\n*(Đã cân nhắc thêm: {', '.join(soft_prefs)})*" if soft_prefs else ""
-
-        response_msg = f"{intro}\n\n{body}{note}\n\nBạn ưng ý căn nào hoặc muốn Nera phân tích chi tiết, cứ nói cho Nera biết nhé! 😊"
+        response_msg = await format_intelligent_search_results(
+            properties,
+            criteria,
+            soft_prefs,
+            query,
+            affordability_note=state.get("affordability_note"),
+            is_resume=True,
+            memory_summary=state.get("memory_summary"),
+        )
+        display_items = properties[:5] if len(properties) > 5 else properties
         return {
             "selected_properties": properties,
             "search_results": properties,
@@ -1088,6 +1147,27 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
                 "Đã xác minh bằng Google Maps nhưng không có căn nào vượt qua đầy đủ "
                 "tiêu chí khoảng cách/thời gian di chuyển đã yêu cầu."
             )
+        if criteria.get("transaction_type") == "SALE" and criteria.get("max_price") and criteria["max_price"] < 100_000_000:
+            low_p = criteria["max_price"]
+            return {
+                "selected_properties": [],
+                "search_results": [],
+                "response": (
+                    f"Mức giá **{_price_text(low_p)}** thường là ngân sách dành cho việc **thuê căn hộ / phòng trọ hằng tháng**, "
+                    f"vì trên thị trường hiện tại không có bất động sản mở bán với mức giá này.\n\n"
+                    f"💡 **Bạn đang muốn:**\n"
+                    f"- **Tìm thuê căn hộ** với ngân sách khoảng {_price_text(low_p)}/tháng?\n"
+                    f"- Hay bạn dự định **tìm mua căn hộ** khoảng **{_price_text(low_p * 1000)}**?"
+                ),
+                "response_kind": "SEARCH_NO_RESULTS",
+                "phase": "SEARCH_NO_RESULTS",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [
+                    f"Tìm thuê căn hộ {_price_text(low_p)}/tháng",
+                    f"Tìm mua căn hộ {_price_text(low_p * 1000)}",
+                    "Điều chỉnh ngân sách",
+                ],
+            }
         if criteria.get("transaction_type") == "RENT":
             return {
                 "selected_properties": [],
@@ -1120,6 +1200,15 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
     if len(properties) >= 2:
         suggested_actions.append("So sánh các căn này")
 
+    search_response_text = await format_intelligent_search_results(
+        properties,
+        criteria,
+        soft_prefs,
+        query,
+        affordability_note=state.get("affordability_note"),
+        is_resume=False,
+    )
+
     return {
         "selected_properties": properties,
         "search_results": properties,
@@ -1127,9 +1216,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         "selected_property_index": None,
         "response": (
             f"⚠️ {geo_note}\n\n" if geo_note else ""
-        ) + format_search_results_markdown(
-            properties, criteria, soft_prefs, state.get("affordability_note")
-        ),
+        ) + search_response_text,
         "response_kind": "SEARCH_RESULTS",
         "phase": "SEARCH_RESULTS",
         "current_agent": AgentType.RESPOND,

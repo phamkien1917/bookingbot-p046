@@ -108,3 +108,28 @@ def test_vnd_formatting_matches_how_listings_are_written() -> None:
     assert format_vnd(2_000_000_000) == "2 tỷ"
     assert format_vnd(7_000_000) == "7 triệu"
     assert format_vnd(725_400_000) == "725.4 triệu"
+
+
+def test_loan_schedule_calculation_and_dti_assessment() -> None:
+    from src.services.affordability import calculate_loan_schedule, explain_loan_calculation
+
+    # 2 billion in 3 years at 5% with 50tr/month income (user's exact scenario)
+    res = calculate_loan_schedule(
+        2_000_000_000,
+        term_years=3,
+        annual_rate=0.05,
+        monthly_income_vnd=50_000_000,
+    )
+    assert res is not None
+    assert res.term_months == 36
+    assert res.monthly_principal_vnd == 55_555_556
+    assert res.monthly_first_interest_vnd == 8_333_333
+    assert res.monthly_first_payment_vnd == 63_888_889
+    assert res.dti_first_month is not None
+    assert res.dti_first_month > 1.0  # ~127% DTI
+
+    explanation = explain_loan_calculation(res)
+    assert "2 tỷ" in explanation
+    assert "3 năm" in explanation
+    assert "Cảnh báo rủi ro cao" in explanation
+    assert "50 triệu" in explanation

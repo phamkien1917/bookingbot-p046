@@ -171,6 +171,107 @@ def purchase_guidance_lines(estimate: AffordabilityEstimate) -> str:
     return "\n".join(lines) + "\n"
 
 
+@dataclass(frozen=True, slots=True)
+class LoanCalculationResult:
+    """Exact loan amortization numbers on reducing balance."""
+
+    loan_amount_vnd: int
+    term_months: int
+    annual_rate: float
+    monthly_principal_vnd: int
+    monthly_first_interest_vnd: int
+    monthly_first_payment_vnd: int
+    total_interest_vnd: int
+    total_payment_vnd: int
+    monthly_income_vnd: int | None
+    dti_first_month: float | None
+
+
+def calculate_loan_schedule(
+    loan_amount_vnd: int,
+    *,
+    term_years: float | None = None,
+    term_months: int | None = None,
+    annual_rate: float = DEFAULT_ANNUAL_RATE,
+    monthly_income_vnd: int | None = None,
+) -> LoanCalculationResult | None:
+    """Compute monthly amortization and DTI for explicit loan calculation requests."""
+    if loan_amount_vnd <= 0:
+        return None
+    if not term_months:
+        if term_years and term_years > 0:
+            term_months = int(round(term_years * 12))
+        else:
+            term_months = DEFAULT_TERM_YEARS * 12
+
+    if term_months <= 0:
+        return None
+
+    monthly_principal = int(round(loan_amount_vnd / term_months))
+    monthly_rate = annual_rate / 12
+    first_interest = int(round(loan_amount_vnd * monthly_rate))
+    first_payment = monthly_principal + first_interest
+
+    # Total interest on reducing balance = loan * r/12 * (n + 1) / 2
+    total_interest = int(round(loan_amount_vnd * monthly_rate * (term_months + 1) / 2))
+    total_payment = loan_amount_vnd + total_interest
+
+    dti = None
+    if monthly_income_vnd and monthly_income_vnd > 0:
+        dti = first_payment / monthly_income_vnd
+
+    return LoanCalculationResult(
+        loan_amount_vnd=loan_amount_vnd,
+        term_months=term_months,
+        annual_rate=annual_rate,
+        monthly_principal_vnd=monthly_principal,
+        monthly_first_interest_vnd=first_interest,
+        monthly_first_payment_vnd=first_payment,
+        total_interest_vnd=total_interest,
+        total_payment_vnd=total_payment,
+        monthly_income_vnd=monthly_income_vnd,
+        dti_first_month=dti,
+    )
+
+
+def explain_loan_calculation(result: LoanCalculationResult) -> str:
+    """Generate a structured markdown breakdown of the loan amortization plan."""
+    term_years_str = (
+        f"{result.term_months // 12} năm"
+        if result.term_months % 12 == 0
+        else f"{result.term_months} tháng"
+    )
+    lines = [
+        f"**Phương án vay {format_vnd(result.loan_amount_vnd)} trong {term_years_str} (lãi suất {result.annual_rate * 100:.1f}%/năm):**",
+        f"- **Gốc trả đều hằng tháng:** {format_vnd(result.monthly_principal_vnd)}/tháng",
+        f"- **Tiền lãi tháng đầu:** ~{format_vnd(result.monthly_first_interest_vnd)}/tháng (lãi giảm dần theo dư nợ thực tế)",
+        f"- 👉 **Tổng số tiền phải trả tháng đầu:** ~**{format_vnd(result.monthly_first_payment_vnd)}/tháng**",
+        f"- **Tổng tiền lãi cả kỳ vay:** ~{format_vnd(result.total_interest_vnd)}",
+    ]
+    if result.monthly_income_vnd and result.dti_first_month is not None:
+        dti_pct = int(round(result.dti_first_month * 100))
+        lines.append(
+            f"\n**Đánh giá an toàn tài chính (với thu nhập {format_vnd(result.monthly_income_vnd)}/tháng):**"
+        )
+        if dti_pct > 60:
+            lines.append(
+                f"- ⚠️ **Cảnh báo rủi ro cao:** Khoản trả tháng đầu ({format_vnd(result.monthly_first_payment_vnd)}) "
+                f"chiếm **{dti_pct}%** thu nhập, vượt quá ngưỡng an toàn (thường nên dưới 40%–50%). "
+                f"Bạn nên cân nhắc kéo dài thời gian vay lên 10–20 năm để giảm áp lực trả nợ hằng tháng."
+            )
+        elif dti_pct > 40:
+            lines.append(
+                f"- ⚠️ **Cần cân đối chi tiêu:** Khoản trả tháng đầu chiếm **{dti_pct}%** thu nhập. "
+                f"Mức này có thể chấp nhận được nếu chi phí sinh hoạt của bạn thấp, nhưng cần có quỹ dự phòng."
+            )
+        else:
+            lines.append(
+                f"- ✅ **An toàn tài chính:** Khoản trả tháng đầu chỉ chiếm **{dti_pct}%** thu nhập "
+                f"(nằm trong ngưỡng an toàn dưới 40%)."
+            )
+    return "\n".join(lines)
+
+
 def _demo() -> None:
     """Self-check: the numbers must stay in a range a human would accept."""
     # 17.5tr/month, no capital known: the classic case from production.

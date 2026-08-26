@@ -113,6 +113,16 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     criteria: dict = {}
     groups: set[str] = set()
 
+    # Loan calculations or interest inquiries without explicit house search intent
+    # must not pollute search criteria with loan amounts or year counts.
+    norm_orig = message.lower()
+    is_loan_inquiry = (
+        bool(re.search(r"\b(vay von|vay tien|vay ngan hang|khoan vay|tinh lai|tinh phuong an vay|tinh lai vay|lai suat vay|cho vay)\b", text))
+        or (bool(re.search(r"\bvay\s+\d+", text)) and not bool(re.search(r"\b(?:vay|vậy)\s+(?:thi|noi|tang|giam|doi|chuyen|chon|ha|nang)\b", norm_orig)))
+    ) and not bool(re.search(r"\b(tim|can mua|muon mua|thue nha|tim can ho|tim nha|bat dong san|bds)\b", text))
+    if is_loan_inquiry:
+        return criteria, groups
+
     sale_signal = re.search(
         r"\b(mua|can mua|muon mua|ban nha|ban can ho|nha ban|dang ban|rao ban)\b",
         text,
@@ -162,7 +172,7 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     else:
         minimum = re.search(r"(?:tren|tu|toi thieu|it nhat|>=)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)", text)
         maximum = re.search(
-            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|tam|len)\s*"
+            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|tam|len|noi len|tang len)\s*"
             r"(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
             text,
         )
@@ -172,6 +182,11 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         if maximum:
             criteria["max_price"] = _vnd_amount(*maximum.groups())
             groups.add("budget")
+        if not minimum and not maximum:
+            bare_price = re.search(r"\b(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\b", text)
+            if bare_price and not re.search(rf"\b(?:tang|pn|phong|nam|thang|m2|met)\s*{bare_price.group(1)}\b", text):
+                criteria["max_price"] = _vnd_amount(*bare_price.groups())
+                groups.add("budget")
 
     bedrooms = re.search(r"(\d+)\s*(?:phong ngu|pn|ngu)", text)
     if bedrooms:
@@ -378,4 +393,7 @@ def validate_search_criteria(criteria: dict) -> list[str]:
     if criteria.get("min_floor") is not None and criteria.get("max_floor") is not None:
         if criteria["min_floor"] > criteria["max_floor"]:
             errors.append("tầng tối thiểu đang lớn hơn tầng tối đa")
+    if criteria.get("transaction_type") == "SALE" and criteria.get("max_price") is not None:
+        if criteria["max_price"] < 100_000_000:
+            errors.append("ngân sách mua nhà dưới 100 triệu đồng chưa phù hợp với thị trường mở bán (mức giá này thường là ngân sách thuê hằng tháng hoặc gõ nhầm)")
     return errors

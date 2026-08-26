@@ -16,8 +16,14 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from src.agents.state import AgentState, AgentType, Intent
-from src.services.affordability import estimate_affordability, purchase_guidance_lines
-from src.services.affordability import explain as explain_affordability
+from src.services.affordability import (
+    calculate_loan_schedule,
+    estimate_affordability,
+    explain as explain_affordability,
+    explain_loan_calculation,
+    format_vnd,
+    purchase_guidance_lines,
+)
 from src.services.chat_state_service import (
     LOCAL_TZ,
     extract_ordinal,
@@ -541,19 +547,12 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             "hoặc nhập một địa danh cụ thể (ví dụ: ‘cách Bệnh viện Bạch Mai dưới 5 km đi xe’)."
         )
 
-    # Time-sensitive finance data must never be answered from model memory as
-    # if it were live market data.
+    # Time-sensitive finance data routed to CONSULTATION_QA
     if re.search(
         r"\b(lai suat|interest rate)\b.*\b(hien tai|hom nay|bay gio|moi nhat|current)\b",
         normalize_text(query),
     ):
         intent = Intent.CONSULTATION_QA
-        understanding.direct_response = (
-            "Mình không có nguồn lãi suất ngân hàng thời gian thực trong phiên này nên không thể "
-            "đưa ra một con số ‘hiện tại’ đáng tin cậy. Lãi suất còn phụ thuộc ngân hàng, thời gian "
-            "ưu đãi, tỷ lệ vay và hồ sơ. Bạn hãy cung cấp tên ngân hàng/gói vay hoặc bảng lãi suất "
-            "có ngày cập nhật; Nera sẽ giúp tính khoản trả hằng tháng và so sánh minh bạch."
-        )
 
     # Monthly income affordability guidance
     income_match = re.search(
@@ -579,9 +578,6 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         except Exception:
             rent_range_str = "4 – 7 triệu/tháng"
 
-        # Purchase guidance is computed from the stated income rather than written
-        # as fixed text, so someone earning 50tr does not get the same answer as
-        # someone earning 15tr. The maths lives in services/affordability.py.
         purchase_estimate = (
             estimate_affordability(income_mid_vnd, own_capital_vnd=own_capital)
             if income_mid_vnd
@@ -594,15 +590,61 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
                 "- Bạn cho Nera biết con số thu nhập cụ thể hơn để tính khoản vay và tầm giá phù hợp nhé.\n"
             )
 
-        understanding.direct_response = (
-            f"Với mức thu nhập **{income_range_str}**, để đảm bảo an toàn tài chính tại **{district_val}**:\n\n"
-            f"1. 🏠 **Nếu bạn muốn Thuê căn hộ**:\n"
-            f"- Ngân sách thuê tối ưu nên chiếm khoảng **25% – 35% thu nhập**, tương đương **{rent_range_str}**.\n"
-            f"- Mức giá này ở {district_val} phù hợp với căn hộ mini, studio hoặc căn hộ 1PN đủ nội thất.\n\n"
-            f"2. 💰 **Nếu bạn muốn Mua căn hộ**:\n"
-            f"{buy_lines}\n"
-            f"Bạn đang ưu tiên **tìm thuê căn hộ ({rent_range_str})** hay **tìm mua căn hộ** để Nera gợi ý danh sách phù hợp nhất?"
+        affordability_note = (
+            f"Phân tích tài chính cho mức thu nhập {income_range_str} tại {district_val}:\n"
+            f"- Ngân sách thuê an toàn (25%–35% thu nhập): {rent_range_str}\n"
+            f"- Phương án mua căn hộ:\n{buy_lines}"
         )
+
+    # Loan amortization calculation request parser (e.g. "vay 2 tỷ trong 3 năm, lãi 5%, thu nhập 50tr")
+    loan_match = re.search(
+        r"\b(?:vay|khoan vay|tinh lai|tinh vay|vay von)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\b",
+        normalize_text(query),
+    )
+    if loan_match and not re.search(r"\b(dat lich|hen xem|xem nha|mua nha o|thue nha o)\b", normalize_text(query)):
+        intent = Intent.CONSULTATION_QA
+        loan_val_raw = float(loan_match.group(1).replace(",", "."))
+        loan_unit = loan_match.group(2)
+        loan_amount_vnd = int(round(loan_val_raw * (1_000_000_000 if loan_unit in {"ty", "ti"} else 1_000_000)))
+
+        # Term extraction (years or months)
+        term_years = None
+        term_match = re.search(r"(\d+)\s*(?:nam|year)", normalize_text(query))
+        if term_match:
+            term_years = float(term_match.group(1))
+        else:
+            month_match = re.search(r"(\d+)\s*(?:thang|month)", normalize_text(query))
+            if month_match:
+                term_years = float(month_match.group(1)) / 12
+
+        # Interest rate extraction
+        annual_rate = 0.08
+        rate_match = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:%|phan tram)", normalize_text(query))
+        if rate_match:
+            annual_rate = float(rate_match.group(1).replace(",", ".")) / 100.0
+
+        # Income extraction
+        income_val = None
+        income_m = re.search(
+            r"(?:thu nhap|luong|kiem duoc)\s*(?:cua toi|la)?\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
+            normalize_text(query),
+        )
+        if income_m:
+            income_num = float(income_m.group(1).replace(",", "."))
+            income_unit = income_m.group(2)
+            income_val = int(round(income_num * (1_000_000_000 if income_unit in {"ty", "ti"} else 1_000_000)))
+        elif monthly_income:
+            income_val = monthly_income
+
+        schedule = calculate_loan_schedule(
+            loan_amount_vnd,
+            term_years=term_years or 15,
+            annual_rate=annual_rate,
+            monthly_income_vnd=income_val,
+        )
+        if schedule:
+            affordability_note = explain_loan_calculation(schedule)
+            merged_criteria.clear()  # Clear accidental property filters
 
     # Promote compound intent (selecting a property AND requesting booking)
     norm_query = normalize_text(query)
@@ -674,10 +716,21 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     if validation_errors and intent == Intent.SEARCH_PROPERTY:
         current_agent = AgentType.RESPOND
         intent = Intent.FALLBACK
-        understanding.direct_response = (
-            "Mình chưa thể tìm chính xác vì " + ", ".join(validation_errors) + ". "
-            "Bạn vui lòng xác nhận lại khoảng tiêu chí mong muốn nhé."
-        )
+        is_low_sale_budget = any("dưới 100 triệu" in err for err in validation_errors)
+        if is_low_sale_budget:
+            low_price = merged_criteria.get("max_price", 3_000_000)
+            understanding.direct_response = (
+                f"Mức giá **{format_vnd(low_price)}** thường là chi phí dành cho việc **thuê căn hộ / phòng trọ hằng tháng**, "
+                f"vì trên thị trường hiện tại không có bất động sản mở bán với mức giá này.\n\n"
+                f"💡 **Bạn đang muốn:**\n"
+                f"- **Tìm thuê căn hộ** với ngân sách khoảng {format_vnd(low_price)}/tháng?\n"
+                f"- Hay bạn dự định **tìm mua căn hộ** khoảng **{format_vnd(low_price * 1000)}**?"
+            )
+        else:
+            understanding.direct_response = (
+                "Mình chưa thể tìm chính xác vì " + ", ".join(validation_errors) + ". "
+                "Bạn vui lòng xác nhận lại khoảng tiêu chí mong muốn nhé."
+            )
 
     # If currently in AWAITING_SLOT and customer provides ordinal -> route to BOOKING
     if state.get("phase") == "AWAITING_SLOT" and (ordinal is not None or intent == Intent.SELECT_SLOT):

@@ -52,6 +52,7 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
 
     final_response = existing_response
     ai_mode = state.get("ai_mode", "llm_grounded")
+    affordability_note = state.get("affordability_note")
 
     # If no response generated yet, or intent is consultative/conversational
     if not final_response or intent in (
@@ -125,36 +126,80 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
                     )
                 ai_mode = "fallback"
 
-    # Derive smart default suggested actions (Quick Replies) if empty
-    suggested_actions = list(state.get("suggested_actions", []))
+    # Derive smart contextual suggested actions (Quick Replies)
+    suggested_actions: list[str] = []
     mem_summary = state.get("memory_summary", "")
 
-    if not suggested_actions:
-        if intent == Intent.GREETING:
-            suggested_actions = []
-            if mem_summary:
-                suggested_actions.append(f"Tiếp tục: {mem_summary[:28]}...")
-            suggested_actions.extend([
-                "Tìm căn hộ Quận 7",
-                "Tìm nhà riêng Hà Nội",
-                "Tư vấn mua nhà lần đầu",
-            ])
-        elif intent == Intent.CONSULTATION_QA:
+    if intent == Intent.GREETING:
+        if mem_summary:
+            suggested_actions.append(f"Tiếp tục: {mem_summary[:28]}...")
+        suggested_actions.extend([
+            "Tìm căn hộ Quận 7",
+            "Tìm nhà riêng Hà Nội",
+            "Tư vấn mua nhà lần đầu",
+        ])
+    elif intent == Intent.CONSULTATION_QA:
+        if affordability_note and "Phương án vay" in affordability_note:
+            suggested_actions = [
+                "Thử vay trong 10 năm",
+                "Thử vay trong 15 năm",
+                "Tìm nhà phù hợp tầm tài chính này",
+            ]
+        elif affordability_note:
+            suggested_actions = [
+                "Tính thử phương án vay",
+                "Tìm bất động sản phù hợp",
+                "Quy trình đặt cọc an toàn",
+            ]
+        else:
             suggested_actions = [
                 "Tìm bất động sản phù hợp",
                 "Tính thử phương án vay",
                 "Quy trình đặt cọc an toàn",
             ]
-        elif intent == Intent.OUT_OF_SCOPE:
+    elif intent == Intent.FALLBACK:
+        max_p = state.get("search_criteria", {}).get("max_price")
+        if (
+            max_p
+            and max_p < 100_000_000
+            and state.get("search_criteria", {}).get("transaction_type") == "SALE"
+        ):
+            from src.services.affordability import format_vnd
+            suggested_actions = [
+                f"Tìm thuê căn hộ {format_vnd(max_p)}/tháng",
+                f"Tìm mua căn hộ {format_vnd(max_p * 1000)}",
+                "Tư vấn ngân sách mua nhà",
+            ]
+        else:
             suggested_actions = [
                 "Tìm căn hộ chung cư",
-                "Tìm nhà phố liền kề",
-                "Kiểm tra lịch xem nhà",
+                "Tìm nhà riêng",
+                "Tư vấn chọn nhà",
             ]
-        elif state.get("phase") == "SEARCH_RESULTS":
-            suggested_actions = ["Chọn căn số 1", "Chọn căn số 2", "So sánh các căn"]
-        else:
-            suggested_actions = ["Tìm căn hộ", "Tìm nhà phố", "Đặt lịch xem nhà"]
+    elif intent == Intent.OUT_OF_SCOPE:
+        suggested_actions = [
+            "Tìm căn hộ chung cư",
+            "Tìm nhà phố liền kề",
+            "Kiểm tra lịch xem nhà",
+        ]
+    elif (
+        state.get("phase") == "SEARCH_NO_RESULTS"
+        or (not state.get("selected_properties") and intent == Intent.SEARCH_PROPERTY)
+    ):
+        suggested_actions = [
+            "Mở rộng khu vực tìm kiếm",
+            "Điều chỉnh khoảng ngân sách",
+            "Xem tất cả căn đang có",
+        ]
+    elif state.get("suggested_actions"):
+        suggested_actions = list(state["suggested_actions"])
+    elif state.get("selected_properties"):
+        count = len(state["selected_properties"])
+        suggested_actions = [f"Chọn căn số {i}" for i in range(1, min(count + 1, 4))]
+        if count >= 2:
+            suggested_actions.append("So sánh các căn này")
+    else:
+        suggested_actions = ["Tìm căn hộ", "Tìm nhà phố", "Đặt lịch xem nhà"]
 
     # Build insights dictionary for frontend sidebar
     criteria = state.get("search_criteria", {})
