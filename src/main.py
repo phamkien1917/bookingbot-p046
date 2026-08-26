@@ -1,8 +1,9 @@
 """Main application entry point for BookingBot AI Agent."""
 
+import io
 import logging
+import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,10 +15,15 @@ from src.database.migrations import apply_runtime_migrations
 from src.services.memory import close_redis
 from src.services.scheduler import start_scheduler, stop_scheduler
 
-# Configure logging
+# Configure logging. Force UTF-8 on the console stream so Vietnamese text
+# (property addresses, districts, chat messages) doesn't crash logging on
+# Windows, where the default console stream uses the system codepage
+# (cp1252) instead of UTF-8.
+_log_stream = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(_log_stream)],
 )
 logger = logging.getLogger(__name__)
 
