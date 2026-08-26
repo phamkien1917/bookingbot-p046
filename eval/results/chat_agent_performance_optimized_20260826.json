@@ -1,0 +1,171 @@
+{
+  "summary": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "total": 4
+  },
+  "results": [
+    {
+      "id": "NERA-144",
+      "category": "performance",
+      "turns": [
+        "Xin chào"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 5000,
+        "no_property_cards": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Xin chào",
+          "status": 200,
+          "elapsed_ms": 9,
+          "failures": [],
+          "response": "Chào bạn! Mình là Nera. Bạn có thể cho mình khu vực, ngân sách hoặc loại nhà đang quan tâm để mình tìm ngay nhé.",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_direct",
+          "ai_latency_ms": 0,
+          "response_kind": "IDLE"
+        }
+      ]
+    },
+    {
+      "id": "NERA-145",
+      "category": "performance",
+      "turns": [
+        "Tìm căn hộ Hà Nội dưới 5 tỷ"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 12000,
+        "criteria_equals": {
+          "province": "Hà Nội",
+          "max_price": 5000000000
+        }
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội dưới 5 tỷ",
+          "status": 200,
+          "elapsed_ms": 53,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 5 tỷ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Con gái chủ nhà - Bán Căn hộ Chung cư A1 - Đền Lừ 2 - siêu thoáng mát**\n5 tỷ · 63.79 m² · 2 PN · Quận Hoàng Mai, Hà Nội\n\n**2. Chung cư mặt đường trần phú**\n5 tỷ · 72 m² · 2 PN · Quận Hà Đông, Hà Nội\n\n**3. CT2C Nghĩa Đô 🔥 Giá Tốt**\n4.75 tỷ · 43 m² · 1 PN · Quận Bắc Từ Liêm, Hà Nội\n\n**4. Căn hộ Chung cư cao cấp*",
+          "criteria": {
+            "province": "Hà Nội",
+            "max_price": 5000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 0,
+          "response_kind": "SEARCH_RESULTS"
+        }
+      ]
+    },
+    {
+      "id": "NERA-146",
+      "category": "performance",
+      "turns": [
+        "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+        "Chọn căn 2",
+        "So sánh căn này với căn 1"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 15000,
+        "search_pool_min": 3
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 42,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. Chung cư – Ninety Complex, (Tại Ngã Tư Sở), Giá 8 tỷ,**\n8 tỷ · 67.5 m² · 2 PN · Quận Đống Đa, Hà Nội\n\n**2. Căn duplex 3PN, 2WC tại số 6 Đội Nhân 84m² (tổng là 109m²)**\n7.95 tỷ · 109 m² · 3 PN · Quận Ba Đình, Hà Nội\n\n**3. Căn hộ Chung cư tại tòa B2 La Casta, 7,9 tỷ, 101m?, 3PN, 2WC chỉ v**\n7.9 tỷ · 101 m² · 3 PN · Quận Hà Đông, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 1,
+          "response_kind": "SEARCH_RESULTS"
+        },
+        {
+          "turn": 2,
+          "message": "Chọn căn 2",
+          "status": 200,
+          "elapsed_ms": 25,
+          "failures": [],
+          "response": "Bạn đã chọn **Căn duplex 3PN, 2WC tại số 6 Đội Nhân 84m² (tổng là 109m²)** (7.95 tỷ, 109.0 m² tại Quận Ba Đình).\n\nBạn muốn xem chi tiết hay đặt lịch xem căn này vào ngày nào?",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 0,
+          "response_kind": "PROPERTY_SELECTED"
+        },
+        {
+          "turn": 3,
+          "message": "So sánh căn này với căn 1",
+          "status": 200,
+          "elapsed_ms": 32,
+          "failures": [],
+          "response": "📊 **Bảng so sánh nhanh các bất động sản bạn đang quan tâm:**\n\n**1. Chung cư – Ninety Complex, (Tại Ngã Tư Sở), Giá 8 tỷ,**\n- 💰 Giá: **8 tỷ**\n- 📐 Diện tích: 67.5 m² | 2 PN | 2 WC\n- 📍 Vị trí: Quận Đống Đa, Hà Nội\n\n**2. Căn duplex 3PN, 2WC tại số 6 Đội Nhân 84m² (tổng là 109m²)**\n- 💰 Giá: **7.95 tỷ**\n- 📐 Diện tích: 109.0 m² | 3 PN | 2 WC\n- 📍 Vị trí: Quận Ba Đình, Hà Nội\n\n**3. Căn hộ Chung cư tại tòa B2 La Casta, 7,9 tỷ, 101m?, 3PN, 2WC chỉ v**\n- 💰 Giá: **7.9 tỷ**\n- 📐 Diện tích: 101.0 m² | 3 PN | 2 ",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 1,
+          "response_kind": "PROPERTY_SELECTED"
+        }
+      ]
+    },
+    {
+      "id": "NERA-147",
+      "category": "performance",
+      "turns": [
+        "Tìm căn hộ Hà Nội gần bệnh viện"
+      ],
+      "expect": {
+        "round_trip_ms_lte": 20000,
+        "geo_grounded": true
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội gần bệnh viện",
+          "status": 200,
+          "elapsed_ms": 462,
+          "failures": [],
+          "response": "⚠️ Đã truy vấn Google Places nhưng chưa tìm thấy tiện ích phù hợp trong bán kính kiểm tra.\n\nNera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Sốc! Giá giảm khủng, Căn 2N - 55m², Giá chỉ hơn 3 tỷ, Sẵn sổ sang tên, Sẵn dòng tiền 8tr/1 tháng**\n3.1 tỷ · 55 m² · 2 PN · Huyện Gia Lâm, Hà Nội\n\n**2. Chỉ cần 1 tỷ 073 triệu (10%) sở hữu căn 2PN Lumière Cao Xà Lá giá tốt hiếm có tại",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 1,
+          "response_kind": "SEARCH_RESULTS"
+        }
+      ]
+    }
+  ]
+}

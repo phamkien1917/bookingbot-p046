@@ -10,8 +10,10 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit & { signal?: AbortSignal } = {}): Promise<T> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("nera_auth_token") : null;
   const headers: Record<string, string> = {
-    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string>),
   };
 
@@ -21,17 +23,30 @@ export async function apiFetch<T>(path: string, options: RequestInit & { signal?
     headers,
   });
   if (!response.ok) {
-    let message = `Yêu cầu thất bại (${response.status})`;
+    let message = response.status === 502 || response.status === 503 || response.status === 504
+      ? "Không thể kết nối đến máy chủ Backend (Port 8000). Vui lòng đảm bảo Backend đang chạy."
+      : response.status === 410
+      ? "Phiên làm việc hoặc tài nguyên đã hết hạn (410). Vui lòng làm mới trang (F5) và thử lại."
+      : `Yêu cầu thất bại (${response.status})`;
     try {
-      const payload = (await response.json()) as { detail?: string };
-      if (payload.detail) message = payload.detail;
+      const text = await response.text();
+      if (text) {
+        const payload = JSON.parse(text) as { detail?: string };
+        if (payload.detail) message = payload.detail;
+      }
     } catch {
       // Response is not JSON.
     }
     throw new ApiError(message, response.status);
   }
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const text = await response.text();
+  if (!text || !text.trim()) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return undefined as T;
+  }
 }
 
 /**
@@ -64,7 +79,9 @@ export async function apiStream(
   });
 
   if (!response.ok || !response.body) {
-    let message = `Yêu cầu thất bại (${response.status})`;
+    let message = response.status === 410
+      ? "Phiên làm việc hoặc tài nguyên đã hết hạn (410). Vui lòng làm mới trang (F5) và thử lại."
+      : `Yêu cầu thất bại (${response.status})`;
     try {
       const payload = (await response.json()) as { detail?: string };
       if (payload.detail) message = payload.detail;

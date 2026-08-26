@@ -1,0 +1,287 @@
+{
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "total": 5
+  },
+  "results": [
+    {
+      "id": "NERA-139",
+      "category": "booking_live",
+      "authenticated": true,
+      "side_effecting": true,
+      "turns": [
+        "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+        "Chọn căn 1",
+        "Đặt lịch xem ngày mai lúc 10 giờ",
+        "Chọn khung giờ 1"
+      ],
+      "expect": {
+        "contains_any": [
+          "mã yêu cầu",
+          "chờ Sale",
+          "đặt lịch"
+        ],
+        "auth_required": false
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm 3 căn hộ Hà Nội dưới 8 tỷ",
+          "status": 200,
+          "elapsed_ms": 209,
+          "failures": [],
+          "response": "Nera đã tìm thấy **3 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ, tối đa 8 tỷ** cho bạn:\n\n**1. Chung cư – Ninety Complex, (Tại Ngã Tư Sở), Giá 8 tỷ,**\n8 tỷ · 67.5 m² · 2 PN · Quận Đống Đa, Hà Nội\n\n**2. Căn duplex 3PN, 2WC tại số 6 Đội Nhân 84m² (tổng là 109m²)**\n7.95 tỷ · 109 m² · 3 PN · Quận Ba Đình, Hà Nội\n\n**3. Căn hộ Chung cư tại tòa B2 La Casta, 7,9 tỷ, 101m?, 3PN, 2WC chỉ v**\n7.9 tỷ · 101 m² · 3 PN · Quận Hà Đông, Hà Nội\n\nBạn muốn xem chi tiết hoặc so sánh căn nào, cứ nói cho",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 3,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 1,
+          "response_kind": "SEARCH_RESULTS"
+        },
+        {
+          "turn": 2,
+          "message": "Chọn căn 1",
+          "status": 200,
+          "elapsed_ms": 67,
+          "failures": [],
+          "response": "Bạn đã chọn **Chung cư – Ninety Complex, (Tại Ngã Tư Sở), Giá 8 tỷ,** (8 tỷ, 67.5 m² tại Quận Đống Đa).\n\nBạn muốn xem chi tiết hay đặt lịch xem căn này vào ngày nào?",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 0,
+          "response_kind": "PROPERTY_SELECTED"
+        },
+        {
+          "turn": 3,
+          "message": "Đặt lịch xem ngày mai lúc 10 giờ",
+          "status": 200,
+          "elapsed_ms": 3834,
+          "failures": [],
+          "response": "Các khung giờ còn trống để xem **Chung cư – Ninety Complex, (Tại Ngã Tư Sở), Giá 8 tỷ,** vào **Thứ Năm, 27/08/2026**:\n\n**1. ⏰ 10:00 – 11:00** · Sale phụ trách: *Đỗ Văn Inh*\n**2. ⏰ 09:00 – 10:00** · Sale phụ trách: *Đỗ Văn Inh*\n**3. ⏰ 14:00 – 15:00** · Sale phụ trách: *Đỗ Văn Inh*\n**4. ⏰ 16:00 – 17:00** · Sale phụ trách: *Đỗ Văn Inh*\n\nBạn chọn khung giờ số mấy?",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 3563,
+          "response_kind": "AWAITING_SLOT"
+        },
+        {
+          "turn": 4,
+          "message": "Chọn khung giờ 1",
+          "status": 200,
+          "elapsed_ms": 3618,
+          "failures": [],
+          "response": "🎉 **Đã gửi yêu cầu đặt lịch thành công!**\n\n📋 **Mã yêu cầu:** `TR-8FEFE549B3B3`\n\n🏠 **Căn hộ đã chọn:**\n   - **Tên căn:** Chung cư – Ninety Complex, (Tại Ngã Tư Sở), Giá 8 tỷ,\n   - **Địa chỉ:** Láng, Phường Ngã Tư Sở, Quận Đống Đa, Hà Nội\n   - **ID:** `2fcf7e9e-cb80-5452-9d3d-284acea89d8e`\n\n📅 **Lịch xem nhà:**\n   - **Ngày:** 27/08/2026\n   - **Giờ:** 10:00 – 11:00\n   - **Thời lượng:** 60 phút\n\n👤 **Sale phụ trách:** Đỗ Văn Inh\n📍 **Địa điểm gặp:** Láng, Phường Ngã Tư Sở, Quận Đống Đa, Hà Nội\n🔄 **Trạn",
+          "criteria": {
+            "province": "Hà Nội",
+            "limit": 3,
+            "max_price": 8000000000,
+            "property_kind": "APARTMENT",
+            "district": "Quận Đống Đa"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 3344,
+          "response_kind": "WAITING_APPROVAL"
+        }
+      ]
+    },
+    {
+      "id": "NERA-140",
+      "category": "booking_live",
+      "authenticated": true,
+      "side_effecting": true,
+      "turns": [
+        "Kiểm tra lịch xem nhà của tôi"
+      ],
+      "expect": {
+        "contains_any": [
+          "lịch",
+          "mã",
+          "yêu cầu"
+        ],
+        "auth_required": false
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Kiểm tra lịch xem nhà của tôi",
+          "status": 200,
+          "elapsed_ms": 2849,
+          "failures": [],
+          "response": "📋 **Danh sách các lịch xem nhà gần đây của bạn:**\n\n- **TR-8FEFE549B3B3** | Chung cư – Ninety Complex, (Tại Ngã Tư Sở), Giá 8 tỷ, | ⏰ 10:00 ngày 27/08/2026 | Trạng thái: **WAITING_APPROVAL**\n- **TR-7D68A978B78F** | CHUNG CƯ MINI | ⏰ 10:00 ngày 27/08/2026 | Trạng thái: **WAITING_APPROVAL**\n- **TR-52B5C4F13F96** | 2PN, 3PN, Office, CĐT mở bán (bàn giao hoàn thiện) || Thanh toán 15% kí HĐMB | ⏰ 14:00 ngày 05/09/2026 | Trạng thái: **EXPIRED**\n- **TR-7A1E9625BA62** | 2PN, 3PN, Office, CĐT mở bán (bàn ",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 2671,
+          "response_kind": "IDLE"
+        }
+      ]
+    },
+    {
+      "id": "NERA-141",
+      "category": "booking_live",
+      "authenticated": true,
+      "side_effecting": true,
+      "turns": [
+        "Hủy lịch gần nhất của tôi",
+        "Không, thôi không hủy"
+      ],
+      "expect": {
+        "contains_any": [
+          "không hủy",
+          "giữ",
+          "tiếp tục"
+        ],
+        "auth_required": false
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Hủy lịch gần nhất của tôi",
+          "status": 200,
+          "elapsed_ms": 2491,
+          "failures": [],
+          "response": "Bạn có chắc chắn muốn hủy yêu cầu đặt lịch này không? Hãy trả lời **xác nhận** hoặc **không**.",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 2419,
+          "response_kind": "AWAITING_CANCEL_CONFIRMATION"
+        },
+        {
+          "turn": 2,
+          "message": "Không, thôi không hủy",
+          "status": 200,
+          "elapsed_ms": 2644,
+          "failures": [],
+          "response": "Đã giữ nguyên lịch hẹn của bạn. Bạn cần hỗ trợ thêm thông tin gì khác không?",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 2590,
+          "response_kind": "IDLE"
+        }
+      ]
+    },
+    {
+      "id": "NERA-142",
+      "category": "booking_live",
+      "authenticated": true,
+      "side_effecting": true,
+      "turns": [
+        "Dời lịch gần nhất sang thứ Bảy tuần sau lúc 14 giờ"
+      ],
+      "expect": {
+        "response_non_empty": true,
+        "auth_required": false
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Dời lịch gần nhất sang thứ Bảy tuần sau lúc 14 giờ",
+          "status": 200,
+          "elapsed_ms": 3029,
+          "failures": [],
+          "response": "Chào bạn, mình là Nera. Mình vừa gặp chút gián đoạn kết nối hệ thống. Bạn có thể nhắn lại yêu cầu (ví dụ: tìm nhà ở đâu, khoảng giá bao nhiêu) để mình hỗ trợ ngay nhé!",
+          "criteria": {},
+          "property_count": 0,
+          "ai_mode": "fallback",
+          "ai_latency_ms": 0,
+          "response_kind": "IDLE"
+        }
+      ]
+    },
+    {
+      "id": "NERA-143",
+      "category": "booking_live",
+      "authenticated": true,
+      "side_effecting": true,
+      "turns": [
+        "Tìm căn hộ Hà Nội",
+        "Chọn căn 1",
+        "Đặt lịch vào một ngày trong quá khứ"
+      ],
+      "expect": {
+        "not_contains": [
+          "đặt lịch thành công"
+        ],
+        "contains_any": [
+          "không hợp lệ",
+          "ngày khác",
+          "tương lai"
+        ]
+      },
+      "failures": [],
+      "turn_results": [
+        {
+          "turn": 1,
+          "message": "Tìm căn hộ Hà Nội",
+          "status": 200,
+          "elapsed_ms": 224,
+          "failures": [],
+          "response": "Nera đã tìm thấy **20 bất động sản** phù hợp nhất với tiêu chí **Hà Nội, căn hộ** cho bạn (dưới đây là 5 căn nổi bật nhất, bạn có thể bấm xem thêm ở danh sách bên dưới):\n\n**1. Sốc! Giá giảm khủng, Căn 2N - 55m², Giá chỉ hơn 3 tỷ, Sẵn sổ sang tên, Sẵn dòng tiền 8tr/1 tháng**\n3.1 tỷ · 55 m² · 2 PN · Huyện Gia Lâm, Hà Nội\n\n**2. Chỉ cần 1 tỷ 073 triệu (10%) sở hữu căn 2PN Lumière Cao Xà Lá giá tốt hiếm có tại Nguyễn Trãi**\n10.33 tỷ · 67.4 m² · 2 PN · Quận Thanh Xuân, Hà Nội\n\n**3. Căn 2PN tại tòa ĐN ",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 20,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 1,
+          "response_kind": "SEARCH_RESULTS"
+        },
+        {
+          "turn": 2,
+          "message": "Chọn căn 1",
+          "status": 200,
+          "elapsed_ms": 81,
+          "failures": [],
+          "response": "Bạn đã chọn **Sốc! Giá giảm khủng, Căn 2N - 55m², Giá chỉ hơn 3 tỷ, Sẵn sổ sang tên, Sẵn dòng tiền 8tr/1 tháng** (3.1 tỷ, 55.0 m² tại Huyện Gia Lâm).\n\nBạn muốn xem chi tiết hay đặt lịch xem căn này vào ngày nào?",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 1,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 1,
+          "response_kind": "PROPERTY_SELECTED"
+        },
+        {
+          "turn": 3,
+          "message": "Đặt lịch vào một ngày trong quá khứ",
+          "status": 200,
+          "elapsed_ms": 3935,
+          "failures": [],
+          "response": "Ngày trong quá khứ không hợp lệ để đặt lịch xem nhà. Bạn vui lòng chọn một ngày khác trong tương lai.",
+          "criteria": {
+            "province": "Hà Nội",
+            "property_kind": "APARTMENT"
+          },
+          "property_count": 0,
+          "ai_mode": "llm_grounded",
+          "ai_latency_ms": 3826,
+          "response_kind": "AWAITING_DATE"
+        }
+      ]
+    }
+  ]
+}

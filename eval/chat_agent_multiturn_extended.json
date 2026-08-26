@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "name": "Nera extended multi-turn state, relevance and latency suite",
+  "notes": "Every scenario reuses one session_id across its turns. The final turn must preserve, replace or remove criteria exactly as the user requested.",
+  "scenarios": [
+    {
+      "id": "MTX-001",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm nhà dưới 10 tỷ ở Cầu Giấy", "Nhà trên 2 phòng ngủ nhé"],
+      "expect_turns": [
+        {"criteria_equals": {"district": "Quận Cầu Giấy", "max_price": 10000000000}, "round_trip_ms_lte": 8000},
+        {"criteria_equals": {"district": "Quận Cầu Giấy", "max_price": 10000000000, "min_bedrooms": 3}, "property_all": [{"path": "bedrooms", "op": "gte", "value": 3}], "round_trip_ms_lte": 8000}
+      ]
+    },
+    {
+      "id": "MTX-002",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm căn hộ Hà Nội từ 3 đến 6 tỷ", "Thêm ít nhất 2 phòng ngủ", "Diện tích tối thiểu 70 m2"],
+      "expect_turns": [
+        {"criteria_equals": {"province": "Hà Nội", "min_price": 3000000000, "max_price": 6000000000, "property_kind": "APARTMENT"}},
+        {"criteria_equals": {"province": "Hà Nội", "min_price": 3000000000, "max_price": 6000000000, "min_bedrooms": 2}},
+        {"criteria_equals": {"province": "Hà Nội", "min_price": 3000000000, "max_price": 6000000000, "min_bedrooms": 2, "min_area": 70.0}, "round_trip_ms_lte": 8000}
+      ]
+    },
+    {
+      "id": "MTX-003",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm nhà Quận 7 dưới 8 tỷ", "Đổi khu vực sang Cầu Giấy", "Giữ nguyên ngân sách"],
+      "expect": {"criteria_equals": {"district": "Quận Cầu Giấy", "max_price": 8000000000}, "criteria_absent": ["province"], "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-004",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm căn hộ Cầu Giấy dưới 7 tỷ 2 phòng ngủ", "Bỏ giới hạn giá", "Chỉ cần từ 3 phòng ngủ"],
+      "expect": {"criteria_equals": {"district": "Quận Cầu Giấy", "property_kind": "APARTMENT", "min_bedrooms": 3}, "criteria_absent": ["min_price", "max_price", "max_bedrooms"], "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-005",
+      "category": "multi_turn_extended",
+      "turns": ["Tôi muốn mua căn hộ ở Hà Nội dưới 5 tỷ", "Chuyển sang thuê dưới 20 triệu mỗi tháng", "Ưu tiên nội thất đầy đủ"],
+      "expect": {"criteria_equals": {"province": "Hà Nội", "property_kind": "APARTMENT", "transaction_type": "RENT", "max_price": 20000000, "furniture_status": "Nội thất đầy đủ"}, "criteria_absent": ["min_price"], "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-006",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm đất Quận 9 dưới 4 tỷ", "Không tìm đất nữa, đổi sang nhà phố", "Ngân sách vẫn vậy"],
+      "expect": {"criteria_equals": {"district": "Quận 9", "property_kind": "TOWNHOUSE", "max_price": 4000000000}, "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-007",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm 3 căn hộ Hà Nội dưới 8 tỷ", "Cho tôi xem thêm căn khác", "Lọc tiếp căn có sổ hồng riêng"],
+      "expect": {"criteria_equals": {"province": "Hà Nội", "max_price": 8000000000, "property_kind": "APARTMENT", "legal_status": "Sổ hồng riêng"}, "search_pool_min": 1, "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-008",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm căn hộ Cầu Giấy dưới 10 tỷ", "Thêm điều kiện cách Bệnh viện Bạch Mai dưới 5 km đi xe", "Nếu đi bộ thì sao"],
+      "expect": {"criteria_equals": {"district": "Quận Cầu Giấy", "max_price": 10000000000, "property_kind": "APARTMENT"}, "geo_grounded": true, "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-009",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm nhà Hà Nội gần trường học", "Thêm bệnh viện", "Chỉ lấy ở Cầu Giấy"],
+      "expect": {"criteria_equals": {"district": "Quận Cầu Giấy"}, "geo_grounded": true, "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-010",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm căn hộ Hà Nội dưới 6 tỷ", "Tôi muốn bắt đầu nhu cầu mới", "Tìm biệt thự Đà Nẵng trên 12 tỷ có ít nhất 4 phòng ngủ"],
+      "expect": {"criteria_equals": {"province": "Đà Nẵng", "property_kind": "VILLA", "min_price": 12000000000, "min_bedrooms": 4}, "criteria_absent": ["max_price"], "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-011",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm căn hộ đúng 2 phòng ngủ ở Hà Nội", "Đổi thành tối đa 3 phòng ngủ", "Và ít nhất 1 phòng ngủ"],
+      "expect": {"criteria_equals": {"province": "Hà Nội", "property_kind": "APARTMENT", "min_bedrooms": 1, "max_bedrooms": 3}, "round_trip_ms_lte": 8000}
+    },
+    {
+      "id": "MTX-012",
+      "category": "multi_turn_extended",
+      "turns": ["Tìm căn hộ Cầu Giấy dưới 10 tỷ", "Nhà trên 2 phòng ngủ", "Trong số đó căn nào rẻ nhất?"],
+      "expect": {"criteria_equals": {"district": "Quận Cầu Giấy", "max_price": 10000000000, "min_bedrooms": 3}, "contains_any": ["rẻ", "giá"], "round_trip_ms_lte": 8000}
+    }
+  ]
+}

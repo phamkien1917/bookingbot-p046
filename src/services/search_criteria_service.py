@@ -197,8 +197,7 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         elif target:
             val = _vnd_amount(*target.groups())
             criteria["target_price"] = val
-            criteria["min_price"] = round(val * 0.8)
-            criteria["max_price"] = round(val * 1.2)
+            criteria["max_price"] = val
             groups.add("budget")
         if not minimum and not maximum and not target:
             bare_price = re.search(r"\b(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\b", text)
@@ -210,18 +209,30 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     bedrooms = re.search(r"(\d+)\s*(?:phong ngu|pn|ngu)", text)
     if bedrooms:
         bed_count = int(bedrooms.group(1))
-        is_exact = bool(re.search(r"\b(chi|chi lay|dung|chinh xac|loai|can)\b", text))
+        is_exact = bool(re.search(r"\b(chi|chi lay|dung|chinh xac|loai)\b", text))
+        is_strict_min = bool(re.search(
+            r"(?:tren|>)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)",
+            text,
+        ))
         is_min_explicit = bool(re.search(
             r"(?:tu|it nhat|toi thieu|tren|>=)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)"
             r"|" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)\s*(?:tro len|\+)",
+            text,
+        ))
+        is_strict_max = bool(re.search(
+            r"(?:duoi|<)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)",
             text,
         ))
         is_max_explicit = bool(re.search(
             r"(?:duoi|toi da|nhieu nhat|khong qua|<=)\s*" + str(bed_count) + r"\s*(?:phong ngu|pn|ngu)",
             text,
         ))
-        if is_max_explicit:
+        if is_strict_max:
+            criteria["max_bedrooms"] = max(0, bed_count - 1)
+        elif is_max_explicit:
             criteria["max_bedrooms"] = bed_count
+        elif is_strict_min:
+            criteria["min_bedrooms"] = bed_count + 1
         elif is_min_explicit:
             criteria["min_bedrooms"] = bed_count
         elif is_exact or bed_count == 1:
@@ -263,9 +274,17 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
             criteria["min_floor"] = value
             criteria["max_floor"] = value
 
-    legal_match = re.search(r"\b(so hong rieng|so hong|so do|hop dong mua ban|hdmb|vi bang)\b", text)
+    original_lower = message.lower()
+    legal_match = re.search(
+        r"\b(sổ hồng riêng|sổ hồng|sổ đỏ|hợp đồng mua bán|vi bằng)\b",
+        original_lower,
+    )
+    if not legal_match and message.isascii():
+        legal_match = re.search(r"\b(so hong rieng|so hong|so do|hop dong mua ban|hdmb|vi bang)\b", text)
     if legal_match:
         legal_labels = {
+            "sổ hồng riêng": "Sổ hồng riêng", "sổ hồng": "Sổ hồng",
+            "sổ đỏ": "Sổ đỏ", "hợp đồng mua bán": "Hợp đồng mua bán", "vi bằng": "Vi bằng",
             "so hong rieng": "Sổ hồng riêng", "so hong": "Sổ hồng",
             "so do": "Sổ đỏ", "hop dong mua ban": "Hợp đồng mua bán",
             "hdmb": "Hợp đồng mua bán", "vi bang": "Vi bằng",
@@ -334,7 +353,21 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         criteria["district"] = f"Quận {numbered_district.group(1)}"
         groups.add("location")
 
-    if re.search(r"\b(can ho|chung cu|ccmn)\b", text):
+    kind_after_switch = re.search(
+        r"\b(?:doi|chuyen|thay)(?:\s+loai)?(?:\s+nha)?\s+sang\s+"
+        r"(can ho|chung cu|biet thu|villa|dat nen|dat|nha pho|lien ke|townhouse|shophouse|nha rieng)\b",
+        text,
+    )
+    kind_labels = {
+        "can ho": "APARTMENT", "chung cu": "APARTMENT",
+        "biet thu": "VILLA", "villa": "VILLA",
+        "dat nen": "LAND", "dat": "LAND",
+        "nha pho": "TOWNHOUSE", "lien ke": "TOWNHOUSE", "townhouse": "TOWNHOUSE",
+        "shophouse": "COMMERCIAL", "nha rieng": "HOUSE",
+    }
+    if kind_after_switch:
+        criteria["property_kind"] = kind_labels[kind_after_switch.group(1)]
+    elif re.search(r"\b(can ho|chung cu|ccmn)\b", text):
         criteria["property_kind"] = "APARTMENT"
     elif re.search(r"\b(biet thu|villa)\b", text):
         criteria["property_kind"] = "VILLA"

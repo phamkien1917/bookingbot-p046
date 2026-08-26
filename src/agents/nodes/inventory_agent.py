@@ -795,6 +795,43 @@ async def answer_feature_question_on_properties(query: str, pool: list[dict[str,
     if not pool:
         return None
 
+    normalized_query = normalize_text(query)
+    if re.search(r"\b(re nhat|gia thap nhat)\b", normalized_query):
+        priced = [item for item in pool if item.get("list_price") is not None]
+        if priced:
+            chosen = min(priced, key=lambda item: float(item["list_price"]))
+            return {
+                "response": (
+                    f"Căn rẻ nhất trong danh sách hiện tại là **{chosen.get('title', 'bất động sản này')}**, "
+                    f"giá **{_price_text(chosen.get('list_price'))}**, diện tích "
+                    f"**{chosen.get('area_sqm') or '—'} m²**, {chosen.get('bedrooms') or '—'} phòng ngủ."
+                ),
+                "selected_properties": [chosen],
+                "search_results": pool,
+                "current_property_id": chosen.get("id"),
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": ["Xem chi tiết căn này", "Đặt lịch xem nhà"],
+            }
+    if re.search(r"\b(dat nhat|gia cao nhat)\b", normalized_query):
+        priced = [item for item in pool if item.get("list_price") is not None]
+        if priced:
+            chosen = max(priced, key=lambda item: float(item["list_price"]))
+            return {
+                "response": (
+                    f"Căn có giá cao nhất trong danh sách hiện tại là **{chosen.get('title', 'bất động sản này')}**, "
+                    f"giá **{_price_text(chosen.get('list_price'))}**."
+                ),
+                "selected_properties": [chosen],
+                "search_results": pool,
+                "current_property_id": chosen.get("id"),
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": ["Xem chi tiết căn này", "Đặt lịch xem nhà"],
+            }
+
     try:
         llm = get_llm()._create_chat_model()
         sys_prompt = (
@@ -892,6 +929,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         or "budget" in det_grps
         or "property_kind" in det_crit
         or "min_bedrooms" in det_crit
+        or "max_bedrooms" in det_crit
         or "min_area" in det_crit
         or "limit" in det_crit
         or any(key in det_crit for key in (
@@ -930,7 +968,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             props = await query_properties_from_db(alt_criteria, limit=3)
 
         if props:
-            comparison_text = await format_intelligent_comparison(props, query)
+            comparison_text = format_comparison_markdown(props)
             return {
                 "selected_properties": props,
                 "search_results": search_pool,
@@ -1200,14 +1238,11 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     # Check if returning user continuation
     if is_resume and properties:
-        response_msg = await format_intelligent_search_results(
+        response_msg = format_search_results_markdown(
             properties,
             criteria,
             soft_prefs,
-            query,
-            affordability_note=state.get("affordability_note"),
-            is_resume=True,
-            memory_summary=state.get("memory_summary"),
+            state.get("affordability_note"),
         )
         display_items = properties[:5] if len(properties) > 5 else properties
         return {
@@ -1353,13 +1388,11 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
     if len(properties) >= 2:
         suggested_actions.append("So sánh các căn này")
 
-    search_response_text = await format_intelligent_search_results(
+    search_response_text = format_search_results_markdown(
         properties,
         criteria,
         soft_prefs,
-        query,
-        affordability_note=state.get("affordability_note"),
-        is_resume=False,
+        state.get("affordability_note"),
     )
 
     return {

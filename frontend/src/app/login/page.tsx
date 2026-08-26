@@ -9,9 +9,10 @@ import { apiFetch } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 const demos = [
-  { label: "Khách xem nhà", email: "customer@example.com" },
-  { label: "Sale phụ trách", email: "sale@example.com" },
-  { label: "Admin điều phối", email: "admin@example.com" },
+  { label: "Khách xem nhà", email: "customer.demo@example.com" },
+  { label: "Sale phụ trách", email: "minhquan.sale.demo@example.com" },
+  { label: "Admin quản trị", email: "admin.demo@example.com" },
+  { label: "Điều phối viên", email: "coordinator.demo@example.com" },
 ];
 
 function LoginForm() {
@@ -34,25 +35,23 @@ function LoginForm() {
 
   // Handle Google OAuth callback code from URL query params
   useEffect(() => {
-    const code = searchParams.get("code");
-    if (!code) return;
+    const exchangeCode = searchParams.get("google_code") || searchParams.get("code");
+    if (!exchangeCode) return;
 
     let isMounted = true;
     async function exchangeOAuthCode(authCode: string) {
       setGoogleLoading(true);
       setError("");
       try {
-        const data = await apiFetch<{ token: string; user: User }>("/auth/google/callback", {
+        await apiFetch<{ success: boolean }>("/auth/google/exchange", {
           method: "POST",
           body: JSON.stringify({ code: authCode }),
         });
 
         if (!isMounted) return;
-        if (data.token) {
-          localStorage.setItem("nera_auth_token", data.token);
-          await refresh();
-          setAuthenticatedUser(data.user);
-        }
+        await refresh();
+        const me = await apiFetch<User>("/auth/me");
+        if (isMounted) setAuthenticatedUser(me);
       } catch (err) {
         if (!isMounted) return;
         setError(err instanceof Error ? err.message : "Đăng nhập Google thất bại.");
@@ -61,11 +60,11 @@ function LoginForm() {
       }
     }
 
-    void exchangeOAuthCode(code);
+    void exchangeOAuthCode(exchangeCode);
     return () => {
       isMounted = false;
     };
-  }, [searchParams, refresh, router]);
+  }, [searchParams, refresh]);
 
   useEffect(() => {
     if (!authenticatedUser || user?.id !== authenticatedUser.id) return;
@@ -81,6 +80,9 @@ function LoginForm() {
     try {
       const signedInUser = isRegister ? await register(form) : await login(form.email, form.password);
       setAuthenticatedUser(signedInUser);
+      const next = searchParams.get("next");
+      const destination = postLoginDestination(signedInUser.role, next);
+      window.location.href = destination;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Email hoặc mật khẩu không chính xác.");
     } finally {
@@ -196,7 +198,10 @@ function LoginForm() {
             type="email"
             autoComplete="email"
             value={form.email}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
+            onChange={(event) => {
+              setError("");
+              setForm({ ...form, email: event.target.value });
+            }}
             required
             className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 font-normal outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
           />
@@ -209,7 +214,10 @@ function LoginForm() {
               type="tel"
               autoComplete="tel"
               value={form.phone}
-              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              onChange={(event) => {
+                setError("");
+                setForm({ ...form, phone: event.target.value });
+              }}
               required
               pattern="^\+?[0-9]{8,15}$"
               className="mt-2 w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 font-normal outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
@@ -231,7 +239,10 @@ function LoginForm() {
               type={showPassword ? "text" : "password"}
               autoComplete={isRegister ? "new-password" : "current-password"}
               value={form.password}
-              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              onChange={(event) => {
+                setError("");
+                setForm({ ...form, password: event.target.value });
+              }}
               required
               minLength={8}
               className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3.5 pr-12 font-normal outline-none focus:border-[var(--sage)] focus:ring-4 focus:ring-[var(--sage)]/10"
@@ -265,7 +276,7 @@ function LoginForm() {
         {isRegister ? "Đã có tài khoản? Đăng nhập" : "Lần đầu đến đây? Tạo tài khoản người mua"}
       </button>
 
-      {process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true" && !isRegister && (
+      {(process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true") && !isRegister && (
         <div className="mt-8 border-t border-black/5 pt-6">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[.14em] text-stone-400">
             Vào nhanh bản demo · mật khẩu Demo@123
