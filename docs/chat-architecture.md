@@ -1,47 +1,39 @@
-# Chat architecture
-
-The production chat path is deliberately kept outside `src/agents/**` so that the agent experiments can evolve independently.
+# Kiến trúc chat production
 
 ```text
-Next.js chat page
-       |
-       v
-POST /api/v1/chat ---- session ownership / guest hand-off
-       |
-       +---- chat_ai_service ---- OpenAI/OpenRouter
-       |          |                 |
-       |          |                 +-- structured intent
-       |          |                 +-- grounded narrative/ranking
-       |          |
-       |          +-- reconciliation / circuit breaker / visible fallback
-       v
-chat_orchestrator ---- chat_state_service
-       |                    |
-       |                    +-- conversation metadata (signed-in user)
-       |                    +-- Redis/in-memory cache (guest)
-       |
-       +-- property search (PostgreSQL)
-       +-- booking_service (availability, create, status, cancel, reschedule)
+Next.js /chat
+    |
+    v
+POST /api/v1/chat -- rate limit, session ownership, auth context
+    |
+    v
+LangGraph supervisor
+    |-- deterministic criteria reconciliation
+    |-- structured LLM intent/context
+    |
+    +-- inventory agent -- PostgreSQL hard filters -- Geo Service
+    +-- booking agent ---- booking_service (authorization + locking)
+    +-- respond node ----- grounded/direct/fallback response
+    |
+    v
+Redis short-term state + PostgreSQL authenticated conversation
 ```
 
-The model proposes intent, soft preferences and normalized criteria using a strict schema. The backend reconciles destructive filters against deterministic parsing before SQL execution. For example, a model-inferred property type is discarded unless the user explicitly named that type. The model can reorder only property IDs already returned by PostgreSQL; unknown IDs are ignored.
+## Ranh giới tin cậy
 
-## State and trust boundaries
+- LLM chỉ phân loại và diễn đạt; SQL, quyền truy cập, giá, UUID và side effect do backend kiểm soát.
+- `search_result_refs` giữ pool kết quả gốc; `property_refs` chỉ là các card ở lượt hiện tại. Vì vậy chọn một căn không phá tham chiếu “căn 1/căn 2” ở lượt sau.
+- Giá, loại giao dịch, vị trí, loại nhà, phòng, diện tích, hướng, tầng, pháp lý và nội thất là hard filter. Tiêu chí mâu thuẫn tạo câu hỏi xác nhận, không được tự sửa.
+- Tin thuê và tin bán không bao giờ trộn. Kho không có tin thuê phải trả về không kết quả.
+- Route Matrix cung cấp quãng đường/thời gian theo `DRIVE`, `WALK`, `BICYCLE`, `TRANSIT` hoặc `TWO_WHEELER`. Places Nearby cung cấp bằng chứng tiện ích; khoảng cách POI đang hiển thị rõ là đường chim bay.
+- Thiếu API key, provider lỗi hoặc tọa độ sai tỉnh sẽ tạo cảnh báo “chưa xác minh”, không sinh số giả.
+- Booking luôn dùng customer đã xác thực, slot thực và transaction/lock trong `booking_service`.
+- Cookie đăng nhập là HttpOnly. Google OAuth không đưa JWT lên URL. Reset password dùng token 15 phút gắn với password hash hiện tại.
 
-- A session retains search criteria, returned property IDs, the selected property, requested date/time, offered slots, and pending confirmations.
-- Ordinal references such as "căn số 1" are resolved only against property IDs returned by the current session.
-- Booking creation, cancellation, status lookup, and rescheduling use the authenticated customer ID. The chat never invents customer, property, or Sale UUIDs.
-- A guest can search and choose a slot. Creating or reading a booking requires login. After login, the same high-entropy session ID is adopted and the pending action can continue.
-- Raw crawler fields and seller/source metadata are not copied into chat responses.
-- Listing titles/descriptions and user messages are treated as untrusted model input, never as system instructions.
-- Search narratives are rendered from model-written context plus server-rendered prices, areas, bedrooms and locations. The model cannot replace those numeric facts.
-- Every response exposes `ai_mode`, `ai_model`, `ai_latency_ms`, and a sanitized fallback reason. The UI shows this provenance beside the message.
-- The WebSocket mock was disabled. `POST /api/v1/chat` is the single durable chat contract.
+## State bền vững
 
-## Conversation phases
+Mỗi lượt lưu criteria, soft preferences, household context, commute landmark, giới hạn km/phút, travel mode, nearby categories, pool kết quả, căn đang chọn, lịch/slot và pending action. Redis phục vụ cache; cuộc trò chuyện đã đăng nhập được ghi PostgreSQL và kiểm tra owner khi khôi phục.
 
-The orchestrator moves through `SEARCH`, `PROPERTY_SELECTED`, `COLLECTING_SCHEDULE`, `SLOT_SELECTION`, `AUTH_REQUIRED`, and `CONFIRMATION`. A phase is persisted after each successful turn, so a server worker change does not erase an authenticated conversation.
+## Provenance phản hồi
 
-## Ownership
-
-No production changes in this work touch `src/agents/**`. The integration seam is the service layer under `src/services/`, which can later call a validated agent implementation without changing the public API or booking authorization rules.
+API trả `ai_mode`, `ai_model`, `ai_latency_ms`, `suggested_actions` và `ai_fallback_reason`. Frontend ưu tiên `suggested_actions` từ backend; không suy luận workflow từ câu chữ nếu server đã cung cấp action.

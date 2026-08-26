@@ -99,11 +99,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
-      const payload = (await response.json()) as { detail?: string; user?: User; access_token?: string };
+      const payload = (await response.json()) as { detail?: string; user?: User };
       if (!response.ok || !payload.user) throw new Error(payload.detail ?? "Đăng nhập thất bại");
-      if (payload.access_token && typeof window !== "undefined") {
-        localStorage.setItem("nera_auth_token", payload.access_token);
-      }
 
       // Read the new cookie back from the server before protected pages render.
       const confirmedUser = await apiFetch<User>("/auth/me");
@@ -127,7 +124,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     setLoading(true);
     try {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("nera_auth_token");
         // Prevent the next account from reusing a conversation owned by the
         // account signing out. Guest-to-customer login remains uninterrupted.
         sessionStorage.removeItem("nera_chat_session_id");

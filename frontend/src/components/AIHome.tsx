@@ -113,7 +113,7 @@ export default function AIHome() {
           <div className="relative animate-soft-rise [animation-delay:120ms]">
             <div className="absolute -inset-3 rotate-1 rounded-[2.2rem] bg-[var(--forest)]/8" />
             <div className="relative overflow-hidden rounded-[2rem] border border-black/5 bg-white shadow-[0_35px_100px_rgba(21,48,42,.16)]">
-              <div className="flex items-center justify-between border-b border-black/5 px-6 py-5"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--forest)] text-white"><FaMagic /></span><div><p className="font-semibold">Nera</p><p className="text-xs text-[var(--muted)]">đang lắng nghe bạn</p></div></div><span className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]"><i className="h-2 w-2 rounded-full bg-emerald-500" /> Trực tuyến</span></div>
+              <div className="flex items-center justify-between border-b border-black/5 px-6 py-5"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--forest)] text-white"><img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-6 w-6" /></span><div><p className="font-semibold">Nera</p><p className="text-xs text-[var(--muted)]">đang lắng nghe bạn</p></div></div><span className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]"><i className="h-2 w-2 rounded-full bg-emerald-500" /> Trực tuyến</span></div>
               
               {memory?.summary ? (
                 // RETURNING USER EXPERIENCE (PHASE 3)

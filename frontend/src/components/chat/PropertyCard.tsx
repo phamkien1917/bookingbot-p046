@@ -58,9 +58,9 @@ export default function PropertyCard({ property, insights, savedIds, onDetail, o
             : <div className="grid h-full min-h-40 place-items-center text-4xl">🏠</div>}
         </div>
         <div className="flex-1 p-5">
-          <div className="flex flex-wrap justify-between gap-2">
-            <h2 className="max-w-sm font-semibold leading-6">{formatPropertyTitle(property.title)}</h2>
-            <span className="font-semibold text-[var(--coral)]">{formatPropertyPrice(property.list_price)}</span>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="flex-1 font-semibold leading-6 text-stone-900 line-clamp-2">{formatPropertyTitle(property.title)}</h2>
+            <span className="shrink-0 whitespace-nowrap text-right font-bold text-[var(--coral)] sm:text-base">{formatPropertyPrice(property.list_price)}</span>
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaMapMarkerAlt className="mr-1 inline" />
@@ -74,7 +74,7 @@ export default function PropertyCard({ property, insights, savedIds, onDetail, o
           {hasInsights && (
             <button
               onClick={() => setShowReasons(v => !v)}
-              className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[var(--forest)] hover:underline"
+              className="mt-3 flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[var(--forest)] hover:underline"
             >
               <FaBrain className="text-[var(--sage)]" />
               Vì sao Nera gợi ý căn này?
@@ -97,17 +97,17 @@ export default function PropertyCard({ property, insights, savedIds, onDetail, o
           )}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={onDetail} className="rounded-full border border-black/10 px-4 py-2 text-xs font-semibold hover:bg-stone-50">Chi tiết</button>
+            <button onClick={onDetail} className="cursor-pointer rounded-full border border-black/10 px-4 py-2 text-xs font-semibold transition hover:bg-stone-50">Chi tiết</button>
             <button onClick={onSave} aria-pressed={savedIds.has(property.id)}
-              className="rounded-full border border-[var(--sage)]/50 px-4 py-2 text-xs font-semibold text-[var(--forest)] hover:bg-[#edf3ed]">
+              className="cursor-pointer rounded-full border border-[var(--sage)]/50 px-4 py-2 text-xs font-semibold text-[var(--forest)] transition hover:bg-[#edf3ed]">
               {savedIds.has(property.id) ? <FaBookmark className="mr-1 inline" /> : <FaRegBookmark className="mr-1 inline" />}
               {savedIds.has(property.id) ? "Đã lưu" : "Lưu"}
             </button>
-            <button onClick={onBook} className="rounded-full bg-[var(--forest)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90">
+            <button onClick={onBook} className="cursor-pointer rounded-full bg-[var(--forest)] px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90">
               <FaCalendarAlt className="mr-1 inline" />Đặt lịch xem
             </button>
             <button onClick={onReject}
-              className="rounded-full border border-black/8 px-4 py-2 text-xs font-medium text-[var(--muted)] hover:border-red-200 hover:text-red-500">
+              className="cursor-pointer rounded-full border border-black/8 px-4 py-2 text-xs font-medium text-[var(--muted)] transition hover:border-red-200 hover:text-red-500">
               <FaTimesCircle className="mr-1 inline" />Không phù hợp
             </button>
           </div>

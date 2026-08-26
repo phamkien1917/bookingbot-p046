@@ -113,6 +113,36 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     criteria: dict = {}
     groups: set[str] = set()
 
+    # Loan calculations or interest inquiries without explicit house search intent
+    # must not pollute search criteria with loan amounts or year counts.
+    norm_orig = message.lower()
+    is_loan_inquiry = (
+        bool(re.search(r"\b(vay von|vay tien|vay ngan hang|khoan vay|tinh lai|tinh phuong an vay|tinh lai vay|lai suat vay|cho vay)\b", text))
+        or (bool(re.search(r"\bvay\s+\d+", text)) and not bool(re.search(r"\b(?:vay|vậy)\s+(?:thi|noi|tang|giam|doi|chuyen|chon|ha|nang)\b", norm_orig)))
+    ) and not bool(re.search(r"\b(tim|can mua|muon mua|thue nha|tim can ho|tim nha|bat dong san|bds)\b", text))
+    if is_loan_inquiry:
+        return criteria, groups
+
+    sale_signal = re.search(
+        r"\b(mua|can mua|muon mua|ban nha|ban can ho|nha ban|dang ban|rao ban)\b",
+        text,
+    )
+    # Renters rarely say "thuê". They say "phòng trọ", "ở ghép", "tìm phòng".
+    # Reading those as a sale query is how a student looking for a room near
+    # their campus ends up being shown homes for sale.
+    rent_signal = re.search(
+        r"\b(?:thue|cho thue|o ghep|o tro|nha tro|phong tro|xom tro|ki tuc xa|ky tuc xa)\b"
+        r"|\b(?:tim|can|muon|kiem|share)\s+phong\b(?!\s*(?:ngu|khach|bep|tam|an))",
+        text,
+    )
+    cancels_rent = re.search(r"\b(khong thue nua|thoi thue|bo thue|chuyen (?:sang )?mua)\b", text)
+    if sale_signal and (not rent_signal or cancels_rent):
+        criteria["transaction_type"] = "SALE"
+        groups.add("transaction")
+    elif rent_signal:
+        criteria["transaction_type"] = "RENT"
+        groups.add("transaction")
+
     # Requested quantity / limit detection
     num_qty = re.search(
         r"\b(?:tim|goi y|cho|lay|chon|xem|can|muon|top)?\s*(\d+)\s*(?:can ho|can nha|can|nha|bat dong san|bds|biet thu|villa|lo dat)\b(?!\s*(?:phong|pn|ngu|tang|ty|ti|trieu|tr|m2|m|met|tieng|gio|thang|nam))",
@@ -137,27 +167,45 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         groups.add("quantity")
 
     price_range = re.search(
-        r"(?:tu|khoang)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\s*(?:den|-|toi)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
+        r"(?:tu|khoang)\s*(\d+(?:[.,]\d+)?)\s*(?:(ty|ti|trieu|tr)\s*)?"
+        r"(?:den|-|toi)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
         text,
     )
     if price_range:
         low_value, low_unit, high_value, high_unit = price_range.groups()
-        criteria["min_price"] = _vnd_amount(low_value, low_unit)
+        criteria["min_price"] = _vnd_amount(low_value, low_unit or high_unit)
         criteria["max_price"] = _vnd_amount(high_value, high_unit)
         groups.add("budget")
     else:
         minimum = re.search(r"(?:tren|tu|toi thieu|it nhat|>=)\s*(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)", text)
         maximum = re.search(
-            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|tam|len)\s*"
+            r"(?:duoi|toi da|nhieu nhat|khong qua|<=|ngan sach(?: la)?|len|noi len|tang len)\s*"
+            r"(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
+            text,
+        )
+        target = re.search(
+            r"(?:khoang|tam|co|quanh|xung quanh|gia|dung|chinh xac)\s*"
             r"(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)",
             text,
         )
         if minimum:
             criteria["min_price"] = _vnd_amount(*minimum.groups())
             groups.add("budget")
-        elif maximum:
+        if maximum:
             criteria["max_price"] = _vnd_amount(*maximum.groups())
             groups.add("budget")
+        elif target:
+            val = _vnd_amount(*target.groups())
+            criteria["target_price"] = val
+            criteria["min_price"] = round(val * 0.8)
+            criteria["max_price"] = round(val * 1.2)
+            groups.add("budget")
+        if not minimum and not maximum and not target:
+            bare_price = re.search(r"\b(\d+(?:[.,]\d+)?)\s*(ty|ti|trieu|tr)\b", text)
+            if bare_price and not re.search(rf"\b(?:tang|pn|phong|nam|thang|m2|met)\s*{bare_price.group(1)}\b", text):
+                val = _vnd_amount(*bare_price.groups())
+                criteria["max_price"] = val
+                groups.add("budget")
 
     bedrooms = re.search(r"(\d+)\s*(?:phong ngu|pn|ngu)", text)
     if bedrooms:
@@ -186,6 +234,51 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     if area:
         criteria["min_area"] = float(area.group(1).replace(",", "."))
 
+    orientation = re.search(
+        r"\bhuong\s+(dong nam|dong bac|tay nam|tay bac|dong|tay|nam|bac)\b",
+        text,
+    )
+    if orientation:
+        orientation_labels = {
+            "dong nam": "Đông Nam", "dong bac": "Đông Bắc",
+            "tay nam": "Tây Nam", "tay bac": "Tây Bắc",
+            "dong": "Đông", "tay": "Tây", "nam": "Nam", "bac": "Bắc",
+        }
+        criteria["orientation"] = orientation_labels[orientation.group(1)]
+
+    floor_range = re.search(r"(?:tu|khoang)\s*tang\s*(\d+)\s*(?:den|-|toi)\s*tang?\s*(\d+)", text)
+    floor_min = re.search(r"(?:tu|tren|it nhat|toi thieu)\s*tang\s*(\d+)|tang\s*(\d+)\s*tro len", text)
+    floor_max = re.search(r"(?:duoi|toi da|khong qua)\s*tang\s*(\d+)|tang\s*(\d+)\s*tro xuong", text)
+    floor_exact = re.search(r"\b(?:o|tai|can)\s*tang\s*(\d+)\b|\btang\s*(\d+)\b", text)
+    if floor_range:
+        criteria["min_floor"] = int(floor_range.group(1))
+        criteria["max_floor"] = int(floor_range.group(2))
+    else:
+        if floor_min:
+            criteria["min_floor"] = int(floor_min.group(1) or floor_min.group(2))
+        if floor_max:
+            criteria["max_floor"] = int(floor_max.group(1) or floor_max.group(2))
+        if not floor_min and not floor_max and floor_exact:
+            value = int(floor_exact.group(1) or floor_exact.group(2))
+            criteria["min_floor"] = value
+            criteria["max_floor"] = value
+
+    legal_match = re.search(r"\b(so hong rieng|so hong|so do|hop dong mua ban|hdmb|vi bang)\b", text)
+    if legal_match:
+        legal_labels = {
+            "so hong rieng": "Sổ hồng riêng", "so hong": "Sổ hồng",
+            "so do": "Sổ đỏ", "hop dong mua ban": "Hợp đồng mua bán",
+            "hdmb": "Hợp đồng mua bán", "vi bang": "Vi bằng",
+        }
+        criteria["legal_status"] = legal_labels[legal_match.group(1)]
+
+    if re.search(r"\b(noi that day du|full noi that)\b", text):
+        criteria["furniture_status"] = "Nội thất đầy đủ"
+    elif re.search(r"\b(noi that cao cap)\b", text):
+        criteria["furniture_status"] = "Nội thất cao cấp"
+    elif re.search(r"\b(hoan thien co ban|noi that co ban)\b", text):
+        criteria["furniture_status"] = "Hoàn thiện cơ bản"
+
     # Region detection
     if re.search(r"\b(mien bac|phia bac|bac bo)\b", text):
         criteria["region"] = "Miền Bắc"
@@ -200,7 +293,7 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
     if re.search(r"ha\s*noi", text):
         criteria["province"] = "Hà Nội"
         groups.add("location")
-    elif re.search(r"ho\s*chi\s*minh|tphcm|sai\s*gon", text):
+    elif re.search(r"ho\s*chi\s*minh|tp\s*\.?\s*hcm|tphcm|sai\s*gon", text):
         criteria["province"] = "Hồ Chí Minh"
         groups.add("location")
     elif re.search(r"da\s*nang", text):
@@ -265,11 +358,16 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
     allowed = {
         "limit", "region", "area_or_ward", "ward", "district", "province", "property_kind", "min_price", "max_price",
         "min_bedrooms", "max_bedrooms", "min_bathrooms", "min_area",
+        "transaction_type", "orientation", "legal_status", "furniture_status",
+        "min_floor", "max_floor",
     }
     current, groups = extract_search_criteria(message)
     text = _normalize(message)
     starts_new_search = (
-        bool(re.search(r"\b(tim|tim kiem|mua|can mua|muon mua|can tim|muon tim)\b", text))
+        bool(re.search(
+            r"\b(tim|tim kiem|can mua|muon mua|can thue|muon thue|can tim|muon tim)\b",
+            text,
+        ))
         and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", text))
     )
     merged = {} if starts_new_search else {
@@ -286,12 +384,35 @@ def build_search_criteria(message: str, memory: dict | None) -> dict:
     if "min_bedrooms" in current or "max_bedrooms" in current:
         merged.pop("min_bedrooms", None)
         merged.pop("max_bedrooms", None)
+    if "min_floor" in current or "max_floor" in current:
+        merged.pop("min_floor", None)
+        merged.pop("max_floor", None)
     if "location" in groups:
         merged.pop("region", None)
         merged.pop("area_or_ward", None)
         merged.pop("ward", None)
         merged.pop("district", None)
         merged.pop("province", None)
+    if "transaction" in groups:
+        merged.pop("transaction_type", None)
 
     merged.update(current)
     return merged
+
+
+def validate_search_criteria(criteria: dict) -> list[str]:
+    """Return contradictions so the agent can ask instead of guessing."""
+    errors: list[str] = []
+    if criteria.get("min_price") is not None and criteria.get("max_price") is not None:
+        if criteria["min_price"] > criteria["max_price"]:
+            errors.append("mức giá tối thiểu đang lớn hơn mức giá tối đa")
+    if criteria.get("min_bedrooms") is not None and criteria.get("max_bedrooms") is not None:
+        if criteria["min_bedrooms"] > criteria["max_bedrooms"]:
+            errors.append("số phòng ngủ tối thiểu đang lớn hơn số tối đa")
+    if criteria.get("min_floor") is not None and criteria.get("max_floor") is not None:
+        if criteria["min_floor"] > criteria["max_floor"]:
+            errors.append("tầng tối thiểu đang lớn hơn tầng tối đa")
+    if criteria.get("transaction_type") == "SALE" and criteria.get("max_price") is not None:
+        if criteria["max_price"] < 100_000_000:
+            errors.append("ngân sách mua nhà dưới 100 triệu đồng chưa phù hợp với thị trường mở bán (mức giá này thường là ngân sách thuê hằng tháng hoặc gõ nhầm)")
+    return errors

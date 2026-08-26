@@ -79,6 +79,11 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     settings = get_settings()
+    if settings.app_env == "production" and (
+        settings.jwt_secret_key.startswith("development-only")
+        or len(settings.jwt_secret_key) < 32
+    ):
+        raise RuntimeError("JWT_SECRET_KEY must be a unique secret of at least 32 characters in production")
     logger.info(f"Starting {settings.app_name} in {settings.app_env} mode")
 
     # Startup
@@ -87,7 +92,10 @@ async def lifespan(app: FastAPI):
     logger.info("Creating database tables...")
     await create_tables()
     await apply_runtime_migrations()
-    await auto_seed_if_empty()
+    if settings.app_env == "development":
+        await auto_seed_if_empty()
+    else:
+        logger.info("Automatic demo seeding disabled outside development")
     logger.info("Database tables and migrations ready")
 
     try:

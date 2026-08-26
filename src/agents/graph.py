@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from langgraph.graph import END, StateGraph
 
@@ -18,6 +20,11 @@ from src.agents.nodes import (
 from src.agents.state import AgentState
 
 logger = logging.getLogger(__name__)
+
+
+def _route_after_worker(state: AgentState) -> str:
+    """Escalate worker failures into the durable HITL queue."""
+    return "hitl" if state.get("awaiting_human") and not state.get("hitl_case_id") else "respond"
 
 
 def build_agent_graph() -> StateGraph:
@@ -51,8 +58,8 @@ def build_agent_graph() -> StateGraph:
 
     # All worker nodes transition to respond node to finalize the output
     graph.add_edge("inventory", "respond")
-    graph.add_edge("booking", "respond")
-    graph.add_edge("assignment", "respond")
+    graph.add_conditional_edges("booking", _route_after_worker, {"hitl": "hitl", "respond": "respond"})
+    graph.add_conditional_edges("assignment", _route_after_worker, {"hitl": "hitl", "respond": "respond"})
     graph.add_edge("hitl", "respond")
     graph.add_edge("respond", END)
 
@@ -70,12 +77,30 @@ def get_agent_graph():
     return _compiled_agent
 
 
-async def run_agent(state: AgentState) -> AgentState:
-    """Execute the multi-agent graph with error boundary and recovery."""
+async def run_agent(
+    state: AgentState,
+    on_stage: Callable[[str], None] | None = None,
+) -> AgentState:
+    """Execute the multi-agent graph with error boundary and recovery.
+
+    When `on_stage` is given the graph is streamed node by node and the callback
+    receives each node name as it finishes, so a caller can report real progress
+    instead of guessing at it. The result is identical either way: AgentState is a
+    plain TypedDict with no reducers, so merging the per-node updates in order
+    produces what ainvoke would have returned.
+    """
     graph = get_agent_graph()
     try:
-        result = await graph.ainvoke(state)
-        return result
+        if on_stage is None:
+            return await graph.ainvoke(state)
+
+        merged: dict[str, Any] = dict(state)
+        async for chunk in graph.astream(state, stream_mode="updates"):
+            for node_name, updates in chunk.items():
+                if isinstance(updates, dict):
+                    merged.update(updates)
+                on_stage(node_name)
+        return merged  # type: ignore[return-value]
     except Exception as exc:
         logger.exception("Error executing LangGraph agent: %s", exc)
         fallback_state = dict(state)

@@ -34,9 +34,25 @@ export interface Property {
   area_sqm: number;
   bedrooms?: number | null;
   bathrooms?: number | null;
+  floor_number?: number | null;
+  orientation?: string | null;
+  legal_status?: string | null;
   list_price?: number | null;
   currency: string;
   features?: Record<string, unknown>;
+  distance_evidence?: {
+    distance_km: number;
+    duration_minutes: number;
+    destination: string;
+    travel_mode: string;
+    provider: string;
+    attribution?: string;
+  };
+  nearby_evidence?: Array<{
+    name: string;
+    category?: string;
+    straight_line_km: number;
+  }>;
   media: PropertyMedia[];
   image?: string | null;
 }
@@ -76,6 +92,12 @@ export interface Booking {
     starts_at: string;
     ends_at: string;
   } | null;
+  hold?: {
+    id: string;
+    hold_code: string;
+    status: string;
+    expires_at: string;
+  } | null;
 }
 
 export interface AvailabilitySlot {
@@ -84,4 +106,6 @@ export interface AvailabilitySlot {
   starts_at: string;
   ends_at: string;
   label: string;
+  preference_match?: boolean;
+  preference_score?: number;
 }

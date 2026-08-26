@@ -2,15 +2,15 @@
 
 import json
 import logging
-import uuid
-from datetime import datetime, timedelta
 from uuid import UUID
 
 from langchain_core.tools import tool
 from sqlalchemy import and_, select
 
 from src.database.connection import get_session_context
-from src.database.models import Appointment, HoldStatus, Property, PropertyHold, PropertyStatus
+from src.database.models import Appointment, AppointmentStatus, HoldStatus, Property, PropertyHold, PropertyStatus
+from src.services.property_hold_service import create_hold_for_appointment
+from src.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +144,7 @@ async def check_property_availability(property_id: str) -> str:
                 and_(
                     PropertyHold.property_id == UUID(property_id),
                     PropertyHold.status == HoldStatus.ACTIVE,
-                    PropertyHold.expires_at > datetime.utcnow(),
+                    PropertyHold.expires_at > utcnow(),
                 )
             )
             hold_result = await session.execute(hold_stmt)
@@ -180,7 +180,8 @@ async def hold_property(property_id: str, customer_id: str, hold_minutes: int = 
     """
     try:
         async with get_session_context() as session:
-            # Check if property exists and is available
+            # A hold is only valid after the real booking approval created an
+            # appointment.  Never manufacture foreign keys for an agent tool.
             prop_stmt = select(Property).where(Property.id == UUID(property_id))
             prop_result = await session.execute(prop_stmt)
             prop = prop_result.scalar_one_or_none()
@@ -188,63 +189,25 @@ async def hold_property(property_id: str, customer_id: str, hold_minutes: int = 
             if not prop:
                 return json.dumps({"error": "Property not found"})
 
-            # Check for existing active hold
-            hold_check = select(PropertyHold).where(
-                and_(
-                    PropertyHold.property_id == UUID(property_id),
-                    PropertyHold.status == HoldStatus.ACTIVE,
-                    PropertyHold.expires_at > datetime.utcnow(),
-                )
-            )
-            existing = await session.execute(hold_check)
-            if existing.scalar_one_or_none():
-                return json.dumps({"error": "Property already has an active hold"})
-
-            # Check if there's already an appointment (confirmed booking)
-            apt_stmt = select(Appointment).where(
+            appointment = await session.scalar(select(Appointment).where(
                 and_(
                     Appointment.property_id == UUID(property_id),
-                    Appointment.status.in_(["CONFIRMED", "IN_PROGRESS"]),
+                    Appointment.customer_user_id == UUID(customer_id),
+                    Appointment.status.in_([AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS]),
                 )
+            ).order_by(Appointment.created_at.desc()))
+            if not appointment:
+                return json.dumps({
+                    "error": "A confirmed appointment is required before holding a property",
+                    "property_id": property_id,
+                })
+
+            hold = await create_hold_for_appointment(
+                session,
+                appointment,
+                appointment.sale_user_id,
+                hold_minutes=hold_minutes,
             )
-            apt_result = await session.execute(apt_stmt)
-            if apt_result.scalar_one_or_none():
-                return json.dumps({"error": "Property is already booked"})
-
-            # Create placeholder appointment for hold
-            appointment_id = uuid.uuid4()
-            booking_code = f"BK{uuid.uuid4().hex[:8].upper()}"
-
-            appointment = Appointment(
-                id=appointment_id,
-                booking_code=booking_code,
-                tour_request_id=uuid.uuid4(),  # Placeholder
-                customer_user_id=UUID(customer_id),
-                property_id=UUID(property_id),
-                sale_user_id=uuid.uuid4(),  # Placeholder
-                status="CONFIRMED",  # Placeholder
-                starts_at=datetime.utcnow(),
-                ends_at=datetime.utcnow() + timedelta(minutes=hold_minutes),
-            )
-            session.add(appointment)
-
-            # Create hold
-            now = datetime.utcnow()
-            hold = PropertyHold(
-                id=uuid.uuid4(),
-                hold_code=f"HD{uuid.uuid4().hex[:8].upper()}",
-                appointment_id=appointment_id,
-                property_id=UUID(property_id),
-                customer_user_id=UUID(customer_id),
-                approved_by_user_id=uuid.uuid4(),  # System
-                status=HoldStatus.ACTIVE,
-                starts_at=now,
-                expires_at=now + timedelta(minutes=hold_minutes),
-                max_expires_at=now + timedelta(minutes=hold_minutes * 2),
-            )
-            session.add(hold)
-
-            await session.flush()
 
             result = {
                 "success": True,
@@ -287,7 +250,7 @@ async def release_hold(hold_id: str, reason: str = "Manual release") -> str:
 
             # Update hold status
             hold.status = HoldStatus.RELEASED
-            hold.released_at = datetime.utcnow()
+            hold.released_at = utcnow()
             hold.release_reason = reason
 
             await session.flush()

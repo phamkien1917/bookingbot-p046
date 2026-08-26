@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Script test chat truc tiep de debug."""
 
+__test__ = False  # Debug CLI, not a pytest module.
+
 import asyncio
-import sys
 import logging
+import sys
+import time
+import traceback
 from pathlib import Path
+
+from langchain_core.messages import HumanMessage
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -17,10 +23,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from src.agents.state import create_initial_state
-from src.agents.graph import get_agent_graph
-from src.services.llm import get_llm, reset_llm
-from langchain_core.messages import HumanMessage
+from src.agents.graph import get_agent_graph  # noqa: E402
+from src.agents.state import create_initial_agent_state  # noqa: E402
+from src.services.knowledge_base import get_answer  # noqa: E402
+from src.services.llm import get_llm, reset_llm  # noqa: E402
 
 
 async def test_single_message(message: str):
@@ -33,7 +39,7 @@ async def test_single_message(message: str):
     reset_llm()
 
     # Create state
-    state = create_initial_state(
+    state = create_initial_agent_state(
         session_id="test-session-001",
         query=message,
     )
@@ -44,8 +50,7 @@ async def test_single_message(message: str):
     print(f"[INIT] Next action: {state.get('next_action')}")
 
     # Run agent
-    print(f"\n[RUN] Running agent...")
-    import time
+    print("\n[RUN] Running agent...")
     start = time.time()
 
     try:
@@ -60,7 +65,7 @@ async def test_single_message(message: str):
         if resp:
             print(f"[RESULT] Response: {resp[:200]}...")
         else:
-            print(f"[RESULT] Response: EMPTY")
+            print("[RESULT] Response: EMPTY")
         print(f"[RESULT] Error: {result.get('error')}")
         print(f"[RESULT] Intent: {result.get('intent')}")
         print(f"[RESULT] Next action: {result.get('next_action')}")
@@ -79,7 +84,6 @@ async def test_single_message(message: str):
     except Exception as e:
         elapsed = time.time() - start
         print(f"\n[FAIL] Error after {elapsed:.2f}s: {type(e).__name__}: {e}")
-        import traceback
         traceback.print_exc()
         return None
 
@@ -96,7 +100,6 @@ async def test_llm_direct(message: str):
     print(f"\n[LLM] Model: {llm.model_name}")
 
     try:
-        import time
         start = time.time()
 
         result = await llm.ainvoke([HumanMessage(content=message)])
@@ -120,9 +123,6 @@ async def test_knowledge_base(message: str):
     print(f"[KB] Testing: {message}")
     print(f"{'='*60}")
 
-    from src.services.knowledge_base import get_answer
-
-    import time
     start = time.time()
 
     result = await get_answer(message)
@@ -134,7 +134,7 @@ async def test_knowledge_base(message: str):
         result_clean = result.encode('ascii', 'replace').decode('ascii')
         print(f"[KB] Result: {result_clean[:100]}...")
     else:
-        print(f"[KB] Result: None")
+        print("[KB] Result: None")
 
     return result
 

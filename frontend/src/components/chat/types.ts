@@ -16,6 +16,7 @@ export interface ChatResponse {
   session_id: string;
   properties: Property[];
   insights: Record<string, unknown>;
+  suggested_actions?: string[];
   memory_summary?: string;
   auth_required?: boolean;
   ai_mode: string;
