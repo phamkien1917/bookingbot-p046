@@ -127,7 +127,14 @@ def extract_search_criteria(message: str) -> tuple[dict, set[str]]:
         r"\b(mua|can mua|muon mua|ban nha|ban can ho|nha ban|dang ban|rao ban)\b",
         text,
     )
-    rent_signal = re.search(r"\b(thue|can thue|muon thue|cho thue)\b", text)
+    # Renters rarely say "thuê". They say "phòng trọ", "ở ghép", "tìm phòng".
+    # Reading those as a sale query is how a student looking for a room near
+    # their campus ends up being shown homes for sale.
+    rent_signal = re.search(
+        r"\b(?:thue|cho thue|o ghep|o tro|nha tro|phong tro|xom tro|ki tuc xa|ky tuc xa)\b"
+        r"|\b(?:tim|can|muon|kiem|share)\s+phong\b(?!\s*(?:ngu|khach|bep|tam|an))",
+        text,
+    )
     cancels_rent = re.search(r"\b(khong thue nua|thoi thue|bo thue|chuyen (?:sang )?mua)\b", text)
     if sale_signal and (not rent_signal or cancels_rent):
         criteria["transaction_type"] = "SALE"
