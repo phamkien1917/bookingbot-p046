@@ -392,7 +392,11 @@ class GeoService:
             if destination or destination_coordinates:
                 target = destination_coordinates or await self.geocode(str(destination))
                 if not target:
-                    return GeoSearchResult(properties, f"Không xác định được vị trí ‘{destination}’.")
+                    return GeoSearchResult(
+                        properties,
+                        f"Chưa thể xác minh vị trí ‘{destination}’ bằng Google Maps; "
+                        "kết quả chưa được lọc theo khoảng cách/thời gian.",
+                    )
                 routes = await self.route_matrix(
                     [(float(item["latitude"]), float(item["longitude"])) for item in valid],
                     target,

@@ -223,6 +223,28 @@ def _area_is_geo_target(area: str, geo: dict[str, Any]) -> bool:
     )
 
 
+def _is_generic_geo_category_landmark(value: str | None) -> bool:
+    """Reject generic POI labels as route destinations; Places handles them."""
+    if not value:
+        return False
+    remainder = normalize_text(value)
+    for term in (
+        "truong hoc",
+        "truong cap",
+        "mam non",
+        "benh vien",
+        "phong kham",
+        "y te",
+        "dai hoc",
+        "cao dang",
+        "sieu thi",
+        "cong vien",
+    ):
+        remainder = remainder.replace(term, " ")
+    remainder = re.sub(r"\b(?:gan|va|hoac|cac|khu vuc|xung quanh)\b", " ", remainder)
+    return not remainder.strip(" ,.-")
+
+
 async def supervisor_node(state: AgentState) -> dict[str, Any]:
     """Supervisor node: runs LLM understanding on full conversation context."""
     started = time.perf_counter()
@@ -664,6 +686,14 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     latency_ms = round((time.perf_counter() - started) * 1000)
 
+    llm_landmark = understanding.commute_landmark
+    if (
+        det_geo.get("nearby_categories")
+        and not det_geo.get("commute_landmark")
+        and _is_generic_geo_category_landmark(llm_landmark)
+    ):
+        llm_landmark = None
+
     # Construct state updates
     updates: dict[str, Any] = {
         "current_agent": current_agent,
@@ -673,7 +703,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         "search_criteria": merged_criteria,
         "soft_preferences": soft_prefs,
         "household_context": household_ctx,
-        "commute_landmark": ("Vị trí của bạn" if state.get("user_location") else None) or det_geo.get("commute_landmark") or understanding.commute_landmark or (None if understanding.is_new_search else state.get("commute_landmark")),
+        "commute_landmark": ("Vị trí của bạn" if state.get("user_location") else None) or det_geo.get("commute_landmark") or llm_landmark or (None if understanding.is_new_search else state.get("commute_landmark")),
         "max_commute_minutes": det_geo.get("max_commute_minutes") or understanding.max_commute_minutes or (None if understanding.is_new_search else state.get("max_commute_minutes")),
         "max_commute_km": det_geo.get("max_commute_km") or understanding.max_commute_km or (None if understanding.is_new_search else state.get("max_commute_km")),
         "travel_mode": det_geo.get("travel_mode") or understanding.travel_mode or ("DRIVE" if understanding.is_new_search else state.get("travel_mode", "DRIVE")),

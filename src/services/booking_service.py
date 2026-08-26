@@ -594,7 +594,6 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
         except Exception:
             pass
     reminder_specs = [
-        (row.customer_user_id, timedelta(hours=24), "tour_reminder_24h"),
         (sale_user_id, timedelta(hours=2), "sale_departure_reminder"),
         (row.customer_user_id, timedelta(minutes=30), "tour_reminder_30m"),
     ]

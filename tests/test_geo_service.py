@@ -1,7 +1,7 @@
 import pytest
 
 from src.agents.nodes.inventory_agent import format_property_details_markdown
-from src.agents.nodes.supervisor import _area_is_geo_target
+from src.agents.nodes.supervisor import _area_is_geo_target, _is_generic_geo_category_landmark
 from src.services.geo_service import GeoService, has_valid_coordinates, haversine_km
 
 
@@ -37,6 +37,12 @@ def test_commute_landmark_is_not_inventory_area() -> None:
         "Phường Bạch Mai",
         {"commute_landmark": "Bệnh viện Bạch Mai"},
     )
+
+
+def test_generic_poi_category_is_not_treated_as_route_destination() -> None:
+    assert _is_generic_geo_category_landmark("trường học")
+    assert _is_generic_geo_category_landmark("trường học và bệnh viện")
+    assert not _is_generic_geo_category_landmark("Bệnh viện Bạch Mai")
 
 
 def test_geo_unavailable_details_do_not_echo_listing_claims() -> None:
