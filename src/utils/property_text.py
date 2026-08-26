@@ -122,6 +122,77 @@ def clean_property_title(raw_title: str | None) -> str | None:
     return title
 
 
+# Crawled descriptions end in the broker's own sales pitch: a phone number, a
+# name to call, a thank-you. None of it is a fact about the home, and quoting it
+# back makes Nera sound like it is reading a classified ad.
+_JUNK_SENTENCE = re.compile(
+    r"0\d[\d\s.\-]{6,}\d"                                 # phone number
+    r"|\d\s*\*{3,}"                                       # masked phone tail: "0903 899 ***"
+    r"|(?<![a-zà-ỹ])(?:li[eê]n\s*h[eệ]|lh|hotline|zalo|inbox|call|alo)(?![a-zà-ỹ])"
+    r"|(?<![a-zà-ỹ])(?:g[oọ]i\s*ngay|nh[aắ]n\s*tin|xem\s*nh[aà]\s*24/?7)(?![a-zà-ỹ])"
+    r"|(?<![a-zà-ỹ])(?:mi[eễ]n\s*ph[ií]\s*m[oô]i\s*gi[oớ]i|ph[ií]\s*m[oô]i\s*gi[oớ]i|hoa\s*h[oồ]ng)(?![a-zà-ỹ])"
+    r"|(?<![a-zà-ỹ])(?:c[aả]m\s*[oơ]n|tr[aâ]n\s*tr[oọ]ng|h[aâ]n\s*h[aạ]nh|[dđ][uừ]ng\s*b[oỏ]\s*l[oỡ]|nhanh\s*tay)(?![a-zà-ỹ])",
+    re.IGNORECASE,
+)
+
+# "0909 139 *** (24/7). Mr Mừng." loses the number to the rule above and leaves
+# the name stranded as its own sentence.
+_BROKER_NAME_ONLY = re.compile(
+    r"^(?:mr|ms|mrs|anh|ch[iị]|em|c[oô]|ch[uú])\.?\s+\S{1,15}\.?$",
+    re.IGNORECASE,
+)
+
+# A line made only of ***, ----, ==== or ____ is a visual divider from the source
+# listing; it renders as a stray rule in the chat bubble.
+_DIVIDER_LINE = re.compile(r"^[\s*\-=_~•+]+$")
+
+# Splitting after "Ms." would leave the broker's name behind once the sentence
+# holding their phone number is dropped.
+_SENTENCE_SPLIT = re.compile(
+    r"(?<=[.!?…])(?<!\bMs\.)(?<!\bMr\.)(?<!Mrs\.)(?<!\bTP\.)(?<!\bQ\.)(?<!\bP\.)\s+",
+    re.IGNORECASE,
+)
+
+
+def clean_property_description(raw: str | None, max_chars: int = 1200) -> str | None:
+    """Strip broker contact pitch and dividers from a crawled description.
+
+    Filtering happens per sentence, because the contact line is sometimes its own
+    paragraph and sometimes the last sentence of a real one.
+    """
+    if not raw:
+        return raw
+
+    kept_lines: list[str] = []
+    for line in str(raw).splitlines():
+        stripped = line.strip()
+        if not stripped:
+            kept_lines.append("")
+            continue
+        if _DIVIDER_LINE.match(stripped):
+            continue
+        # "***The Global City ..." is a real sentence wearing a decoration.
+        stripped = re.sub(r"^[*=~_]{2,}\s*", "", stripped)
+        sentences = [
+            s
+            for s in _SENTENCE_SPLIT.split(stripped)
+            if not _JUNK_SENTENCE.search(s) and not _BROKER_NAME_ONLY.match(s.strip())
+        ]
+        rebuilt = " ".join(s.strip() for s in sentences if s.strip())
+        if rebuilt:
+            kept_lines.append(rebuilt)
+
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(kept_lines)).strip()
+
+    if len(text) > max_chars:
+        window = text[:max_chars]
+        # Prefer a sentence boundary so the excerpt does not stop mid-word.
+        cut = max(window.rfind(". "), window.rfind("\n"), window.rfind("! "), window.rfind("? "))
+        text = (window[: cut + 1] if cut > max_chars // 2 else window.rstrip()).rstrip() + "…"
+
+    return text or None
+
+
 def build_full_address(
     address_line: str | None,
     ward: str | None,

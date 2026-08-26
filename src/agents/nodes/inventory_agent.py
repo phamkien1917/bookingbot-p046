@@ -26,7 +26,12 @@ from src.services.geo_service import (
 )
 from src.services.llm import get_llm
 from src.services.search_criteria_service import REGION_PROVINCES, extract_search_criteria
-from src.utils.property_text import clean_property_title, get_search_variations, match_property_by_title
+from src.utils.property_text import (
+    clean_property_description,
+    clean_property_title,
+    get_search_variations,
+    match_property_by_title,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +75,7 @@ def serialize_property_item(prop: Property) -> dict[str, Any]:
         "code": prop.code,
         "property_kind": prop.property_kind.value if prop.property_kind else None,
         "title": clean_property_title(prop.title),
-        "description": str(prop.description)[:1200] if prop.description else None,
+        "description": clean_property_description(prop.description),
         "status": prop.status.value if prop.status else None,
         "address_line": prop.address_line,
         "ward": prop.ward,
@@ -247,6 +252,19 @@ async def query_properties_from_db(
             return _interleave_properties_by_province(items, limit=effective_limit)
 
         return items
+
+
+async def count_rental_listings() -> int:
+    """Number of listings marked for rent, ignoring every other criterion.
+
+    A zero here means Nera has no rentals at all, which is a different answer to
+    the customer than "none matched your budget" and must not be blurred into it.
+    """
+    async with get_session_context() as session:
+        stmt = select(func.count()).select_from(Property).where(
+            Property.features["listing_type"].astext == "RENT"
+        )
+        return int((await session.execute(stmt)).scalar() or 0)
 
 
 async def load_properties_by_ids(ids: list[str]) -> list[dict[str, Any]]:
@@ -564,9 +582,7 @@ def format_property_details_markdown(
     include_description: bool = True,
 ) -> str:
     location = ", ".join(filter(None, [item.get("address_line"), item.get("ward"), item.get("district"), item.get("province")]))
-    desc = str(item.get("description") or "").strip()
-    if len(desc) > 300:
-        desc = desc[:300] + "..."
+    desc = clean_property_description(item.get("description"), max_chars=300) or ""
 
     lines = [
         f"### 🏠 {item.get('title', 'Thông tin Bất động sản')}\n",
@@ -1283,18 +1299,33 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             }
 
         if criteria.get("transaction_type") == "RENT":
-            return {
-                "selected_properties": [],
-                "search_results": [],
-                "response": (
+            rental_total = await count_rental_listings()
+            if rental_total == 0:
+                # Saying "chưa khớp tiêu chí" would imply rentals exist and the
+                # filters were too tight. They do not exist at all, and the
+                # customer deserves to hear that before they keep rewording.
+                response = (
+                    "Nera nói thật với bạn: kho hiện tại **chỉ có tin bán, chưa có tin cho thuê nào**. "
+                    "Nera sẽ không đưa tin bán vào kết quả thuê để bạn khỏi mất công xem nhầm.\n\n"
+                    "Nếu bạn đang cân nhắc mua, Nera tìm giúp ngay. Còn nhu cầu thuê thì bạn quay lại "
+                    "sau nhé, nhóm đang bổ sung nguồn tin thuê."
+                )
+                actions = ["Tìm nhà để mua", "Xem tất cả căn đang có"]
+            else:
+                response = (
                     "Kho dữ liệu hiện tại chưa có tin **cho thuê** khớp tiêu chí của bạn. "
                     "Nera sẽ không trộn các tin bán vào kết quả thuê. Bạn có thể đổi khu vực, "
                     "ngân sách thuê hoặc chuyển sang nhu cầu mua."
-                ),
+                )
+                actions = ["Đổi khu vực thuê", "Điều chỉnh ngân sách", "Tìm nhà để mua"]
+            return {
+                "selected_properties": [],
+                "search_results": [],
+                "response": response,
                 "response_kind": "SEARCH_NO_RESULTS",
                 "phase": "SEARCH_NO_RESULTS",
                 "current_agent": AgentType.RESPOND,
-                "suggested_actions": ["Đổi khu vực thuê", "Điều chỉnh ngân sách", "Tìm nhà để mua"],
+                "suggested_actions": actions,
             }
         return {
             "selected_properties": [],
