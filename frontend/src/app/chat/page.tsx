@@ -27,6 +27,10 @@ interface ChatMessage {
   aiMode?: string;
   aiModel?: string | null;
   aiLatencyMs?: number;
+  // What Nera had understood at this turn. Kept per message rather than read
+  // from live state, so an older reply keeps showing what it was actually
+  // answering, not what the customer said afterwards.
+  insights?: Record<string, unknown>;
 }
 
 interface ChatResponse {
@@ -148,32 +152,214 @@ function buildMatchReasons(property: Property, insights: Record<string, unknown>
 // ────────────────────────────────────────────────────────────
 // Insight label map
 // ────────────────────────────────────────────────────────────
+// The backend sends every non-empty search criterion, so this map has to cover
+// all of them. An unlabelled key falls through and shows the raw column name,
+// which is how "family_size" and "MIN_BEDROOMS" ended up in front of customers.
 const INSIGHT_LABELS: Record<string, string> = {
   district: "Khu vực",
   province: "Tỉnh/TP",
+  region: "Vùng miền",
+  ward: "Phường/xã",
+  area_or_ward: "Khu vực cụ thể",
   property_kind: "Loại nhà",
+  transaction_type: "Hình thức",
   bedrooms: "Phòng ngủ",
+  min_bedrooms: "Phòng ngủ từ",
+  max_bedrooms: "Phòng ngủ tới",
+  exact_bedrooms: "Số phòng ngủ",
+  min_bathrooms: "Phòng tắm từ",
+  min_area: "Diện tích từ",
   min_price: "Giá từ",
   max_price: "Giá tới",
   budget: "Ngân sách",
+  orientation: "Hướng nhà",
+  legal_status: "Pháp lý",
+  furniture_status: "Nội thất",
+  min_floor: "Tầng từ",
+  max_floor: "Tầng tới",
   keyword: "Từ khoá",
   features: "Tiện ích",
   move_in: "Chuyển vào",
+  family_size: "Số người ở",
   soft_preferences: "Ưu tiên mềm",
   household_context: "Hoàn cảnh",
   commute_landmark: "Điểm đi làm",
   max_commute_minutes: "Di chuyển tối đa",
+  max_commute_km: "Khoảng cách tối đa",
+  travel_mode: "Phương tiện",
+  nearby_categories: "Tiện ích quanh nhà",
+  monthly_income_vnd: "Thu nhập/tháng",
+  own_capital_vnd: "Vốn tự có",
+};
+
+// How the search runs, not what the customer asked for. Showing "LIMIT 3" tells
+// them nothing about themselves.
+const HIDDEN_INSIGHT_KEYS = new Set(["limit"]);
+
+const ENUM_LABELS: Record<string, Record<string, string>> = {
+  property_kind: {
+    APARTMENT: "Căn hộ",
+    HOUSE: "Nhà riêng",
+    VILLA: "Biệt thự",
+    TOWNHOUSE: "Nhà phố",
+    LAND: "Đất",
+    COMMERCIAL: "Mặt bằng",
+  },
+  transaction_type: { SALE: "Mua bán", RENT: "Cho thuê" },
+  travel_mode: {
+    DRIVE: "Ô tô",
+    WALK: "Đi bộ",
+    BICYCLE: "Xe đạp",
+    TRANSIT: "Xe buýt / tàu",
+    TWO_WHEELER: "Xe máy",
+  },
 };
 
 function formatInsightValue(key: string, value: unknown): string {
   if (Array.isArray(value)) return value.join(", ");
-  if (key.includes("price") || key === "budget") {
+
+  const enumLabel = ENUM_LABELS[key]?.[String(value)];
+  if (enumLabel) return enumLabel;
+
+  if (key.includes("price") || key === "budget" || key.endsWith("_vnd")) {
     const num = Number(value);
     if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)} tỷ`;
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(0)} triệu`;
   }
+  if (key === "min_area") return `${value} m²`;
+  if (key === "max_commute_minutes") return `${value} phút`;
+  if (key === "max_commute_km") return `${value} km`;
+  if (key.includes("bedrooms")) return `${value} phòng`;
+  if (key.includes("floor")) return `tầng ${value}`;
+
   return String(value);
 }
+
+// Shown in the confirmation card, most decision-relevant first. Location is
+// deduplicated to the most specific value the customer gave, so the card does
+// not repeat "Cầu Giấy / Hà Nội / Miền Bắc" as three separate rows.
+const UNDERSTANDING_ORDER = [
+  "transaction_type",
+  "property_kind",
+  "area_or_ward",
+  "ward",
+  "district",
+  "province",
+  "region",
+  "max_price",
+  "min_price",
+  "exact_bedrooms",
+  "min_bedrooms",
+  "max_bedrooms",
+  "min_area",
+  "commute_landmark",
+  "max_commute_minutes",
+  "soft_preferences",
+  "household_context",
+];
+
+const LOCATION_KEYS = ["area_or_ward", "ward", "district", "province", "region"];
+
+function summariseUnderstanding(insights: Record<string, unknown>): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+  let locationTaken = false;
+
+  for (const key of UNDERSTANDING_ORDER) {
+    const value = insights[key];
+    if (value === undefined || value === null || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+
+    // Keep only the most specific location, since UNDERSTANDING_ORDER lists them
+    // from narrowest to widest.
+    if (LOCATION_KEYS.includes(key)) {
+      if (locationTaken) continue;
+      locationTaken = true;
+      rows.push({ label: "Khu vực", value: formatInsightValue(key, value) });
+      continue;
+    }
+
+    rows.push({ label: INSIGHT_LABELS[key] ?? key, value: formatInsightValue(key, value) });
+    if (rows.length >= 6) break;
+  }
+  return rows;
+}
+
+/**
+ * Shows what Nera understood before it shows what it found.
+ *
+ * Results used to appear the moment a search ran, so a misread need — "tìm
+ * phòng" read as a purchase, a landmark that resolved to nowhere — surfaced as
+ * a confident list of wrong homes. Putting the reading first lets someone
+ * correct it in one sentence instead of scrolling past five irrelevant cards.
+ */
+function UnderstandingCard({
+  insights,
+  count,
+  missing,
+  onReveal,
+}: {
+  insights: Record<string, unknown>;
+  count: number;
+  missing: string[];
+  onReveal: () => void;
+}) {
+  const rows = summariseUnderstanding(insights);
+
+  return (
+    <div className="rounded-2xl border border-[var(--forest)]/15 bg-[#f7faf7] p-4 shadow-xs">
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--forest)]">
+        <FaCheck className="text-emerald-500" /> Nera hiểu nhu cầu của bạn
+      </p>
+
+      {rows.length > 0 ? (
+        <dl className="mt-3 space-y-1.5">
+          {rows.map(row => (
+            <div key={row.label} className="flex items-baseline justify-between gap-3">
+              <dt className="text-[11px] uppercase tracking-wide text-[var(--muted)]">{row.label}</dt>
+              <dd className="text-right text-xs font-semibold text-[var(--ink)]">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          Nera chưa nắm được tiêu chí nào cụ thể. Bạn kể thêm giúp Nera nhé.
+        </p>
+      )}
+
+      {missing.length > 0 && (
+        <p className="mt-3 flex items-start gap-2 text-[11px] leading-relaxed text-[var(--muted)]">
+          <FaBrain className="mt-0.5 shrink-0 text-[var(--coral)]" />
+          <span>Chưa rõ: {missing.slice(0, 3).join(" · ")}</span>
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={onReveal}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--ink)] px-4 py-3 text-xs font-semibold text-white transition hover:bg-[var(--forest)] active:scale-[0.99] cursor-pointer"
+      >
+        Xem {count} căn phù hợp
+        <FaChevronDown className="text-[10px]" />
+      </button>
+
+      <p className="mt-2 text-center text-[11px] text-[var(--muted)]">
+        Chưa đúng ý? Nhắn lại cho Nera là được.
+      </p>
+    </div>
+  );
+}
+
+// The six things worth knowing about a customer. Each accepts several backend
+// keys, because "phòng ngủ" arrives as min_bedrooms, max_bedrooms or
+// exact_bedrooms depending on how the person phrased it.
+const PROFILE_FIELDS: { label: string; matches: string[] }[] = [
+  { label: "Ngân sách", matches: ["max_price", "min_price", "budget"] },
+  { label: "Phòng ngủ", matches: ["min_bedrooms", "max_bedrooms", "exact_bedrooms", "bedrooms"] },
+  { label: "Khu vực", matches: ["district", "area_or_ward", "ward", "province", "region"] },
+  { label: "Loại nhà", matches: ["property_kind"] },
+  { label: "Thời điểm chuyển vào", matches: ["move_in"] },
+  { label: "Số người ở", matches: ["family_size", "household_context"] },
+];
 
 // ────────────────────────────────────────────────────────────
 // Feedback Modal
@@ -453,15 +639,24 @@ function InsightsSidebar({ insights, memorySummary, savedProperties, latestMatch
   onClearMemory: () => void;
 }) {
   const insightEntries = useMemo(
-    () => Object.entries(insights).filter(([, v]) => v !== null && v !== "" && (!Array.isArray(v) || (v as unknown[]).length > 0)),
+    () => Object.entries(insights).filter(([k, v]) =>
+      !HIDDEN_INSIGHT_KEYS.has(k) && v !== null && v !== "" && (!Array.isArray(v) || (v as unknown[]).length > 0)
+    ),
     [insights]
   );
 
-  const totalFields = 6; // budget, bedrooms, district, property_kind, move_in, family_size
-  const progress = Math.min(100, Math.round((insightEntries.length / totalFields) * 100));
-
-  const ASKED_FIELDS = ["max_price", "bedrooms", "district", "property_kind", "move_in", "family_size"];
-  const missing = ASKED_FIELDS.filter(f => !insights[f]);
+  // Progress and the missing list must read the same six fields. Counting every
+  // criterion instead put the bar at 100% while "cần làm rõ" still listed three
+  // things, because the backend sends far more keys than the six we ask about.
+  const filled = useMemo(
+    () => PROFILE_FIELDS.filter(f => f.matches.some(k => {
+      const v = insights[k];
+      return v !== undefined && v !== null && v !== "" && (!Array.isArray(v) || (v as unknown[]).length > 0);
+    })),
+    [insights]
+  );
+  const progress = Math.round((filled.length / PROFILE_FIELDS.length) * 100);
+  const missing = PROFILE_FIELDS.filter(f => !filled.includes(f)).map(f => f.label);
 
   return (
     <aside className="hidden w-80 shrink-0 flex-col border-l border-black/5 bg-white xl:flex">
@@ -511,10 +706,10 @@ function InsightsSidebar({ insights, memorySummary, savedProperties, latestMatch
               <FaBrain className="text-[var(--coral)]" /> Cần làm rõ
             </p>
             <div className="space-y-1">
-              {missing.slice(0, 3).map(field => (
-                <div key={field} className="flex items-center gap-2 rounded-xl border border-dashed border-black/10 px-3 py-2">
+              {missing.slice(0, 3).map(label => (
+                <div key={label} className="flex items-center gap-2 rounded-xl border border-dashed border-black/10 px-3 py-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <span className="text-xs text-[var(--muted)]">{INSIGHT_LABELS[field] ?? field}</span>
+                  <span className="text-xs text-[var(--muted)]">{label}</span>
                 </div>
               ))}
             </div>
@@ -634,6 +829,9 @@ function ChatContent() {
   const [memorySummary, setMemorySummary] = useState("");
   const [insights, setInsights] = useState<Record<string, unknown>>({});
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
+  // Which turns have had their results opened. Keyed by message index, so an
+  // older answer stays open once the customer has looked at it.
+  const [revealedCards, setRevealedCards] = useState<Record<number, boolean>>({});
   const [sessionMenu, setSessionMenu] = useState<string | null>(null);
   const [renamingSession, setRenamingSession] = useState<SessionSummary | null>(null);
   const [deletingSession, setDeletingSession] = useState<SessionSummary | null>(null);
@@ -745,7 +943,7 @@ function ChatContent() {
         : deriveQuickReplies(res.response, res.properties?.length ?? 0);
 
       setMessages(cur => {
-        const next: ChatMessage[] = [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }];
+        const next: ChatMessage[] = [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms, insights: res.insights ?? {} }];
         setStreamingIndex(next.length - 1);
         return next;
       });
@@ -875,7 +1073,7 @@ function ChatContent() {
         ? res.suggested_actions
         : deriveQuickReplies(res.response, res.properties?.length ?? 0);
       setMessages(cur => {
-        const next: ChatMessage[] = [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms }];
+        const next: ChatMessage[] = [...cur, { role: "assistant", content: res.response, properties: res.properties ?? [], quickReplies: chips, authRequired: res.auth_required, aiMode: res.ai_mode, aiModel: res.ai_model, aiLatencyMs: res.ai_latency_ms, insights: res.insights ?? {} }];
         setStreamingIndex(next.length - 1);
         return next;
       });
@@ -1107,6 +1305,33 @@ function ChatContent() {
                           const totalCards = message.properties.length;
                           const displayed = isExpanded ? message.properties : message.properties.slice(0, 5);
                           const hasMore = totalCards > 5;
+                          const turnInsights = message.insights ?? {};
+
+                          // The reading comes first. Only after someone accepts it do the
+                          // homes appear, so a wrong reading costs one sentence to fix
+                          // rather than a screen of irrelevant results.
+                          //
+                          // Restored history carries no insights, and there is nothing left
+                          // to confirm about an answer already given, so it opens directly.
+                          if (message.insights && !revealedCards[index]) {
+                            const stillMissing = PROFILE_FIELDS
+                              .filter(f => !f.matches.some(k => {
+                                const v = turnInsights[k];
+                                return v !== undefined && v !== null && v !== "" && (!Array.isArray(v) || (v as unknown[]).length > 0);
+                              }))
+                              .map(f => f.label);
+
+                            return (
+                              <div className="pt-1">
+                                <UnderstandingCard
+                                  insights={turnInsights}
+                                  count={totalCards}
+                                  missing={stillMissing}
+                                  onReveal={() => setRevealedCards(prev => ({ ...prev, [index]: true }))}
+                                />
+                              </div>
+                            );
+                          }
 
                           return (
                             <div className="space-y-3 pt-1">

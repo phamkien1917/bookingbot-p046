@@ -54,12 +54,21 @@ class OpenRouterLLM:
             self.models = ["gpt-4o-mini", "gpt-4o"]
             self.current_model = self.models[0]
             self.current_model_index = 0
-        else:
-            # Use priority list
+        elif self.current_model in MODEL_PRIORITY:
+            # Start at the configured model and keep the rest of the list as fallbacks.
             self.models = MODEL_PRIORITY
-            # Find starting index based on settings
-            if self.current_model in MODEL_PRIORITY:
-                self.current_model_index = MODEL_PRIORITY.index(self.current_model)
+            self.current_model_index = MODEL_PRIORITY.index(self.current_model)
+        else:
+            # A MODEL_NAME outside the known list is still honoured. Leaving the
+            # index at 0 would quietly serve MODEL_PRIORITY[0] instead, so the
+            # configured model would never run and nothing would say so.
+            logger.warning(
+                "MODEL_NAME %r is not in MODEL_PRIORITY. Using it first, with the "
+                "known list behind it as fallbacks. Add it to models.py to silence this.",
+                self.current_model,
+            )
+            self.models = [self.current_model, *MODEL_PRIORITY]
+            self.current_model_index = 0
 
         logger.info(
             f"LLM initialized with model: {self.current_model} "
