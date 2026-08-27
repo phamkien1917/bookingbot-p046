@@ -23,6 +23,8 @@ LEGACY_DEMO_PASSWORD = "123456"
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     if hashed_password == DEMO_PASSWORD_HASH:
+        if settings.app_env != "development":
+            return False
         return plain_password in {DEMO_PASSWORD, LEGACY_DEMO_PASSWORD}
     try:
         return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
