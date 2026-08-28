@@ -620,8 +620,9 @@ async def format_intelligent_property_review(item: dict[str, Any], query: str) -
             "- Cấu trúc phản hồi:\n"
             "  1. Tóm tắt nhanh: Tên căn, giá bán, diện tích, kết cấu và điểm ấn tượng nhất.\n"
             "  2. **Ưu điểm nổi bật:** 3-4 gạch đầu dòng ngắn gọn về vị trí, view, tiện ích, pháp lý và mức giá.\n"
-            "  3. **Đánh giá & Khuyên dùng:** Căn này phù hợp nhất với nhu cầu nào (gia đình trẻ, mua ở lâu dài hay đầu tư cho thuê).\n"
-            "  4. Lời kết thân thiện mời khách đặt lịch đi xem thực tế hoặc so sánh thêm."
+            "  3. **Khoảng cách & Tiện ích:** (CHỈ hiển thị nếu có distance_evidence) Nhấn mạnh chính xác khoảng cách (km) và thời gian di chuyển (phút) đến địa điểm khách yêu cầu.\n"
+            "  4. **Đánh giá & Khuyên dùng:** Căn này phù hợp nhất với nhu cầu nào (gia đình trẻ, mua ở lâu dài hay đầu tư cho thuê).\n"
+            "  5. Lời kết thân thiện mời khách đặt lịch đi xem thực tế hoặc so sánh thêm."
         )
         context = {
             "customer_query": query,
@@ -635,6 +636,7 @@ async def format_intelligent_property_review(item: dict[str, Any], query: str) -
                 "legal_status": item.get("legal_status"),
                 "orientation": item.get("orientation"),
                 "description": str(item.get("description", ""))[:600],
+                "distance_evidence": item.get("distance_evidence"),
             },
         }
         res = await llm.ainvoke([
@@ -670,9 +672,10 @@ async def format_intelligent_comparison(items: list[dict[str, Any]], query: str)
             "Quy tắc định dạng:\n"
             "1. Mở đầu bằng một lời dẫn tự nhiên, thân thiện.\n"
             "2. Sử dụng bảng so sánh Markdown đẹp mắt (các cột: Tiêu chí, Căn 1, Căn 2...). Đảm bảo phân tích các hàng: Giá bán, Diện tích, Phòng ngủ / WC, Vị trí, Điểm nổi bật & Độ thoáng.\n"
-            "3. Phần 'Đánh giá & Lời khuyên từ Nera': Trả lời trực diện vào câu hỏi của khách (ví dụ: căn nào thoáng hơn, ưu nhược điểm từng căn, phù hợp với ai) bằng giọng văn chuyên môn, khách quan.\n"
-            "4. Tuyệt đối KHÔNG dùng các ký tự thừa như gạch nối rải rác, ký hiệu vụn vặt không cần thiết.\n"
-            "5. Kết thúc bằng câu hỏi gợi ý nhẹ nhàng để khách đặt lịch đi xem thực tế."
+            "3. **Khoảng cách:** (CHỈ phân tích nếu có distance_evidence) Báo cáo rõ khoảng cách (km) và thời gian di chuyển (phút) cho từng căn.\n"
+            "4. Phần 'Đánh giá & Lời khuyên từ Nera': Trả lời trực diện vào câu hỏi của khách (ví dụ: căn nào thoáng hơn, ưu nhược điểm từng căn, phù hợp với ai) bằng giọng văn chuyên môn, khách quan.\n"
+            "5. Tuyệt đối KHÔNG dùng các ký tự thừa như gạch nối rải rác, ký hiệu vụn vặt không cần thiết.\n"
+            "6. Kết thúc bằng câu hỏi gợi ý nhẹ nhàng để khách đặt lịch đi xem thực tế."
         )
         context = {
             "customer_query": query,
@@ -690,6 +693,7 @@ async def format_intelligent_comparison(items: list[dict[str, Any]], query: str)
                     "features": it.get("features", {}),
                     "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
                     "description": str(it.get("description", ""))[:350],
+                    "distance_evidence": it.get("distance_evidence"),
                 }
                 for idx, it in enumerate(items, 1)
             ]

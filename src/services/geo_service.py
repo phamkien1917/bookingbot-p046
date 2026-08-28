@@ -104,14 +104,7 @@ class GeoService:
 
     @property
     def configured(self) -> bool:
-        return bool(self.settings.google_maps_api_key)
-
-    def _headers(self, field_mask: str) -> dict[str, str]:
-        return {
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": self.settings.google_maps_api_key,
-            "X-Goog-FieldMask": field_mask,
-        }
+        return bool(self.settings.goong_api_key)
 
     @staticmethod
     def _cache_key(namespace: str, payload: Any) -> str:
@@ -159,12 +152,10 @@ class GeoService:
 
         async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
             response = await client.get(
-                "https://maps.googleapis.com/maps/api/geocode/json",
+                "https://rsapi.goong.io/Geocode",
                 params={
                     "address": f"{address}, Việt Nam",
-                    "region": "vn",
-                    "language": "vi",
-                    "key": self.settings.google_maps_api_key,
+                    "api_key": self.settings.goong_api_key,
                 },
             )
             response.raise_for_status()
@@ -204,43 +195,39 @@ class GeoService:
         if isinstance(cached, dict):
             return {int(index): evidence for index, evidence in cached.items()}
 
-        body: dict[str, Any] = {
-            "origins": [
-                {"waypoint": {"location": {"latLng": {"latitude": lat, "longitude": lon}}}}
-                for lat, lon in origins
-            ],
-            "destinations": [{
-                "waypoint": {"location": {"latLng": {
-                    "latitude": destination[0], "longitude": destination[1]
-                }}}
-            }],
-            "travelMode": mode,
-        }
-        if mode == "DRIVE" and self.settings.geo_traffic_aware:
-            body["routingPreference"] = "TRAFFIC_AWARE"
-            departure = departure_time or datetime.now(UTC)
-            body["departureTime"] = departure.astimezone(UTC).isoformat().replace("+00:00", "Z")
-        elif mode in {"DRIVE", "TWO_WHEELER"}:
-            body["routingPreference"] = "TRAFFIC_UNAWARE"
+        mode_mapping = {"DRIVE": "car", "TWO_WHEELER": "bike", "WALK": "bike", "BICYCLE": "bike", "TRANSIT": "car"}
+        vehicle = mode_mapping.get(mode, "car")
+        origins_str = "|".join(f"{lat},{lon}" for lat, lon in origins)
+        dest_str = f"{destination[0]},{destination[1]}"
+        
         async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
-            response = await client.post(
-                "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix",
-                headers=self._headers(
-                    "originIndex,destinationIndex,status,condition,distanceMeters,duration"
-                ),
-                json=body,
+            response = await client.get(
+                "https://rsapi.goong.io/DistanceMatrix",
+                params={
+                    "origins": origins_str,
+                    "destinations": dest_str,
+                    "vehicle": vehicle,
+                    "api_key": self.settings.goong_api_key,
+                },
             )
             response.raise_for_status()
-            elements = response.json()
+            payload = response.json()
+        
         result: dict[int, dict[str, float]] = {}
-        for element in elements if isinstance(elements, list) else []:
-            seconds = _duration_seconds(element.get("duration"))
-            distance = element.get("distanceMeters")
-            if element.get("condition") == "ROUTE_EXISTS" and seconds is not None and distance is not None:
-                result[int(element.get("originIndex", 0))] = {
-                    "distance_km": round(float(distance) / 1000, 2),
-                    "duration_minutes": round(seconds / 60, 1),
-                }
+        rows = payload.get("rows", [])
+        for i, row in enumerate(rows):
+            elements = row.get("elements", [])
+            if not elements:
+                continue
+            element = elements[0]
+            if element.get("status") == "OK":
+                distance_m = element.get("distance", {}).get("value")
+                duration_s = element.get("duration", {}).get("value")
+                if distance_m is not None and duration_s is not None:
+                    result[i] = {
+                        "distance_km": round(float(distance_m) / 1000, 2),
+                        "duration_minutes": round(float(duration_s) / 60, 1),
+                    }
         await self._cache_set(
             cache_key,
             {str(index): evidence for index, evidence in result.items()},
@@ -257,41 +244,36 @@ class GeoService:
         included = sorted({place_type for category in categories for place_type in PLACE_TYPES.get(category, [])})
         if not included:
             return []
-        body = {
-            "includedTypes": included,
-            "maxResultCount": 5,
-            "rankPreference": "DISTANCE",
-            "languageCode": "vi",
-            "regionCode": "VN",
-            "locationRestriction": {
-                "circle": {
-                    "center": {"latitude": origin[0], "longitude": origin[1]},
-                    "radius": radius_m,
-                }
-            },
-        }
-        async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
-            response = await client.post(
-                "https://places.googleapis.com/v1/places:searchNearby",
-                headers=self._headers("places.id,places.displayName,places.primaryType,places.location"),
-                json=body,
-            )
-            response.raise_for_status()
-            payload = response.json()
         places = []
-        for place in payload.get("places", []):
-            location = place.get("location", {})
-            try:
-                distance = haversine_km(
-                    origin[0], origin[1], float(location["latitude"]), float(location["longitude"])
-                )
-            except (KeyError, TypeError, ValueError):
-                continue
-            places.append({
-                "name": place.get("displayName", {}).get("text") or "Địa điểm",
-                "category": place.get("primaryType"),
-                "straight_line_km": round(distance, 2),
-            })
+        async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
+            for keyword in included:
+                try:
+                    response = await client.get(
+                        "https://rsapi.goong.io/Place/NearbySearch",
+                        params={
+                            "location": f"{origin[0]},{origin[1]}",
+                            "radius": radius_m,
+                            "keyword": keyword.replace("_", " "),
+                            "api_key": self.settings.goong_api_key,
+                        }
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    for place in payload.get("results", [])[:5]:
+                        location = place.get("geometry", {}).get("location", {})
+                        try:
+                            distance = haversine_km(
+                                origin[0], origin[1], float(location.get("lat", 0)), float(location.get("lng", 0))
+                            )
+                        except (KeyError, TypeError, ValueError):
+                            continue
+                        places.append({
+                            "name": place.get("name", "Địa điểm"),
+                            "category": keyword,
+                            "straight_line_km": round(distance, 2),
+                        })
+                except httpx.HTTPError:
+                    pass
         return places
 
     async def diagnose_capabilities(self) -> dict[str, Any]:
@@ -394,7 +376,7 @@ class GeoService:
                 if not target:
                     return GeoSearchResult(
                         properties,
-                        f"Chưa thể xác minh vị trí ‘{destination}’ bằng Google Maps; "
+                        f"Chưa thể xác minh vị trí ‘{destination}’ bằng Goong; "
                         "kết quả chưa được lọc theo khoảng cách/thời gian.",
                     )
                 routes = await self.route_matrix(
@@ -409,8 +391,8 @@ class GeoService:
                             **evidence,
                             "destination": destination or "Vị trí của bạn",
                             "travel_mode": travel_mode,
-                            "provider": "Google Routes",
-                            "attribution": "Powered by Google",
+                            "provider": "Goong Distance Matrix",
+                            "attribution": "Powered by Goong",
                         }
                 valid = [item for item in valid if item.get("distance_evidence")]
                 if max_km is not None:
@@ -421,9 +403,9 @@ class GeoService:
                 if not valid:
                     return GeoSearchResult(
                         [],
-                        "Đã xác minh bằng Google Routes nhưng không có căn nào đạt "
+                        "Đã xác minh bằng Goong nhưng không có căn nào đạt "
                         "giới hạn quãng đường/thời gian đã yêu cầu.",
-                        provider="Google Maps Platform",
+                        provider="Goong Maps API",
                         filtered=True,
                     )
 
@@ -441,15 +423,15 @@ class GeoService:
                 if not any(item.get("nearby_evidence") for item in valid):
                     return GeoSearchResult(
                         valid,
-                        "Đã truy vấn Google Places nhưng chưa tìm thấy tiện ích phù hợp "
+                        "Đã truy vấn Goong Places nhưng chưa tìm thấy tiện ích phù hợp "
                         "trong bán kính kiểm tra.",
-                        provider="Google Maps Platform",
+                        provider="Goong Maps API",
                         filtered=max_km is not None or max_minutes is not None,
                     )
 
             return GeoSearchResult(
                 valid,
-                provider="Google Maps Platform",
+                provider="Goong Maps API",
                 filtered=max_km is not None or max_minutes is not None,
             )
         except (httpx.HTTPError, ValueError, KeyError):

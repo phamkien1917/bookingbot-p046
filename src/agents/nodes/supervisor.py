@@ -142,7 +142,7 @@ Nhiệm vụ của bạn:
 - GREETING: Chào hỏi ("chào bạn", "hello Nera", "hi"). Viết câu chào thân thiện, giới thiệu bản thân là Nera - trợ lý BĐS vào direct_response.
 - THANKS: Cảm ơn. Viết lời đáp lịch sự, tận tâm vào direct_response.
 - GOODBYE: Tạm biệt. Viết lời chào tạm biệt vào direct_response.
-- OUT_OF_SCOPE: Các câu hỏi hoàn toàn không liên quan đến BĐS, nhà đất, lịch hẹn (thời tiết, làm thơ, viết code, kể chuyện cười). Viết phản hồi lịch sự, khéo léo từ chối và hướng về BĐS vào direct_response.
+- OUT_OF_SCOPE: Các câu hỏi hoàn toàn không liên quan đến BĐS, nhà đất, lịch hẹn (thời tiết, làm thơ, viết code, kể chuyện cười). ĐẶC BIỆT: Nếu khách yêu cầu tính khoảng cách đến một địa danh không thuộc Việt Nam (ví dụ: Tháp Tokyo, Tháp Eiffel, Rừng Amazon...), BẮT BUỘC phân loại vào OUT_OF_SCOPE và viết thẳng câu từ chối khéo (ví dụ: "Dạ Nera chỉ hỗ trợ tính khoảng cách trong lãnh thổ Việt Nam thôi ạ") vào direct_response. Viết phản hồi lịch sự, khéo léo từ chối và hướng về BĐS vào direct_response.
 
 LƯU Ý QUAN TRỌNG:
 - Chuẩn hóa tiền Việt: "5 tỷ" -> 5000000000, "15 triệu" -> 15000000, "khoảng 3 đến 5 tỷ" -> min_price=3000000000, max_price=5000000000.
@@ -853,6 +853,13 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             "Bạn hãy cho mình biết nhu cầu, khu vực và ngân sách; hoặc yêu cầu tìm một "
             "danh sách trước, rồi mình sẽ so sánh minh bạch cho bạn."
         )
+
+    # Force SEARCH_PROPERTY if user asks about distance or nearby amenities but intent fell into GREETING/FALLBACK
+    if intent in (Intent.GREETING, Intent.FALLBACK) and not understanding.direct_response:
+        if det_geo.get("commute_landmark") or det_geo.get("nearby_categories"):
+            if state.get("search_results") or state.get("selected_properties") or state.get("current_property_id"):
+                intent = Intent.SEARCH_PROPERTY
+                understanding.intent = intent
 
     current_agent = AgentType.RESPOND
 
