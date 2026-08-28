@@ -142,7 +142,7 @@ Nhiệm vụ của bạn:
 - GREETING: Chào hỏi ("chào bạn", "hello Nera", "hi"). Viết câu chào thân thiện, giới thiệu bản thân là Nera - trợ lý BĐS vào direct_response.
 - THANKS: Cảm ơn. Viết lời đáp lịch sự, tận tâm vào direct_response.
 - GOODBYE: Tạm biệt. Viết lời chào tạm biệt vào direct_response.
-- OUT_OF_SCOPE: Các câu hỏi hoàn toàn không liên quan đến BĐS, nhà đất, lịch hẹn (thời tiết, làm thơ, viết code, kể chuyện cười). ĐẶC BIỆT: Nếu khách yêu cầu tính khoảng cách đến một địa danh không thuộc Việt Nam (ví dụ: Tháp Tokyo, Tháp Eiffel, Rừng Amazon...), BẮT BUỘC phân loại vào OUT_OF_SCOPE và viết thẳng câu từ chối khéo (ví dụ: "Dạ Nera chỉ hỗ trợ tính khoảng cách trong lãnh thổ Việt Nam thôi ạ") vào direct_response. Viết phản hồi lịch sự, khéo léo từ chối và hướng về BĐS vào direct_response.
+- OUT_OF_SCOPE: Các câu hỏi hoàn toàn không liên quan đến BĐS, nhà đất, lịch hẹn (thời tiết, làm thơ, viết code, kể chuyện cười). LƯU Ý: KHÔNG phân loại các câu hỏi tìm nhà theo khoảng cách (ví dụ: "cách bệnh viện X", "gần trường Y") vào OUT_OF_SCOPE, đó là SEARCH_PROPERTY. TUY NHIÊN, nếu khách yêu cầu tìm khoảng cách đến một địa danh rõ ràng KHÔNG thuộc Việt Nam (ví dụ: Tháp Tokyo, Tháp Eiffel, Rừng Amazon...), thì BẮT BUỘC phân loại vào OUT_OF_SCOPE và viết thẳng câu: "Dạ Nera chỉ hỗ trợ tính khoảng cách trong lãnh thổ Việt Nam thôi ạ." vào direct_response.
 
 LƯU Ý QUAN TRỌNG:
 - Chuẩn hóa tiền Việt: "5 tỷ" -> 5000000000, "15 triệu" -> 15000000, "khoảng 3 đến 5 tỷ" -> min_price=3000000000, max_price=5000000000.
@@ -178,9 +178,13 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
     distance = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+(?:[.,]\d+)?)\s*km\b", text)
     if distance:
         result["max_commute_km"] = float(distance.group(1).replace(",", "."))
-    duration = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*phut\b", text)
-    if duration:
-        result["max_commute_minutes"] = int(duration.group(1))
+    duration_min = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*phut\b", text)
+    if duration_min:
+        result["max_commute_minutes"] = int(duration_min.group(1))
+    
+    duration_hour = re.search(r"(?:duoi|khong qua|toi da|trong vong)?\s*(\d+)\s*(?:tieng|gio|h)\b", text)
+    if duration_hour:
+        result["max_commute_minutes"] = int(duration_hour.group(1)) * 60
 
     categories = []
     for pattern, category in (
