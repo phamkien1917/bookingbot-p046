@@ -213,7 +213,7 @@ async def _execute_chat_turn(
 
         insights = final_state.get("insights") or {}
         ai_mode = final_state.get("ai_mode") or "llm_grounded"
-        ai_model = final_state.get("ai_model") or settings.openai_model_name
+        ai_model = final_state.get("ai_model")
         ai_latency_ms = int(final_state.get("ai_latency_ms") or 0)
         auth_required = bool(final_state.get("auth_required"))
 

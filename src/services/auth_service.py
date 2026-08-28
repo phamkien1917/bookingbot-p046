@@ -3,8 +3,8 @@ from datetime import timedelta
 from hashlib import sha256
 
 import bcrypt
-from cryptography.fernet import Fernet, InvalidToken
 import jwt
+from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

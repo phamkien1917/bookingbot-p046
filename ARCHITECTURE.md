@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Nera là nền tảng AI Agent đàm thoại cho bất động sản O2O (Online-to-Offline), kết hợp giữa **Next.js (Frontend)**, **FastAPI (Backend)** và hệ thống **Multi-Agent trên LangGraph**. Hệ thống cho phép người dùng tìm kiếm BĐS bằng ngôn ngữ tự nhiên với bộ nhớ ngữ cảnh đa lượt (Mem0/Redis/PostgreSQL), tính toán khoảng cách/tuyến đường (Goong/Google Maps), tính toán khả năng tài chính (Affordability) và đặt lịch xem nhà có sự xác nhận của chuyên viên Sale qua cơ chế Human-in-the-loop (HITL).
+Nera là nền tảng AI Agent đàm thoại cho bất động sản O2O (Online-to-Offline), kết hợp giữa **Next.js (Frontend)**, **FastAPI (Backend)** và hệ thống **Multi-Agent trên LangGraph**. Hệ thống cho phép người dùng tìm kiếm BĐS bằng ngôn ngữ tự nhiên với bộ nhớ ngữ cảnh đa lượt (`CustomerMemoryService` / Redis / PostgreSQL), tính toán khoảng cách/tuyến đường (Goong/Google Maps), tính toán khả năng tài chính (Affordability) và đặt lịch xem nhà có sự xác nhận của chuyên viên Sale qua cơ chế Human-in-the-loop (HITL).
 
 ## Architecture Diagram
 
@@ -28,13 +28,13 @@ graph TB
         InventoryAgent["Inventory Agent (Search & Grounding)"]
         BookingAgent["Booking Agent (Slot Proposals)"]
         RespondNode["Respond Node (NLG & Grounded Responses)"]
-        LLM["LLM Service (GPT-4o-mini / OpenRouter)"]
+        LLM["LLM Service (OpenRouter / Dynamic Routing)"]
     end
 
     subgraph Data_Layer["Data & Persistence Layer"]
-        Postgres[(PostgreSQL DB - 18 Tables)]
+        Postgres[(PostgreSQL DB - 18 Tables - 167 BĐS thật)]
         Redis[(Redis Store - Chat State & Cache)]
-        Mem0["Mem0 OSS Memory Service"]
+        CustomerMemory["CustomerMemoryService (PostgreSQL + Cache)"]
     end
 
     UI_Chat -->|REST / SSE| Router
@@ -58,9 +58,9 @@ graph TB
     BookingService --> Postgres
     AuthService --> Postgres
 
-    Supervisor --> Mem0
-    Mem0 --> Redis
-    Mem0 -.->|Fallback| Postgres
+    Supervisor --> CustomerMemory
+    CustomerMemory --> Redis
+    CustomerMemory -.->|Fallback| Postgres
     GeoService --> Postgres
 ```
 
@@ -80,6 +80,7 @@ graph TB
   - Quản lý phiên bằng JWT lưu trong HttpOnly Cookie.
   - Hỗ trợ 4 vai trò: `CUSTOMER`, `SALE`, `COORDINATOR`, `ADMIN` qua dependency `require_roles`.
   - Tự động khóa Swagger Docs (`/docs`, `/redoc`) ở môi trường Production.
+  - Global Exception Handler tập trung ghi log và che giấu chi tiết lỗi nhạy cảm.
 
 ### 3. AI Multi-Agent (LangGraph)
 - **Mô hình Agent:** Supervisor-Worker Multi-Agent Graph với Structured Outputs.
@@ -88,11 +89,11 @@ graph TB
   - `InventoryAgent`: Truy vấn PostgreSQL với các ràng buộc cứng (giá, quận/huyện, số phòng, diện tích, pháp lý), tích hợp tính toán địa lý Goong Maps.
   - `BookingAgent`: Kiểm tra slot khả dụng, đối soát lịch Sale, tạo đề xuất giờ hẹn.
   - `RespondNode`: Tạo câu trả lời tự nhiên có gắn nhãn nguồn gốc (`llm_grounded`, `llm_direct`, `llm_intent`, `fallback`).
-- **Memory Layer:** Tích hợp `Mem0 OSS` lưu trữ sở thích dài hạn (khoảng giá, khu vực yêu thích) và lịch sử hội thoại ngắn hạn qua Redis (có In-memory fallback).
+- **Memory Layer:** Tích hợp `CustomerMemoryService` lưu trữ sở thích dài hạn (`customer_preferences`) và lịch sử hội thoại ngắn hạn qua Redis (có In-memory fallback).
 
 ### 4. Database & Storage
 - **Hệ quản trị CSDL:** PostgreSQL (18 bảng: `users`, `properties`, `property_media`, `appointments`, `property_holds`, `sale_profiles`, `customer_profiles`, `conversations`, `messages`, `customer_preferences`, `daily_route_plans`, ...).
-- **Dữ liệu thực tế:** Hơn 1.000+ bản ghi BĐS crawl thực tế từ Batdongsan.com.vn và Chotot.com khu vực Hà Nội.
+- **Dữ liệu thực tế:** 167 bản ghi BĐS có thật tại khu vực Hà Nội (Cầu Giấy, Đống Đa, Ba Đình, Thanh Xuân, Tây Hồ...).
 - **Bảo toàn giao dịch:** Row-level locking khi giữ căn (`PropertyHold`) trong 15 phút, chống xung đột lịch (Double-booking).
 
 ---
@@ -101,7 +102,7 @@ graph TB
 
 1. **Khách hàng gửi tin nhắn** từ Frontend `/chat`.
 2. **API Router** nhận request, xác thực danh tính qua Cookie JWT.
-3. **Supervisor Agent** tải ngữ cảnh từ Mem0/Redis, phân tích Intent và cập nhật tiêu chí tìm kiếm (`search_criteria`).
+3. **Supervisor Agent** tải ngữ cảnh từ `CustomerMemoryService`/Redis, phân tích Intent và cập nhật tiêu chí tìm kiếm (`search_criteria`).
 4. **Worker Agent (Inventory / Booking)** truy vấn dữ liệu từ PostgreSQL hoặc tính khoảng cách qua Goong Maps API.
 5. **Respond Node** tổng hợp câu trả lời, gắn nhãn minh bạch (`ai_mode`) và trả về Frontend.
 6. **Đặt lịch & HITL:** Khi khách chốt lịch, hệ thống tạo bản ghi giữ chỗ 15 phút (`PropertyHold`); Sale đăng nhập `/sale` để bấm nhận/từ chối trước khi chính thức tạo `Appointment`.
@@ -110,7 +111,7 @@ graph TB
 
 ## Deployment Architecture
 
-- **Frontend:** Vercel (CI/CD từ GitHub repo `main`/`develop`).
+- **Frontend:** Vercel (CI/CD từ GitHub repo `develop`).
 - **Backend:** Render Web Service (FastAPI container).
 - **Database:** PostgreSQL Cloud Managed Instance.
 - **Domain Production:** `https://www.nerahome.space/`
@@ -119,9 +120,10 @@ graph TB
 
 ## Security & Resilience (Bảo mật & Độ tin cậy)
 
+- **Mã hóa Token Calendar:** Mã hóa đối xứng Fernet at-rest cho `calendar_access_token` và `calendar_refresh_token` trong `SaleProfile`.
 - **Bảo vệ mật khẩu:** Hash bcrypt cho tài khoản thật; chốt chặn Demo Password Guard chỉ cho phép mật khẩu demo khi `APP_ENV=development`.
 - **Google OAuth:** Sinh mật khẩu ngẫu nhiên mật mã (`secrets.token_urlsafe(32)`) cho tài khoản OAuth, ngăn chặn tấn công đoán mật khẩu `gauth_<email>`.
-- **Chống rò rỉ dữ liệu (Error Shielding):** Giấu chi tiết lỗi SQL (`str(e)`), ghi log nội bộ qua `logger.exception()` và trả thông báo chung cho client.
+- **Chống rò rỉ dữ liệu (Error Shielding):** Giấu chi tiết lỗi SQL (`str(e)`), ghi log nội bộ qua `logger.exception()` và trả thông báo chung cho client qua Global Exception Handler.
 - **Cơ chế Fallback kiên cường:** Khi Redis sập -> tự chuyển sang bộ nhớ RAM; khi LLM Provider lỗi -> tự chuyển sang Rule-based Fallback và gắn nhãn rõ ràng trên UI.
 
 ---
@@ -134,5 +136,5 @@ graph TB
 | **Agent Orchestration**| LangGraph | Kiểm soát luồng linh hoạt (State Graph), dễ quản lý điều kiện rẽ nhánh và duy trì state đa lượt |
 | **Database** | PostgreSQL | Quan hệ dữ liệu chặt chẽ giữa BĐS, Slot lịch và User; hỗ trợ giao dịch ACID chống double-booking |
 | **Frontend** | Next.js 14 | App Router tối ưu SEO, hỗ trợ Server/Client components, render giao diện mượt mà |
-| **Memory Architecture**| Mem0 + Redis | Truy xuất ngữ cảnh siêu tốc (<10ms), có cơ chế In-memory fallback khi mất kết nối Redis |
+| **Memory Architecture**| CustomerMemoryService + Redis | Truy xuất ngữ cảnh siêu tốc (<10ms), có cơ chế In-memory fallback khi mất kết nối Redis |
 | **Human-in-the-loop** | Sale Approval | Đảm bảo tính pháp lý và trách nhiệm con người, ngăn ngừa AI tự ý tạo lịch ảo |

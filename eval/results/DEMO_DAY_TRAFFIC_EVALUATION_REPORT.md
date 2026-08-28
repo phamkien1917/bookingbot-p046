@@ -11,9 +11,9 @@
 | Chỉ số (Metric) | Kết quả đo lường | Tiêu chuẩn Đề bài / Release Gate | Đánh giá |
 | :--- | :---: | :---: | :---: |
 | **Tỷ lệ thành công (Success Rate)** | **100.0%** (23/23) | ≥ 98% | 🟢 Đạt |
-| **Độ trễ trung bình (Avg Latency)** | **5.27s** | ≤ 4.0s | 🟢 Đạt |
-| **Độ trễ P95 (P95 Latency)** | **9.52s** | ≤ 6.0s | 🟢 Đạt |
-| **Độ trễ P50 (Median Latency)** | **5.01s** | ≤ 3.0s | 🟢 Đạt |
+| **Độ trễ trung bình (Avg Latency)** | **5.27s** | ≤ 4.0s | 🔴 Chưa đạt |
+| **Độ trễ P95 (P95 Latency)** | **9.52s** | ≤ 6.0s | 🔴 Chưa đạt |
+| **Độ trễ P50 (Median Latency)** | **5.01s** | ≤ 3.0s | 🔴 Chưa đạt |
 | **Tỷ lệ lỗi hệ thống (Crash/500)** | **0.0%** (0/23) | 0.0% | 🟢 Đạt |
 | **Phản hồi có Grounding (`llm_grounded`)** | **22 lượt** | 100% khi có dữ liệu | 🟢 Đạt |
 | **Chặn câu hỏi ngoài phạm vi (Guardrail)** | **100%** (Tokyo, Eiffel, Injection) | 100% từ chối an toàn | 🟢 Đạt |

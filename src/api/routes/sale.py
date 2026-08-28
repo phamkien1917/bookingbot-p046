@@ -129,7 +129,7 @@ async def optimize_route(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Error checking sale availability")
         raise HTTPException(status_code=500, detail="Đã xảy ra lỗi khi kiểm tra lịch trống. Vui lòng thử lại sau.")
 

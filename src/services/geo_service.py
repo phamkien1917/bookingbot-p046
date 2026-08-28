@@ -14,7 +14,7 @@ import math
 import re
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -199,7 +199,7 @@ class GeoService:
         vehicle = mode_mapping.get(mode, "car")
         origins_str = "|".join(f"{lat},{lon}" for lat, lon in origins)
         dest_str = f"{destination[0]},{destination[1]}"
-        
+
         async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
             response = await client.get(
                 "https://rsapi.goong.io/DistanceMatrix",
@@ -212,7 +212,7 @@ class GeoService:
             )
             response.raise_for_status()
             payload = response.json()
-        
+
         result: dict[int, dict[str, float]] = {}
         rows = payload.get("rows", [])
         for i, row in enumerate(rows):

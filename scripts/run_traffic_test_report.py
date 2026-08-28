@@ -271,13 +271,21 @@ def run_evaluation():
         f.write("## 1. BẢNG TỔNG HỢP CHỈ SỐ HOẠT ĐỘNG (KPI METRICS)\n\n")
         f.write("| Chỉ số (Metric) | Kết quả đo lường | Tiêu chuẩn Đề bài / Release Gate | Đánh giá |\n")
         f.write("| :--- | :---: | :---: | :---: |\n")
-        f.write(f"| **Tỷ lệ thành công (Success Rate)** | **{success_count/executed_turns*100:.1f}%** ({success_count}/{executed_turns}) | ≥ 98% | 🟢 Đạt |\n")
-        f.write(f"| **Độ trễ trung bình (Avg Latency)** | **{avg_latency:.2f}s** | ≤ 4.0s | 🟢 Đạt |\n")
-        f.write(f"| **Độ trễ P95 (P95 Latency)** | **{p95_latency:.2f}s** | ≤ 6.0s | 🟢 Đạt |\n")
-        f.write(f"| **Độ trễ P50 (Median Latency)** | **{p50_latency:.2f}s** | ≤ 3.0s | 🟢 Đạt |\n")
-        f.write(f"| **Tỷ lệ lỗi hệ thống (Crash/500)** | **0.0%** (0/{executed_turns}) | 0.0% | 🟢 Đạt |\n")
-        f.write(f"| **Phản hồi có Grounding (`llm_grounded`)** | **{grounded_count} lượt** | 100% khi có dữ liệu | 🟢 Đạt |\n")
-        f.write(f"| **Chặn câu hỏi ngoài phạm vi (Guardrail)** | **100%** (Tokyo, Eiffel, Injection) | 100% từ chối an toàn | 🟢 Đạt |\n\n")
+        error_count = executed_turns - success_count
+        success_rate = success_count / executed_turns * 100 if executed_turns else 0
+        error_rate = error_count / executed_turns * 100 if executed_turns else 0
+
+        def verdict(ok: bool) -> str:
+            """Gate verdicts come from the measurement, never from a constant."""
+            return "🟢 Đạt" if ok else "🔴 Chưa đạt"
+
+        f.write(f"| **Tỷ lệ thành công (Success Rate)** | **{success_rate:.1f}%** ({success_count}/{executed_turns}) | ≥ 98% | {verdict(success_rate >= 98)} |\n")
+        f.write(f"| **Độ trễ trung bình (Avg Latency)** | **{avg_latency:.2f}s** | ≤ 4.0s | {verdict(avg_latency <= 4.0)} |\n")
+        f.write(f"| **Độ trễ P95 (P95 Latency)** | **{p95_latency:.2f}s** | ≤ 6.0s | {verdict(p95_latency <= 6.0)} |\n")
+        f.write(f"| **Độ trễ P50 (Median Latency)** | **{p50_latency:.2f}s** | ≤ 3.0s | {verdict(p50_latency <= 3.0)} |\n")
+        f.write(f"| **Tỷ lệ lỗi hệ thống (Crash/500)** | **{error_rate:.1f}%** ({error_count}/{executed_turns}) | 0.0% | {verdict(error_count == 0)} |\n")
+        f.write(f"| **Phản hồi có Grounding (`llm_grounded`)** | **{grounded_count} lượt** | 100% khi có dữ liệu | — |\n")
+        f.write(f"| **Phản hồi rơi fallback** | **{fallback_count} lượt** | — | — |\n\n")
         f.write("---\n\n")
         f.write("## 2. CHI TIẾT KẾT QUẢ THEO TỪNG NHÓM NGHIỆP VỤ\n\n")
 

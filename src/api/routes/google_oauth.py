@@ -17,7 +17,6 @@ from src.services.auth_service import (
     ALGORITHM,
     SECRET_KEY,
     create_access_token,
-    decrypt_token,
     encrypt_token,
     get_password_hash,
 )

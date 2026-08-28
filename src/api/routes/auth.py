@@ -1,8 +1,6 @@
 import logging
 from collections.abc import Callable
 
-logger = logging.getLogger(__name__)
-
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
@@ -32,6 +30,8 @@ from src.services.auth_service import (
 from src.services.email_service import send_password_reset_email
 from src.utils.time import utcnow
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 settings = get_settings()
@@ -56,7 +56,7 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_sessi
         raise HTTPException(status_code=400, detail=str(exc))
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         await db.rollback()
         logger.exception("Registration error")
         raise HTTPException(status_code=500, detail="Đã xảy ra lỗi khi đăng ký. Vui lòng thử lại sau.")

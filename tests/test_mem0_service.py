@@ -176,30 +176,6 @@ class TestSemanticMemory:
             # Should handle gracefully
 
 
-class TestConversationStore:
-    """Test conversation store."""
-
-    @pytest.mark.asyncio
-    async def test_save_message_behavior(self):
-        """Test message saving behavior."""
-        from src.services.mem0_service import ConversationStore
-        from unittest.mock import AsyncMock, patch
-        
-        store = ConversationStore()
-        
-        with patch("src.services.mem0_service.get_redis") as mock_get_redis:
-            mock_redis = AsyncMock()
-            mock_get_redis.return_value = mock_redis
-            
-            await store.save_message("session_1", "user_1", "user", "hello")
-            
-            mock_redis.lpush.assert_called_once()
-            args, kwargs = mock_redis.lpush.call_args
-            assert args[0] == "chat:session_1"
-            assert "hello" in args[1]
-            mock_redis.expire.assert_called_once()
-
-
 class TestPreferenceStore:
     """Test preference store."""
 

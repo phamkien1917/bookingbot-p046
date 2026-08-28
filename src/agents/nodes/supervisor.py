@@ -181,7 +181,7 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
     duration_min = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*phut\b", text)
     if duration_min:
         result["max_commute_minutes"] = int(duration_min.group(1))
-    
+
     duration_hour = re.search(r"(?:duoi|khong qua|toi da|trong vong)?\s*(\d+)\s*(?:tieng|gio|h)\b", text)
     if duration_hour:
         result["max_commute_minutes"] = int(duration_hour.group(1)) * 60
@@ -304,7 +304,9 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     }
 
     understanding: SupervisorUnderstanding | None = None
-    ai_model = "gpt-4o-mini"
+    # Stays None when no LLM call happens, so the response never claims a model
+    # that did not answer this turn.
+    ai_model: str | None = None
 
     has_property_context = bool(state.get("search_results") or state.get("selected_properties"))
     consultation_question_signal = bool(re.search(
@@ -351,29 +353,10 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     ):
         understanding = SupervisorUnderstanding(intent=Intent.PROPERTY_DETAILS, confidence=1.0)
 
-    preserve_search_signal = bool(re.search(
-        r"\b(giu nguyen|van vay|nhu vay|nhu cu|giu nhu cu|ngan sach cu|tieu chi cu)\b",
-        norm_query,
-    ))
-    remove_filter_signal = bool(re.search(
-        r"\b(bo|xoa|khong can|khong gioi han)\b.*\b(gia|ngan sach|phong ngu|dien tich|huong|tang)\b",
-        norm_query,
-    ))
-    pagination_signal = bool(re.search(
-        r"\b(tim them|xem them|can khac|nha khac|cai khac|doi can khac)\b",
-        norm_query,
-    ))
     reset_search_signal = bool(re.search(
         r"\b(nhu cau moi|bat dau (?:mot )?nhu cau moi|tim kiem moi)\b",
         norm_query,
     ))
-    property_feature_followup = bool(
-        (state.get("search_results") or state.get("selected_properties"))
-        and re.search(
-            r"\b(trong so do|can nao|nha nao|re nhat|dat nhat|co ban cong|co cho de xe|phap ly)\b",
-            norm_query,
-        )
-    )
 
 
     if understanding is None:
@@ -390,6 +373,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             result = await structured_llm.ainvoke([sys_msg, human_msg])
             if isinstance(result, SupervisorUnderstanding):
                 understanding = result
+                ai_model = llm.model_name
         except Exception as e:
             logger.warning(f"Structured supervisor understanding failed: {e}. Falling back to heuristic.")
 

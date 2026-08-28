@@ -190,6 +190,17 @@ async def health():
     }
 
 
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for uncaught errors."""
+    logger.exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -201,6 +212,8 @@ async def root():
         "health": "/health",
         "ui": "/ui",
     }
+
+
 
 
 

@@ -6,8 +6,12 @@ instead. Combined with the hard-coded ai_model label in the response, nothing
 would reveal that the configured model never ran.
 """
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
+from src.agents.state import Intent
 from src.services.llm import OpenRouterLLM
 from src.services.models import MODEL_PRIORITY
 
@@ -67,3 +71,45 @@ def test_direct_openai_ignores_the_openrouter_list() -> None:
 
     assert llm.is_direct_openai
     assert llm.models == ["gpt-4o-mini", "gpt-4o"]
+
+
+@pytest.mark.asyncio
+async def test_respond_node_reports_the_model_that_answered() -> None:
+    """The response must name the model that ran, not a hard-coded label.
+
+    supervisor.py used to set ai_model = "gpt-4o-mini" and never reassign it,
+    so every turn claimed OpenAI even while OpenRouter served the answer.
+    """
+    from src.agents.nodes.respond_node import respond_node
+
+    class FakeLLM:
+        model_name = "nvidia/nemotron-3-ultra-550b-a55b:free"
+
+        async def ainvoke(self, messages):
+            return SimpleNamespace(content="Chào bạn!")
+
+    with patch("src.agents.nodes.respond_node.get_llm", return_value=FakeLLM()):
+        result = await respond_node({
+            "query": "xin chào",
+            "intent": Intent.GREETING,
+            "messages": [],
+            "response": "",
+        })
+
+    assert result["ai_model"] == "nvidia/nemotron-3-ultra-550b-a55b:free"
+
+
+@pytest.mark.asyncio
+async def test_no_model_is_claimed_when_the_llm_never_ran() -> None:
+    """A heuristic answer must not borrow a model name it did not use."""
+    from src.agents.nodes.respond_node import respond_node
+
+    result = await respond_node({
+        "query": "xin chào",
+        "intent": Intent.GREETING,
+        "messages": [],
+        "response": "",
+        "direct_response": "Chào bạn, mình là Nera.",
+    })
+
+    assert result["ai_model"] is None

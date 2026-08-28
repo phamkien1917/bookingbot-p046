@@ -53,6 +53,7 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
 
     final_response = existing_response
     ai_mode = state.get("ai_mode", "llm_grounded")
+    ai_model = state.get("ai_model")
     affordability_note = state.get("affordability_note")
 
     # If no response generated yet, or intent is consultative/conversational
@@ -139,6 +140,7 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
                 res = await llm.ainvoke(prompt_messages)
                 final_response = res.content if hasattr(res, "content") else str(res)
                 ai_mode = "llm_direct"
+                ai_model = llm.model_name
             except Exception as e:
                 logger.error(f"Error in LLM response generation: {e}")
                 if not final_response:
@@ -245,6 +247,7 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
         "suggested_actions": suggested_actions,
         "insights": insights,
         "ai_mode": ai_mode,
+        "ai_model": ai_model,
     }
 
     # Clear selected_properties if purely conversational to avoid leaking property cards

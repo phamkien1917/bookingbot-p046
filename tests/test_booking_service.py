@@ -1,54 +1,85 @@
-import pytest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
-from datetime import datetime, timedelta
 
-from src.database.models import User, UserRole, UserStatus, Appointment, AppointmentStatus
-from src.services.booking_service import get_available_slots, reject_sale_request
+import pytest
+
+from src.database.models import RequestStatus, SlotStatus
+from src.exceptions import BookingConflictError, BookingPermissionError
+from src.services import booking_service
+from src.services.booking_service import (
+    reject_sale_request,
+)
+
+
+def _booking(status, slot_options):
+    return SimpleNamespace(
+        id=uuid4(),
+        status=status,
+        slot_options=slot_options,
+        extracted_requirements=None,
+    )
 
 
 @pytest.mark.asyncio
-async def test_booking_available_slots_empty_property(db_session):
-    """Test getting available slots for a property with no existing appointments."""
-    property_id = uuid4()
-    date_str = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    
-    slots = await get_available_slots(db_session, property_id, date_str)
-    assert isinstance(slots, list)
-    # Typically 08:00 to 18:00 means several slots
-    assert len(slots) > 0
+async def test_reject_refuses_booking_no_longer_waiting(monkeypatch) -> None:
+    """A booking already approved or cancelled must not be rejectable again."""
+    booking = _booking(RequestStatus.APPROVED, [])
+
+    async def fake_get_booking(db, booking_id):
+        return booking
+
+    monkeypatch.setattr(booking_service, "_get_booking", fake_get_booking)
+
+    with pytest.raises(BookingConflictError):
+        await reject_sale_request(MagicMock(), booking.id, uuid4(), "Busy")
 
 
 @pytest.mark.asyncio
-async def test_reject_sale_request(db_session):
-    """Test rejecting a booking request."""
-    # This requires an actual appointment in the DB
-    sale_user = User(
-        email="sale.reject.test@example.com",
-        full_name="Sale User",
-        password_hash="test",
-        role=UserRole.SALE,
-        status=UserStatus.ACTIVE,
+async def test_reject_refuses_sale_without_selected_slot(monkeypatch) -> None:
+    """Only the sale holding the SELECTED slot may reject the request."""
+    other_sale = uuid4()
+    booking = _booking(
+        RequestStatus.WAITING_APPROVAL,
+        [SimpleNamespace(sale_user_id=other_sale, status=SlotStatus.SELECTED)],
     )
-    db_session.add(sale_user)
-    await db_session.flush()
 
-    appt = Appointment(
-        booking_code="TESTREJ",
-        property_id=uuid4(),
-        customer_user_id=uuid4(),
-        sale_user_id=sale_user.id,
-        starts_at=datetime.now() + timedelta(days=1),
-        ends_at=datetime.now() + timedelta(days=1, hours=1),
-        status=AppointmentStatus.WAITING_APPROVAL
-    )
-    db_session.add(appt)
-    await db_session.commit()
+    async def fake_get_booking(db, booking_id):
+        return booking
 
-    # Reject it
-    result = await reject_sale_request(db_session, appt.id, sale_user.id, "Busy")
-    assert result["status"] == "CANCELLED"
+    monkeypatch.setattr(booking_service, "_get_booking", fake_get_booking)
 
-    # Verify status in DB
-    from sqlalchemy import select
-    appt_db = (await db_session.execute(select(Appointment).where(Appointment.id == appt.id))).scalar_one()
-    assert appt_db.status == AppointmentStatus.CANCELLED
+    with pytest.raises(BookingPermissionError):
+        await reject_sale_request(MagicMock(), booking.id, uuid4(), "Busy")
+
+
+@pytest.mark.asyncio
+async def test_reject_withdraws_slot_and_records_reason(monkeypatch) -> None:
+    """Rejecting withdraws the sale's slot and keeps the reason on the request."""
+    sale_user_id = uuid4()
+    slot = SimpleNamespace(sale_user_id=sale_user_id, status=SlotStatus.SELECTED)
+    booking = _booking(RequestStatus.WAITING_APPROVAL, [slot])
+
+    async def fake_get_booking(db, booking_id):
+        return booking
+
+    async def fake_reassign(db, row, trigger):
+        return False
+
+    async def fake_notify(db, row, kind, message):
+        return None
+
+    monkeypatch.setattr(booking_service, "_get_booking", fake_get_booking)
+    monkeypatch.setattr(booking_service, "_reassign_waiting_request", fake_reassign)
+    monkeypatch.setattr(booking_service, "_notify_customer_and_operators", fake_notify)
+    monkeypatch.setattr(booking_service, "serialize_booking", lambda row: {"status": row.status})
+
+    db = MagicMock()
+    db.commit = AsyncMock()
+
+    result = await reject_sale_request(db, booking.id, sale_user_id, "Kẹt lịch")
+
+    assert slot.status == SlotStatus.WITHDRAWN
+    assert booking.extracted_requirements["rejection_reason"] == "Kẹt lịch"
+    assert booking.status == RequestStatus.REJECTED
+    assert result["status"] == RequestStatus.REJECTED

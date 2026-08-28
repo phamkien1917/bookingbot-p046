@@ -109,10 +109,11 @@ class InMemoryFallback:
         return True
 
     async def delete(self, key: str) -> int:
-        """Delete a key."""
+        """Delete a key. Returns 1 if it existed, 0 otherwise, like Redis DEL."""
+        existed = key in self._store
         self._store.pop(key, None)
         self._expiry.pop(key, None)
-        return 1
+        return 1 if existed else 0
 
     async def exists(self, key: str) -> int:
         """Check if key exists."""
@@ -187,7 +188,8 @@ class InMemoryFallback:
             self._store[key] = []
         if not isinstance(self._store[key], list):
             self._store[key] = [self._store[key]]
-        self._store[key] = list(values) + self._store[key]
+        # Redis LPUSH pushes values one by one, so the last argument ends up first.
+        self._store[key] = list(reversed(values)) + self._store[key]
         return len(self._store[key])
 
     async def rpop(self, key: str) -> str | None:
@@ -1086,14 +1088,20 @@ class PropertyHoldManager:
         client = await self._get_client()
         hold_key = self._hold_key(property_id)
 
-        # Check if already held
-        existing = await client.get(hold_key)
-        if existing:
-            hold_data = json.loads(existing)
-            if hold_data["expires_at"] > time.time():
-                # Already held
+        # Check if already held. Fallback mode stores holds in _local_holds,
+        # not through the client, so reading the client there always missed them.
+        if self._is_fallback:
+            held = self._local_holds.get(hold_key)
+            if held and held["expires_at"] > time.time():
                 return None
-            # Expired, can acquire
+        else:
+            existing = await client.get(hold_key)
+            if existing:
+                hold_data = json.loads(existing)
+                if hold_data["expires_at"] > time.time():
+                    # Already held
+                    return None
+                # Expired, can acquire
 
         hold_id = hashlib.sha1(f"{property_id}:{customer_id}:{time.time()}".encode()).hexdigest()[:12]
         hold_data = {
