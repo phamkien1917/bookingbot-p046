@@ -231,6 +231,8 @@ async def respond_node(state: AgentState) -> dict[str, Any]:
     }
     if state.get("soft_preferences"):
         insights["soft_preferences"] = state["soft_preferences"]
+    if state.get("nearby_categories"):
+        insights["nearby_categories"] = state["nearby_categories"]
     if state.get("household_context"):
         insights["household_context"] = state["household_context"]
     if state.get("commute_landmark"):
