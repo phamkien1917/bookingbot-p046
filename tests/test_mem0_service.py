@@ -180,24 +180,24 @@ class TestConversationStore:
     """Test conversation store."""
 
     @pytest.mark.asyncio
-    async def test_save_message_structure(self):
-        """Test message structure for saving."""
+    async def test_save_message_behavior(self):
+        """Test message saving behavior."""
         from src.services.mem0_service import ConversationStore
-
+        from unittest.mock import AsyncMock, patch
+        
         store = ConversationStore()
-
-        # The method should exist and be callable
-        assert hasattr(store, "save_message")
-        assert hasattr(store, "get_conversation_history")
-        assert hasattr(store, "summarize_conversation")
-        # Test signature
-        import inspect
-        sig = inspect.signature(store.save_message)
-        params = list(sig.parameters.keys())
-        assert "session_id" in params
-        assert "user_id" in params
-        assert "role" in params
-        assert "content" in params
+        
+        with patch("src.services.mem0_service.get_redis") as mock_get_redis:
+            mock_redis = AsyncMock()
+            mock_get_redis.return_value = mock_redis
+            
+            await store.save_message("session_1", "user_1", "user", "hello")
+            
+            mock_redis.lpush.assert_called_once()
+            args, kwargs = mock_redis.lpush.call_args
+            assert args[0] == "chat:session_1"
+            assert "hello" in args[1]
+            mock_redis.expire.assert_called_once()
 
 
 class TestPreferenceStore:

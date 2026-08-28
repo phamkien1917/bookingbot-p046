@@ -1238,11 +1238,14 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
 
     # Check if returning user continuation
     if is_resume and properties:
-        response_msg = format_search_results_markdown(
+        response_msg = await format_intelligent_search_results(
             properties,
             criteria,
             soft_prefs,
+            state.get("query", ""),
             state.get("affordability_note"),
+            is_resume=True,
+            memory_summary=state.get("memory_summary")
         )
         display_items = properties[:5] if len(properties) > 5 else properties
         return {
@@ -1388,11 +1391,14 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
     if len(properties) >= 2:
         suggested_actions.append("So sánh các căn này")
 
-    search_response_text = format_search_results_markdown(
+    search_response_text = await format_intelligent_search_results(
         properties,
         criteria,
         soft_prefs,
+        state.get("query", ""),
         state.get("affordability_note"),
+        is_resume=False,
+        memory_summary=state.get("memory_summary")
     )
 
     return {

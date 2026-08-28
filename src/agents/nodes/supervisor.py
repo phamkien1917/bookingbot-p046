@@ -370,32 +370,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             norm_query,
         )
     )
-    deterministic_search_turn = bool(
-        det_criteria
-        or det_geo
-        or preserve_search_signal
-        or remove_filter_signal
-        or pagination_signal
-        or reset_search_signal
-        or property_feature_followup
-    ) and not (
-        bool(re.search(
-            r"\b(dat lich|hen xem|huy lich|doi lich|kiem tra lich|so sanh|lai suat)\b",
-            norm_query,
-        ))
-        or bool(re.search(r"\b(?:vay\s*\d|vay von|vay tien|vay ngan hang|khoan vay)\b", norm_query))
-        or bool(re.search(r"\bvay\b", query.lower()))
-    )
-    if understanding is None and deterministic_search_turn:
-        understanding = SupervisorUnderstanding(
-            intent=Intent.SEARCH_PROPERTY,
-            confidence=1.0,
-            criteria=ExtractedCriteria(**{
-                key: value
-                for key, value in det_criteria.items()
-                if key in ExtractedCriteria.model_fields
-            }),
-        )
+
 
     if understanding is None:
         try:
@@ -486,7 +461,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         understanding.intent = Intent.SEARCH_PROPERTY
     elif refinement_signal:
         understanding.is_new_search = False
-    elif understanding.is_new_search or starts_new_search_signal:
+    elif understanding.is_new_search:
         merged_criteria = {}
         understanding.is_new_search = True
         if "location" not in det_groups:

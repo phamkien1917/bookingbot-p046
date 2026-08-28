@@ -132,11 +132,17 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 settings = get_settings()
+docs_kwargs = {} if settings.app_env == "development" else {
+    "docs_url": None,
+    "redoc_url": None,
+    "openapi_url": None,
+}
 app = FastAPI(
     title=settings.app_name,
     description="AI Agent for real estate booking - Multi-agent system with LangGraph",
     version="1.0.0",
     lifespan=lifespan,
+    **docs_kwargs,
 )
 
 # Add CORS middleware

@@ -160,10 +160,11 @@ async def google_callback(
 
         if not user:
             # Auto-create customer user
+            import secrets
             user = User(
                 email=email,
                 full_name=full_name,
-                password_hash=get_password_hash(f"gauth_{email}"),
+                password_hash=get_password_hash(secrets.token_urlsafe(32)),
                 role=UserRole.CUSTOMER,
                 status=UserStatus.ACTIVE,
             )
