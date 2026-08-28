@@ -1,7 +1,9 @@
+import base64
 from datetime import timedelta
 from hashlib import sha256
 
 import bcrypt
+from cryptography.fernet import Fernet, InvalidToken
 import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +21,34 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 DEMO_PASSWORD_HASH = "DEMO_ONLY_REPLACE_WITH_ARGON2ID_HASH"
 DEMO_PASSWORD = "Demo@123"
 LEGACY_DEMO_PASSWORD = "123456"
+
+
+def _get_fernet() -> Fernet:
+    """Derive a deterministic 32-byte URL-safe base64 key from jwt_secret_key."""
+    key_bytes = sha256(SECRET_KEY.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(key_bytes))
+
+
+def encrypt_token(plain_text: str | None) -> str | None:
+    """Encrypt sensitive tokens at rest using AES-CBC/HMAC Fernet."""
+    if not plain_text:
+        return None
+    try:
+        f = _get_fernet()
+        return f.encrypt(plain_text.encode("utf-8")).decode("utf-8")
+    except Exception:
+        return plain_text
+
+
+def decrypt_token(cipher_text: str | None) -> str | None:
+    """Decrypt sensitive tokens at rest. Fallback to raw string if plain."""
+    if not cipher_text:
+        return None
+    try:
+        f = _get_fernet()
+        return f.decrypt(cipher_text.encode("utf-8")).decode("utf-8")
+    except (InvalidToken, Exception):
+        return cipher_text
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
