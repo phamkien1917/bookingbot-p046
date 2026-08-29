@@ -13,7 +13,13 @@ from src.api.routes.auth import require_roles, set_auth_cookie
 from src.config import get_settings
 from src.database import get_session
 from src.database.models import CustomerProfile, SaleProfile, User, UserRole, UserStatus
-from src.services.auth_service import ALGORITHM, SECRET_KEY, create_access_token, get_password_hash
+from src.services.auth_service import (
+    ALGORITHM,
+    SECRET_KEY,
+    create_access_token,
+    encrypt_token,
+    get_password_hash,
+)
 from src.services.oauth_exchange_service import consume_oauth_exchange, create_oauth_exchange
 from src.utils.time import utcnow
 
@@ -160,10 +166,11 @@ async def google_callback(
 
         if not user:
             # Auto-create customer user
+            import secrets
             user = User(
                 email=email,
                 full_name=full_name,
-                password_hash=get_password_hash(f"gauth_{email}"),
+                password_hash=get_password_hash(secrets.token_urlsafe(32)),
                 role=UserRole.CUSTOMER,
                 status=UserStatus.ACTIVE,
             )
@@ -220,9 +227,9 @@ async def google_callback(
             raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ Sale.")
 
         profile.calendar_provider = "GOOGLE"
-        profile.calendar_access_token = access_token
+        profile.calendar_access_token = encrypt_token(access_token)
         if token_data.get("refresh_token"):
-            profile.calendar_refresh_token = token_data["refresh_token"]
+            profile.calendar_refresh_token = encrypt_token(token_data["refresh_token"])
         profile.calendar_token_expires_at = utcnow() + timedelta(seconds=token_data.get("expires_in", 3600))
         await db.commit()
 

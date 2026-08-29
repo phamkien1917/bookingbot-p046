@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -27,17 +28,41 @@ def _route_after_worker(state: AgentState) -> str:
     return "hitl" if state.get("awaiting_human") and not state.get("hitl_case_id") else "respond"
 
 
+def _timed(name: str, node: Callable) -> Callable:
+    """Record how long a node took under state["stage_timings"].
+
+    Only the supervisor used to time itself, so ai_latency_ms hid the cost of the
+    inventory and respond LLM calls. Wrapping here covers every node at once,
+    including any added later.
+    """
+
+    async def wrapper(state: AgentState) -> dict:
+        started = time.perf_counter()
+        result = await node(state)
+        elapsed = round((time.perf_counter() - started) * 1000)
+        if not isinstance(result, dict):
+            return result
+        timings = dict(state.get("stage_timings") or {})
+        timings.update(result.get("stage_timings") or {})
+        timings[name] = timings.get(name, 0) + elapsed
+        result["stage_timings"] = timings
+        return result
+
+    wrapper.__name__ = getattr(node, "__name__", name)
+    return wrapper
+
+
 def build_agent_graph() -> StateGraph:
     """Build the compiled multi-agent state graph."""
     graph = StateGraph(AgentState)
 
     # Add all agent nodes
-    graph.add_node("supervisor", supervisor_node)
-    graph.add_node("inventory", inventory_agent)
-    graph.add_node("booking", booking_agent)
-    graph.add_node("assignment", assignment_agent)
-    graph.add_node("hitl", hitl_agent)
-    graph.add_node("respond", respond_node)
+    graph.add_node("supervisor", _timed("supervisor", supervisor_node))
+    graph.add_node("inventory", _timed("inventory", inventory_agent))
+    graph.add_node("booking", _timed("booking", booking_agent))
+    graph.add_node("assignment", _timed("assignment", assignment_agent))
+    graph.add_node("hitl", _timed("hitl", hitl_agent))
+    graph.add_node("respond", _timed("respond", respond_node))
 
     # Set entry point
     graph.set_entry_point("supervisor")

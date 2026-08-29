@@ -540,6 +540,7 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
   animDelay: number;
 }) {
   const [showReasons, setShowReasons] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const { ok, caution } = useMemo(() => buildMatchReasons(property, insights), [property, insights]);
   const hasInsights = ok.length > 0 || caution.length > 0;
 
@@ -567,11 +568,18 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
             <FaBed className="mr-1 inline text-[var(--forest)]" />{property.bedrooms ?? 0} phòng ngủ · {property.area_sqm} m²
           </p>
           {property.distance_evidence && (
-            <p className="mt-2 rounded-lg bg-[#eef4ee] px-3 py-2 text-xs font-medium text-[var(--forest)]">
-              <FaCompass className="mr-1.5 inline" />
-              {property.distance_evidence.distance_km} km · {property.distance_evidence.duration_minutes} phút đến {property.distance_evidence.destination}
-              <span className="ml-1 text-[10px] font-normal text-[var(--muted)]">· {property.distance_evidence.attribution ?? property.distance_evidence.provider}</span>
-            </p>
+            <div className="mt-2 flex flex-col items-start gap-2">
+              <p className="rounded-lg bg-[#eef4ee] px-3 py-2 text-xs font-medium text-[var(--forest)]">
+                <FaCompass className="mr-1.5 inline" />
+                📍 Cách {property.distance_evidence.distance_km} km ({property.distance_evidence.duration_minutes} phút) đến {property.distance_evidence.destination}
+              </p>
+              <button 
+                onClick={() => setShowMap(!showMap)}
+                className="text-xs font-semibold text-[var(--coral)] hover:underline flex items-center gap-1"
+              >
+                🗺️ {showMap ? "Đóng bản đồ" : "Xem bản đồ"}
+              </button>
+            </div>
           )}
           {property.nearby_evidence?.[0] && (
             <p className="mt-2 text-xs text-[var(--muted)]">
@@ -621,6 +629,18 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
               <FaTimesCircle className="mr-1 inline" />Không phù hợp
             </button>
           </div>
+          {/* MAP IFRAME */}
+          {showMap && (
+            <div className="mt-4 rounded-xl overflow-hidden border border-stone-200">
+              <iframe
+                width="100%"
+                height="200"
+                frameBorder="0" style={{ border: 0 }}
+                src={`https://www.google.com/maps?saddr=${property.latitude},${property.longitude}&daddr=${encodeURIComponent(property.distance_evidence?.destination || '')}&hl=vi&output=embed`}
+                allowFullScreen
+              ></iframe>
+            </div>
+          )}
         </div>
       </div>
     </article>

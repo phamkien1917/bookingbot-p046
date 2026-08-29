@@ -4,5 +4,5 @@
   <path d="M62 100h26l44 44v-44h26v70h-26l-44-44v44H62v-70Z" fill="#14372F"/>
   <rect x="145" y="48" width="24" height="24" rx="6" fill="#E26D4F"/>
   <text x="244" y="112" fill="#FFFFFF" font-family="Be Vietnam Pro, Aptos Display, Arial, sans-serif" font-size="86" font-weight="700" letter-spacing="-3">Nera</text>
-  <text x="250" y="157" fill="#EFA087" font-family="Inter, Aptos, Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="5">AI HOME COMPANION</text>
+  <text x="248" y="164" fill="#EFA087" font-family="Inter, Aptos, Arial, sans-serif" font-size="32" font-weight="800" letter-spacing="2">AI HOME COMPANION</text>
 </svg>

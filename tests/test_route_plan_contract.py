@@ -51,8 +51,9 @@ async def test_route_plan_flags_time_window_conflict(monkeypatch) -> None:
 
     plan = await route_optimizer.optimize_daily_route_plan(db, uuid4(), "2026-08-29")
 
-    assert plan.provider == "Google Routes"
-    assert plan.traffic_aware is True
+    assert plan.provider == "Goong Distance Matrix"
+    # Goong takes no departure time, so a grounded plan is still not traffic-aware.
+    assert plan.traffic_aware is False
     assert plan.feasible is False
     assert plan.legs[0]["available_minutes"] == 10
     assert plan.warnings

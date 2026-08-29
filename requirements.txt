@@ -22,6 +22,7 @@ APScheduler>=3.10.4
 passlib[bcrypt]
 pyjwt
 python-multipart
+cryptography>=42.0.0
 
 # Vector Store (uncomment as needed)
 # chromadb>=0.5.0

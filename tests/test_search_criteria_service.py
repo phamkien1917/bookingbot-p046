@@ -282,3 +282,23 @@ def test_bedroom_counts_are_not_mistaken_for_a_rental_request() -> None:
     for message in ("tìm căn 2 phòng ngủ ở Cầu Giấy", "cần phòng ngủ hướng Nam"):
         criteria, _ = extract_search_criteria(message)
         assert criteria.get("transaction_type") != "RENT", message
+
+
+def test_strict_bedroom_bounds_use_discrete_counts() -> None:
+    above, _ = extract_search_criteria("Nhà trên 2 phòng ngủ")
+    below, _ = extract_search_criteria("Nhà dưới 3 phòng ngủ")
+    at_least, _ = extract_search_criteria("Nhà ít nhất 2 phòng ngủ")
+
+    assert above["min_bedrooms"] == 3
+    assert below["max_bedrooms"] == 2
+    assert at_least["min_bedrooms"] == 2
+
+
+def test_demonstrative_phrase_is_not_mistaken_for_red_book() -> None:
+    criteria, _ = extract_search_criteria("Trong số đó căn nào rẻ nhất?")
+    assert "legal_status" not in criteria
+
+
+def test_property_kind_after_switch_wins_over_negated_old_kind() -> None:
+    criteria, _ = extract_search_criteria("Không tìm đất nữa, đổi sang nhà phố")
+    assert criteria["property_kind"] == "TOWNHOUSE"

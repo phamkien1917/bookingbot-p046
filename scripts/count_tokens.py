@@ -10,10 +10,8 @@ Usage:
 """
 
 import argparse
-import os
-import sys
 from pathlib import Path
-from typing import Optional
+
 
 # Approximate tokenizer (không cần API key)
 # 1 token ≈ 4 chars cho tiếng Anh, ≈ 2-3 chars cho tiếng Việt
@@ -240,10 +238,10 @@ Gợi ý: Cài đặt tiktoken để đếm chính xác hơn:
         else:
             tokens = approximate_token_count(text)
 
-        print(f"\n📝 Input text:")
+        print("\n📝 Input text:")
         print(f"   \"{text}\"")
         print(f"\n🔢 Tokens: {tokens:,}")
-        print(f"📊 Chi phí ước lượng:")
+        print("📊 Chi phí ước lượng:")
         print(f"   {format_token_cost(tokens, 'gemma-2-9b')}")
         print(f"   {format_token_cost(tokens, 'claude-3-haiku')}")
         print(f"   {format_token_cost(tokens, 'gpt-4o-mini')}")
@@ -255,7 +253,7 @@ Gợi ý: Cài đặt tiktoken để đếm chính xác hơn:
             print(f"\n📄 File: {args.file}")
             print(f"📝 Lines: {lines:,}")
             print(f"🔢 Tokens: {tokens:,}")
-            print(f"📊 Chi phí:")
+            print("📊 Chi phí:")
             print(f"   {format_token_cost(tokens, 'gemma-2-9b')}")
             print(f"   {format_token_cost(tokens, 'claude-3-haiku')}")
 

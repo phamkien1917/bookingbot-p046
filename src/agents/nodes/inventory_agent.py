@@ -501,13 +501,8 @@ async def format_intelligent_search_results(
         ]
 
         target_price = criteria.get("target_price")
-        if not target_price:
-            if criteria.get("min_price") and criteria.get("max_price"):
-                target_price = int(round((criteria["min_price"] + criteria["max_price"]) / 2))
-            else:
-                target_price = criteria.get("max_price") or criteria.get("min_price")
-
         price_analysis: dict[str, Any] | None = None
+
         if target_price and items:
             diffs = [
                 abs(float(p.get("list_price") or 0) - float(target_price)) / float(target_price)
@@ -528,7 +523,7 @@ async def format_intelligent_search_results(
                     "instruction": (
                         f"Có {exact_count} căn đúng chính xác và {close_count} căn rất sát "
                         f"(trong khoảng chênh lệch dưới 5%) với mức giá {_price_text(target_price)} khách hỏi. "
-                        f"Hãy nêu rõ các căn đúng/sát giá này. Các căn có mức giá thấp hơn ở sau (như 3.7 - 3.8 tỷ) "
+                        f"Hãy nêu rõ các căn đúng/sát giá này. Các căn có mức giá thấp hơn ở sau "
                         f"chỉ là phương án tham khảo thêm trong tầm ngân sách, không giới thiệu chung là đúng {_price_text(target_price)}."
                     ),
                 }
@@ -545,6 +540,19 @@ async def format_intelligent_search_results(
                         f"và hỏi khách có muốn xem các căn ở phân khúc trên hay dưới {_price_text(target_price)} không."
                     ),
                 }
+        elif criteria.get("max_price") and items:
+            max_p = criteria["max_price"]
+            price_analysis = {
+                "status": "BUDGET_CEILING",
+                "max_price": _price_text(max_p),
+                "instruction": (
+                    f"Khách hàng tìm kiếm bất động sản trong tầm ngân sách DƯỚI / TỐI ĐA {_price_text(max_p)}. "
+                    f"Tất cả các căn hộ bên dưới đều thỏa mãn hoàn hảo điều kiện ngân sách này. "
+                    f"TUYỆT ĐỐI KHÔNG NÓI 'chưa có căn đúng chính xác {_price_text(max_p)}' hay 'không có căn đúng {_price_text(max_p)}', "
+                    f"bởi vì khách hàng chỉ yêu cầu trần ngân sách dưới {_price_text(max_p)} chứ không đòi hỏi đúng chính xác {_price_text(max_p)}. "
+                    f"Hãy giới thiệu tự nhiên các căn hộ nổi bật nhất trong tầm ngân sách dưới {_price_text(max_p)}."
+                ),
+            }
 
         payload = {
             "customer_query": query,
@@ -612,8 +620,9 @@ async def format_intelligent_property_review(item: dict[str, Any], query: str) -
             "- Cấu trúc phản hồi:\n"
             "  1. Tóm tắt nhanh: Tên căn, giá bán, diện tích, kết cấu và điểm ấn tượng nhất.\n"
             "  2. **Ưu điểm nổi bật:** 3-4 gạch đầu dòng ngắn gọn về vị trí, view, tiện ích, pháp lý và mức giá.\n"
-            "  3. **Đánh giá & Khuyên dùng:** Căn này phù hợp nhất với nhu cầu nào (gia đình trẻ, mua ở lâu dài hay đầu tư cho thuê).\n"
-            "  4. Lời kết thân thiện mời khách đặt lịch đi xem thực tế hoặc so sánh thêm."
+            "  3. **Khoảng cách & Tiện ích:** (CHỈ hiển thị nếu có distance_evidence) Nhấn mạnh chính xác khoảng cách (km) và thời gian di chuyển (phút) đến địa điểm khách yêu cầu.\n"
+            "  4. **Đánh giá & Khuyên dùng:** Căn này phù hợp nhất với nhu cầu nào (gia đình trẻ, mua ở lâu dài hay đầu tư cho thuê).\n"
+            "  5. Lời kết thân thiện mời khách đặt lịch đi xem thực tế hoặc so sánh thêm."
         )
         context = {
             "customer_query": query,
@@ -627,6 +636,7 @@ async def format_intelligent_property_review(item: dict[str, Any], query: str) -
                 "legal_status": item.get("legal_status"),
                 "orientation": item.get("orientation"),
                 "description": str(item.get("description", ""))[:600],
+                "distance_evidence": item.get("distance_evidence"),
             },
         }
         res = await llm.ainvoke([
@@ -662,9 +672,10 @@ async def format_intelligent_comparison(items: list[dict[str, Any]], query: str)
             "Quy tắc định dạng:\n"
             "1. Mở đầu bằng một lời dẫn tự nhiên, thân thiện.\n"
             "2. Sử dụng bảng so sánh Markdown đẹp mắt (các cột: Tiêu chí, Căn 1, Căn 2...). Đảm bảo phân tích các hàng: Giá bán, Diện tích, Phòng ngủ / WC, Vị trí, Điểm nổi bật & Độ thoáng.\n"
-            "3. Phần 'Đánh giá & Lời khuyên từ Nera': Trả lời trực diện vào câu hỏi của khách (ví dụ: căn nào thoáng hơn, ưu nhược điểm từng căn, phù hợp với ai) bằng giọng văn chuyên môn, khách quan.\n"
-            "4. Tuyệt đối KHÔNG dùng các ký tự thừa như gạch nối rải rác, ký hiệu vụn vặt không cần thiết.\n"
-            "5. Kết thúc bằng câu hỏi gợi ý nhẹ nhàng để khách đặt lịch đi xem thực tế."
+            "3. **Khoảng cách:** (CHỈ phân tích nếu có distance_evidence) Báo cáo rõ khoảng cách (km) và thời gian di chuyển (phút) cho từng căn.\n"
+            "4. Phần 'Đánh giá & Lời khuyên từ Nera': Trả lời trực diện vào câu hỏi của khách (ví dụ: căn nào thoáng hơn, ưu nhược điểm từng căn, phù hợp với ai) bằng giọng văn chuyên môn, khách quan.\n"
+            "5. Tuyệt đối KHÔNG dùng các ký tự thừa như gạch nối rải rác, ký hiệu vụn vặt không cần thiết.\n"
+            "6. Kết thúc bằng câu hỏi gợi ý nhẹ nhàng để khách đặt lịch đi xem thực tế."
         )
         context = {
             "customer_query": query,
@@ -682,6 +693,7 @@ async def format_intelligent_comparison(items: list[dict[str, Any]], query: str)
                     "features": it.get("features", {}),
                     "location": f"{it.get('address_line', '')}, {it.get('district', '')}, {it.get('province', '')}",
                     "description": str(it.get("description", ""))[:350],
+                    "distance_evidence": it.get("distance_evidence"),
                 }
                 for idx, it in enumerate(items, 1)
             ]
@@ -787,6 +799,43 @@ async def answer_feature_question_on_properties(query: str, pool: list[dict[str,
     if not pool:
         return None
 
+    normalized_query = normalize_text(query)
+    if re.search(r"\b(re nhat|gia thap nhat)\b", normalized_query):
+        priced = [item for item in pool if item.get("list_price") is not None]
+        if priced:
+            chosen = min(priced, key=lambda item: float(item["list_price"]))
+            return {
+                "response": (
+                    f"Căn rẻ nhất trong danh sách hiện tại là **{chosen.get('title', 'bất động sản này')}**, "
+                    f"giá **{_price_text(chosen.get('list_price'))}**, diện tích "
+                    f"**{chosen.get('area_sqm') or '—'} m²**, {chosen.get('bedrooms') or '—'} phòng ngủ."
+                ),
+                "selected_properties": [chosen],
+                "search_results": pool,
+                "current_property_id": chosen.get("id"),
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": ["Xem chi tiết căn này", "Đặt lịch xem nhà"],
+            }
+    if re.search(r"\b(dat nhat|gia cao nhat)\b", normalized_query):
+        priced = [item for item in pool if item.get("list_price") is not None]
+        if priced:
+            chosen = max(priced, key=lambda item: float(item["list_price"]))
+            return {
+                "response": (
+                    f"Căn có giá cao nhất trong danh sách hiện tại là **{chosen.get('title', 'bất động sản này')}**, "
+                    f"giá **{_price_text(chosen.get('list_price'))}**."
+                ),
+                "selected_properties": [chosen],
+                "search_results": pool,
+                "current_property_id": chosen.get("id"),
+                "response_kind": "PROPERTY_ADVICE",
+                "phase": "PROPERTY_SELECTED",
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": ["Xem chi tiết căn này", "Đặt lịch xem nhà"],
+            }
+
     try:
         llm = get_llm()._create_chat_model()
         sys_prompt = (
@@ -884,6 +933,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         or "budget" in det_grps
         or "property_kind" in det_crit
         or "min_bedrooms" in det_crit
+        or "max_bedrooms" in det_crit
         or "min_area" in det_crit
         or "limit" in det_crit
         or any(key in det_crit for key in (
@@ -922,7 +972,7 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             props = await query_properties_from_db(alt_criteria, limit=3)
 
         if props:
-            comparison_text = await format_intelligent_comparison(props, query)
+            comparison_text = format_comparison_markdown(props)
             return {
                 "selected_properties": props,
                 "search_results": search_pool,
@@ -1196,10 +1246,10 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
             properties,
             criteria,
             soft_prefs,
-            query,
-            affordability_note=state.get("affordability_note"),
+            state.get("query", ""),
+            state.get("affordability_note"),
             is_resume=True,
-            memory_summary=state.get("memory_summary"),
+            memory_summary=state.get("memory_summary")
         )
         display_items = properties[:5] if len(properties) > 5 else properties
         return {
@@ -1349,9 +1399,10 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         properties,
         criteria,
         soft_prefs,
-        query,
-        affordability_note=state.get("affordability_note"),
+        state.get("query", ""),
+        state.get("affordability_note"),
         is_resume=False,
+        memory_summary=state.get("memory_summary")
     )
 
     return {

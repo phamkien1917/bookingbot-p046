@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -29,10 +30,11 @@ from src.services.auth_service import (
 from src.services.email_service import send_password_reset_email
 from src.utils.time import utcnow
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 settings = get_settings()
-
 
 def set_auth_cookie(response: Response, token: str) -> None:
     response.set_cookie(
@@ -45,7 +47,6 @@ def set_auth_cookie(response: Response, token: str) -> None:
         path="/",
     )
 
-
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserRegister, db: AsyncSession = Depends(get_session)):
     try:
@@ -55,10 +56,10 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_sessi
         raise HTTPException(status_code=400, detail=str(exc))
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Registration error: {str(e)}")
-
+        logger.exception("Registration error")
+        raise HTTPException(status_code=500, detail="Đã xảy ra lỗi khi đăng ký. Vui lòng thử lại sau.")
 
 @router.post("/login", response_model=Token)
 async def login(
@@ -88,7 +89,6 @@ async def login(
     set_auth_cookie(response, access_token)
     return {"access_token": access_token, "token_type": "bearer", "user": user}
 
-
 async def get_optional_current_user(
     request: Request,
     token: str | None = Depends(oauth2_scheme),
@@ -114,7 +114,6 @@ async def get_optional_current_user(
     except jwt.PyJWTError:
         return None
 
-
 async def get_current_user(
     user: User | None = Depends(get_optional_current_user),
 ) -> User:
@@ -126,10 +125,8 @@ async def get_current_user(
         )
     return user
 
-
 async def get_current_user_id(user: User = Depends(get_current_user)) -> str:
     return str(user.id)
-
 
 def require_roles(*roles: UserRole) -> Callable:
     async def dependency(user: User = Depends(get_current_user)) -> User:
@@ -139,18 +136,15 @@ def require_roles(*roles: UserRole) -> Callable:
 
     return dependency
 
-
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user)):
     return user
-
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout() -> Response:
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(settings.auth_cookie_name, path="/")
     return response
-
 
 @router.put("/me", response_model=UserResponse)
 async def update_me(
@@ -167,7 +161,6 @@ async def update_me(
     await db.refresh(user)
     return user
 
-
 @router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_password(
     password_data: PasswordUpdate,
@@ -180,7 +173,6 @@ async def update_password(
     user.password_hash = get_password_hash(password_data.new_password)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
 
 @router.post("/forgot-password")
 async def forgot_password(
@@ -202,7 +194,6 @@ async def forgot_password(
         if settings.app_env == "development":
             response["dev_reset_token"] = token
     return response
-
 
 @router.post("/reset-password")
 async def reset_password(

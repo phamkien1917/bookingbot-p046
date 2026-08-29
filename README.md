@@ -8,7 +8,7 @@ Bản chạy thật: https://www.nerahome.space/
 
 ## Chạy nhanh trên Windows
 
-Yêu cầu: Python 3.11+, Node.js 20+, PostgreSQL. Chạy các lệnh sau tại `C:\buildAI\P-046`.
+Yêu cầu: Python 3.11+, Node.js 20+, PostgreSQL. Chạy các lệnh sau tại thư mục gốc dự án:
 
 ```powershell
 Copy-Item .env.example .env
@@ -30,14 +30,13 @@ psql -U visitops -d visitops -f database/007_customer_memory.sql
 Terminal 1 — backend:
 
 ```powershell
-cd C:\buildAI\P-046
 .\venv\Scripts\python.exe -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Terminal 2 — frontend:
 
 ```powershell
-cd C:\buildAI\P-046\frontend
+cd frontend
 npm.cmd install
 npm.cmd run dev
 ```
@@ -89,29 +88,12 @@ Mỗi response công khai `ai_mode`: `llm_grounded`, `llm_direct`, `llm_intent` 
 ## Kiểm tra chất lượng
 
 ```powershell
-cd C:\buildAI\P-046
 .\venv\Scripts\python.exe -m pip check
 .\venv\Scripts\python.exe -m pytest tests -q
 
 cd frontend
 npm.cmd run lint
 npm.cmd run build
-```
-
-Smoke test chat (không tạo booking):
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_smoke.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_ai.ps1
-```
-
-Kiểm thử booking thật dùng một tài khoản customer dùng cho test; script luôn hủy booking đã tạo khi hoàn tất:
-
-```powershell
-$env:BOOKINGBOT_TEST_EMAIL="customer.demo@example.com"
-$env:BOOKINGBOT_TEST_PASSWORD="Demo@123"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_booking.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_chat_sale_approval.ps1
 ```
 
 Ma trận kiểm thử thủ công và tự động hóa tiếp theo nằm tại `eval/chat_scenarios.json`.

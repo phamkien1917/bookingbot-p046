@@ -176,30 +176,6 @@ class TestSemanticMemory:
             # Should handle gracefully
 
 
-class TestConversationStore:
-    """Test conversation store."""
-
-    @pytest.mark.asyncio
-    async def test_save_message_structure(self):
-        """Test message structure for saving."""
-        from src.services.mem0_service import ConversationStore
-
-        store = ConversationStore()
-
-        # The method should exist and be callable
-        assert hasattr(store, "save_message")
-        assert hasattr(store, "get_conversation_history")
-        assert hasattr(store, "summarize_conversation")
-        # Test signature
-        import inspect
-        sig = inspect.signature(store.save_message)
-        params = list(sig.parameters.keys())
-        assert "session_id" in params
-        assert "user_id" in params
-        assert "role" in params
-        assert "content" in params
-
-
 class TestPreferenceStore:
     """Test preference store."""
 

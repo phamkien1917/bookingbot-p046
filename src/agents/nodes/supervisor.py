@@ -142,7 +142,7 @@ Nhiệm vụ của bạn:
 - GREETING: Chào hỏi ("chào bạn", "hello Nera", "hi"). Viết câu chào thân thiện, giới thiệu bản thân là Nera - trợ lý BĐS vào direct_response.
 - THANKS: Cảm ơn. Viết lời đáp lịch sự, tận tâm vào direct_response.
 - GOODBYE: Tạm biệt. Viết lời chào tạm biệt vào direct_response.
-- OUT_OF_SCOPE: Các câu hỏi hoàn toàn không liên quan đến BĐS, nhà đất, lịch hẹn (thời tiết, làm thơ, viết code, kể chuyện cười). Viết phản hồi lịch sự, khéo léo từ chối và hướng về BĐS vào direct_response.
+- OUT_OF_SCOPE: Các câu hỏi hoàn toàn không liên quan đến BĐS, nhà đất, lịch hẹn (thời tiết, làm thơ, viết code, kể chuyện cười). LƯU Ý: KHÔNG phân loại các câu hỏi tìm nhà theo khoảng cách (ví dụ: "cách bệnh viện X", "gần trường Y") vào OUT_OF_SCOPE, đó là SEARCH_PROPERTY. TUY NHIÊN, nếu khách yêu cầu tìm khoảng cách đến một địa danh rõ ràng KHÔNG thuộc Việt Nam (ví dụ: Tháp Tokyo, Tháp Eiffel, Rừng Amazon...), thì BẮT BUỘC phân loại vào OUT_OF_SCOPE và viết thẳng câu: "Dạ Nera chỉ hỗ trợ tính khoảng cách trong lãnh thổ Việt Nam thôi ạ." vào direct_response.
 
 LƯU Ý QUAN TRỌNG:
 - Chuẩn hóa tiền Việt: "5 tỷ" -> 5000000000, "15 triệu" -> 15000000, "khoảng 3 đến 5 tỷ" -> min_price=3000000000, max_price=5000000000.
@@ -178,9 +178,14 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
     distance = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+(?:[.,]\d+)?)\s*km\b", text)
     if distance:
         result["max_commute_km"] = float(distance.group(1).replace(",", "."))
-    duration = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*phut\b", text)
-    if duration:
-        result["max_commute_minutes"] = int(duration.group(1))
+    # The limit prefix is required on both units. Without it "dat lich 10h" reads
+    # as a 600-minute commute limit, and every booking turn carries a fake geo filter.
+    duration_min = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*phut\b", text)
+    duration_hour = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*(?:tieng|gio|h)\b", text)
+    if duration_hour:
+        result["max_commute_minutes"] = int(duration_hour.group(1)) * 60
+    elif duration_min:
+        result["max_commute_minutes"] = int(duration_min.group(1))
 
     categories = []
     for pattern, category in (
@@ -199,6 +204,11 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
         r"\bcach\s+(.+?)\s+(?:duoi|khong qua|toi da|trong vong)\s*\d+(?:[.,]\d+)?\s*(?:km|phut)\b",
         text,
     )
+    if not landmark:
+        landmark = re.search(
+            r"\bcach\s+(.+?)\s+bao\s+nhieu\s*(?:km|phut)\b",
+            text,
+        )
     if landmark:
         candidate = landmark.group(1).strip(" ,.-")
         if candidate and candidate not in {"vi tri nay", "day", "do"}:
@@ -264,6 +274,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     det_criteria, det_groups = extract_search_criteria(query)
     det_geo = _extract_geo_constraints(query)
     booking_code = _extract_booking_code(query)
+    norm_query = normalize_text(query)
 
     # Format recent history for LLM
     recent_turns = []
@@ -294,27 +305,81 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     }
 
     understanding: SupervisorUnderstanding | None = None
-    ai_model = "gpt-4o-mini"
+    # Stays None when no LLM call happens, so the response never claims a model
+    # that did not answer this turn.
+    ai_model: str | None = None
 
-    try:
-        llm = get_llm()
-        structured_llm = llm._create_chat_model().with_structured_output(
-            SupervisorUnderstanding,
-            method="json_schema",
-            strict=True,
+    has_property_context = bool(state.get("search_results") or state.get("selected_properties"))
+    consultation_question_signal = bool(re.search(
+        r"\b(can chuan bi|quy trinh|an toan|can kiem tra|truoc khi ky|"
+        r"uu diem|nhuoc diem|rui ro|nen vay|vay them bao nhieu|thu tuc|phap ly)\b",
+        norm_query,
+    )) and not bool(det_geo)
+    if re.fullmatch(r"\s*(xin chao|chao|hello|hi)(?:\s+nera)?[!.?]*\s*", norm_query):
+        understanding = SupervisorUnderstanding(
+            intent=Intent.GREETING,
+            confidence=1.0,
+            direct_response=(
+                "Chào bạn! Mình là Nera. Bạn có thể cho mình khu vực, ngân sách hoặc loại nhà "
+                "đang quan tâm để mình tìm ngay nhé."
+            ),
         )
-        sys_msg = SystemMessage(content=SUPERVISOR_SYSTEM_PROMPT)
-        human_msg = HumanMessage(content=json.dumps(context_payload, ensure_ascii=False))
+    elif re.search(r"\b(cam on|thanks|thank you)\b", norm_query):
+        understanding = SupervisorUnderstanding(
+            intent=Intent.THANKS,
+            confidence=1.0,
+            direct_response="Rất vui được hỗ trợ bạn. Khi cần tìm hoặc đặt lịch xem nhà, cứ nhắn Nera nhé!",
+        )
+    elif re.search(r"\b(tam biet|bye)\b", norm_query):
+        understanding = SupervisorUnderstanding(
+            intent=Intent.GOODBYE,
+            confidence=1.0,
+            direct_response="Chào bạn nhé! Khi cần tìm nhà hoặc xem lại lịch hẹn, Nera luôn sẵn sàng hỗ trợ.",
+        )
+    elif has_property_context and re.search(
+        r"\b(chon|lay|xem)\s+(?:can|nha)(?:\s+so|\s+thu)?\s*\d+\b",
+        norm_query,
+    ):
+        understanding = SupervisorUnderstanding(intent=Intent.SELECT_PROPERTY, confidence=1.0)
+    elif has_property_context and re.search(
+        r"\b(so sanh|doi chieu|lap bang so sanh)\b",
+        norm_query,
+    ):
+        understanding = SupervisorUnderstanding(intent=Intent.COMPARE_PROPERTIES, confidence=1.0)
+    elif consultation_question_signal:
+        understanding = SupervisorUnderstanding(intent=Intent.CONSULTATION_QA, confidence=1.0)
+    elif state.get("current_property_id") and det_geo and re.search(
+        r"\b(can nay|nha nay|bat dong san nay)\b",
+        norm_query,
+    ):
+        understanding = SupervisorUnderstanding(intent=Intent.PROPERTY_DETAILS, confidence=1.0)
 
-        result = await structured_llm.ainvoke([sys_msg, human_msg])
-        if isinstance(result, SupervisorUnderstanding):
-            understanding = result
-    except Exception as e:
-        logger.warning(f"Structured supervisor understanding failed: {e}. Falling back to heuristic.")
+    reset_search_signal = bool(re.search(
+        r"\b(nhu cau moi|bat dau (?:mot )?nhu cau moi|tim kiem moi)\b",
+        norm_query,
+    ))
+
+
+    if understanding is None:
+        try:
+            llm = get_llm()
+            structured_llm = llm._create_chat_model().with_structured_output(
+                SupervisorUnderstanding,
+                method="json_schema",
+                strict=True,
+            )
+            sys_msg = SystemMessage(content=SUPERVISOR_SYSTEM_PROMPT)
+            human_msg = HumanMessage(content=json.dumps(context_payload, ensure_ascii=False))
+
+            result = await structured_llm.ainvoke([sys_msg, human_msg])
+            if isinstance(result, SupervisorUnderstanding):
+                understanding = result
+                ai_model = llm.model_name
+        except Exception as e:
+            logger.warning(f"Structured supervisor understanding failed: {e}. Falling back to heuristic.")
 
     # Fallback heuristic if LLM failed
     if understanding is None:
-        norm_query = normalize_text(query)
         inferred_intent = Intent.FALLBACK
         if is_affirmative(query):
             inferred_intent = Intent.CONFIRM
@@ -359,13 +424,23 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
 
     # Reconcile deterministic explicit criteria with LLM criteria
     merged_criteria = dict(state.get("search_criteria", {}))
-    norm_query = normalize_text(query)
     is_resume_signal = bool(re.search(
         r"\b(nhu cau cu|so thich da luu|tiep tuc tim|nhu lan truoc|nhu cu|tim lai|theo tieu chi cu|tiep tuc hanh trinh|tiep tuc tim kiem)\b",
         norm_query,
     )) or bool(state.get("is_resume_search"))
+    explicit_new_search_signal = reset_search_signal
+    refinement_signal = (
+        not explicit_new_search_signal
+        and bool(state.get("search_criteria"))
+        and bool(re.search(
+            r"\b(doi|chuyen|thay|them|chi|bo|xoa|giu nguyen|van vay|neu|uu tien|loc|khong .+ nua)\b"
+            r"|\b(?:noi|nang|tang|giam)\s+(?:ngan sach|gia|muc gia)\b",
+            norm_query,
+        ))
+    )
     starts_new_search_signal = (
         not is_resume_signal
+        and not refinement_signal
         and bool(re.search(r"\b(tim|tim kiem|can mua|muon mua|can tim|muon tim)\b", norm_query))
         and not bool(re.search(r"\b(tim them|xem them|can khac|cai khac|khac ko|khac khong|doi can khac)\b", norm_query))
     )
@@ -373,7 +448,9 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     if is_resume_signal:
         understanding.is_new_search = False
         understanding.intent = Intent.SEARCH_PROPERTY
-    elif understanding.is_new_search or starts_new_search_signal:
+    elif refinement_signal:
+        understanding.is_new_search = False
+    elif understanding.is_new_search:
         merged_criteria = {}
         understanding.is_new_search = True
         if "location" not in det_groups:
@@ -454,11 +531,29 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     elif "property_kind" in llm_dict:
         merged_criteria["property_kind"] = llm_dict["property_kind"]
 
+    bedroom_replacement = bool(re.search(
+        r"\b(doi|chuyen|thay)(?:\s+thanh|\s+sang)?\b|\bchi can\b",
+        norm_query,
+    ))
+    if bedroom_replacement and (
+        "min_bedrooms" in det_criteria or "max_bedrooms" in det_criteria
+    ):
+        merged_criteria.pop("min_bedrooms", None)
+        merged_criteria.pop("max_bedrooms", None)
+
     for field in ("min_bedrooms", "max_bedrooms", "min_bathrooms", "min_area"):
         if field in det_criteria:
             merged_criteria[field] = det_criteria[field]
         elif field in llm_dict:
             merged_criteria[field] = llm_dict[field]
+
+    if re.search(
+        r"\b(?:bo|xoa|khong can|khong gioi han)(?:\s+gioi han)?\s+(?:gia|ngan sach)\b",
+        norm_query,
+    ):
+        merged_criteria.pop("min_price", None)
+        merged_criteria.pop("max_price", None)
+        merged_criteria.pop("target_price", None)
 
     # These are strict inventory constraints. Only explicit deterministic
     # extraction may add/replace them; model inference must not fabricate one.
@@ -546,9 +641,9 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         intent = Intent.SEARCH_PROPERTY
 
     asks_current_location = bool(re.search(
-        r"\b(vi tri (?:hien tai|cua toi|nay)|cho toi|noi toi dang o|gan day)\b",
+        r"\b(vi tri (?:hien tai|cua toi|nay)|noi toi dang o|gan day)\b",
         normalize_text(query),
-    ))
+    )) or bool(re.search(r"\bchỗ tôi\b", query.lower()))
     if asks_current_location and not state.get("user_location"):
         intent = Intent.FALLBACK
         understanding.direct_response = (
@@ -562,6 +657,12 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         normalize_text(query),
     ):
         intent = Intent.CONSULTATION_QA
+        understanding.direct_response = (
+            "Mình không có nguồn lãi suất ngân hàng theo thời gian thực và có ngày cập nhật để xác minh, "
+            "nên không nên đưa ra một con số hiện tại như dữ liệu chắc chắn. Bạn hãy kiểm tra bảng lãi suất "
+            "chính thức của ngân hàng dự định vay; nếu cung cấp mức lãi suất, thời hạn và khoản vay, Nera có thể "
+            "tính phương án trả góp cho bạn."
+        )
 
     # General real estate concept comparison (orientations, legal, house types) routed to CONSULTATION_QA
     if re.search(r"\b(so sanh|khac nhau|khac gi|uu nhuoc diem)\b", norm_query) and re.search(
@@ -742,6 +843,13 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
             "danh sách trước, rồi mình sẽ so sánh minh bạch cho bạn."
         )
 
+    # Force SEARCH_PROPERTY if user asks about distance or nearby amenities but intent fell into GREETING/FALLBACK
+    if intent in (Intent.GREETING, Intent.FALLBACK) and not understanding.direct_response:
+        if det_geo.get("commute_landmark") or det_geo.get("nearby_categories"):
+            if state.get("search_results") or state.get("selected_properties") or state.get("current_property_id"):
+                intent = Intent.SEARCH_PROPERTY
+                understanding.intent = intent
+
     current_agent = AgentType.RESPOND
 
     if intent in (Intent.SEARCH_PROPERTY, Intent.SELECT_PROPERTY, Intent.PROPERTY_DETAILS, Intent.COMPARE_PROPERTIES):
@@ -794,6 +902,8 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     latency_ms = round((time.perf_counter() - started) * 1000)
 
     llm_landmark = understanding.commute_landmark
+    if not state.get("user_location") and normalize_text(llm_landmark or "") == "vi tri cua ban":
+        llm_landmark = None
     if (
         det_geo.get("nearby_categories")
         and not det_geo.get("commute_landmark")
@@ -806,6 +916,15 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     direct_resp = understanding.direct_response
     if intent == Intent.CONSULTATION_QA and not affordability_note and direct_resp and ("căn nhà" in direct_resp or "thông tin" in direct_resp):
         direct_resp = None
+
+    nearby_categories = det_geo.get("nearby_categories") or understanding.nearby_categories
+    if nearby_categories and state.get("nearby_categories") and re.search(r"\b(them|va)\b", norm_query):
+        nearby_categories = list(dict.fromkeys([
+            *state.get("nearby_categories", []),
+            *nearby_categories,
+        ]))
+    elif not nearby_categories:
+        nearby_categories = [] if understanding.is_new_search else state.get("nearby_categories", [])
 
     # Construct state updates
     updates: dict[str, Any] = {
@@ -820,7 +939,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         "max_commute_minutes": det_geo.get("max_commute_minutes") or understanding.max_commute_minutes or (None if understanding.is_new_search else state.get("max_commute_minutes")),
         "max_commute_km": det_geo.get("max_commute_km") or understanding.max_commute_km or (None if understanding.is_new_search else state.get("max_commute_km")),
         "travel_mode": det_geo.get("travel_mode") or understanding.travel_mode or ("DRIVE" if understanding.is_new_search else state.get("travel_mode", "DRIVE")),
-        "nearby_categories": det_geo.get("nearby_categories") or understanding.nearby_categories or ([] if understanding.is_new_search else state.get("nearby_categories", [])),
+        "nearby_categories": nearby_categories,
         "invalid_requested_date": invalid_requested_date,
         "monthly_income_vnd": monthly_income,
         "own_capital_vnd": own_capital,

@@ -66,3 +66,9 @@ DEMO_SCRIPT*
 
 # AI traces (local only)
 .ai-traces/
+
+# Ban rut gon phien chat, chi dung lam boi canh cho agent tren may ca nhan
+.agents/context/CHAT_EXPORT.md
+
+# Generated artifacts (docx/pdf/png rendered per run)
+outputs/

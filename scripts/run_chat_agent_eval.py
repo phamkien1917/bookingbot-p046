@@ -257,6 +257,8 @@ def main() -> int:
                 "criteria": (payload.get("metadata") or {}).get("criteria") or {},
                 "property_count": len(payload.get("properties") or []),
                 "ai_mode": payload.get("ai_mode"),
+                "ai_latency_ms": payload.get("ai_latency_ms"),
+                "response_kind": (payload.get("metadata") or {}).get("phase"),
             })
 
         if scenario_failures:

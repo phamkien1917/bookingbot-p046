@@ -82,7 +82,7 @@ class Settings(BaseSettings):
 
     # Geospatial search. Loaded at process startup; restart after changing the key.
     # No distance or nearby result is fabricated when this key is absent.
-    google_maps_api_key: str = ""
+    goong_api_key: str = ""
     geo_timeout_seconds: int = Field(default=12, ge=2, le=60)
     geo_geocode_cache_ttl_seconds: int = Field(default=86400, ge=60, le=604800)
     geo_route_cache_ttl_seconds: int = Field(default=900, ge=30, le=86400)

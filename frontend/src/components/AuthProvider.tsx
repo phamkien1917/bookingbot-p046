@@ -99,8 +99,25 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
-      const payload = (await response.json()) as { detail?: string; user?: User };
-      if (!response.ok || !payload.user) throw new Error(payload.detail ?? "Đăng nhập thất bại");
+      let payload: { detail?: string; user?: User; access_token?: string } = {};
+      try {
+        const text = await response.text();
+        if (text && text.trim()) {
+          payload = JSON.parse(text);
+        }
+      } catch {
+        // Non-JSON response
+      }
+      if (!response.ok || !payload.user) {
+        const fallbackMsg = response.status === 502 || response.status === 503 || response.status === 504 || response.status === 0
+          ? "Không thể kết nối đến máy chủ Backend (Port 8000). Vui lòng kiểm tra server Backend đã chạy chưa."
+          : `Đăng nhập thất bại (${response.status || "Lỗi kết nối"})`;
+        throw new Error(payload.detail ?? fallbackMsg);
+      }
+
+      if (payload.access_token && typeof window !== "undefined") {
+        localStorage.setItem("nera_auth_token", payload.access_token);
+      }
 
       // Read the new cookie back from the server before protected pages render.
       const confirmedUser = await apiFetch<User>("/auth/me");
@@ -127,6 +144,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         // Prevent the next account from reusing a conversation owned by the
         // account signing out. Guest-to-customer login remains uninterrupted.
         sessionStorage.removeItem("nera_chat_session_id");
+        localStorage.removeItem("nera_auth_token");
       }
       await apiFetch<void>("/auth/logout", { method: "POST" });
       if (operation === operationVersion.current) {

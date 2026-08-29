@@ -106,6 +106,7 @@ class AgentState(TypedDict, total=False):
     ai_mode: str  # llm_grounded, llm_direct, llm_intent, fallback
     ai_model: str | None
     ai_latency_ms: int
+    stage_timings: dict[str, int]  # Wall time per graph node, filled in by graph.py
     error: str | None
 
 
@@ -173,6 +174,7 @@ def create_initial_agent_state(
         "ai_mode": "llm_grounded",
         "ai_model": None,
         "ai_latency_ms": 0,
+        "stage_timings": {},
         "error": None,
     }
     return state

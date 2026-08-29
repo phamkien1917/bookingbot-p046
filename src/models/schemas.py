@@ -42,6 +42,7 @@ class ChatResponse(BaseModel):
     ai_mode: str = Field(default="fallback", description="llm_grounded, llm_direct, llm_intent, or fallback")
     ai_model: str | None = Field(default=None, description="Model used for this turn, when available")
     ai_latency_ms: int = Field(default=0, ge=0, description="Total provider latency for this turn")
+    stage_timings: dict[str, int] = Field(default_factory=dict, description="Wall time in ms per graph node")
     ai_fallback_reason: str | None = Field(default=None, description="Sanitized fallback category")
 
 

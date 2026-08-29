@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -26,6 +27,8 @@ from src.services.booking_service import (
 from src.services.property_hold_service import extend_property_hold, release_appointment_hold
 from src.services.route_optimizer import optimize_daily_route_plan
 from src.utils.time import utcnow
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sale", tags=["sale"])
 
@@ -126,8 +129,9 @@ async def optimize_route(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Error checking sale availability")
+        raise HTTPException(status_code=500, detail="Đã xảy ra lỗi khi kiểm tra lịch trống. Vui lòng thử lại sau.")
 
 
 @router.post("/requests/{booking_id}/accept")

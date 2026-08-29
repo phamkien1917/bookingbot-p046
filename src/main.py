@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from src.api.routes import router
 from src.config import get_settings
@@ -131,11 +133,17 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 settings = get_settings()
+docs_kwargs = {} if settings.app_env == "development" else {
+    "docs_url": None,
+    "redoc_url": None,
+    "openapi_url": None,
+}
 app = FastAPI(
     title=settings.app_name,
     description="AI Agent for real estate booking - Multi-agent system with LangGraph",
     version="1.0.0",
     lifespan=lifespan,
+    **docs_kwargs,
 )
 
 # Add CORS middleware
@@ -146,9 +154,12 @@ app.add_middleware(
         "https://www.nerahome.space",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3005",
+        "http://127.0.0.1:3005",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ] + [o.strip() for o in settings.cors_origins.split(",") if o.strip() and o.strip() != "*"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -180,6 +191,13 @@ async def health():
     }
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for uncaught errors."""
+    logger.exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -191,6 +209,8 @@ async def root():
         "health": "/health",
         "ui": "/ui",
     }
+
+
 
 
 
