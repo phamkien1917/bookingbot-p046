@@ -1,186 +1,270 @@
-# HỒ SƠ TỔNG HỢP TOÀN DIỆN DỰ ÁN NERA (P-046)
-**Dành cho: Vũ Thế Lực (PM & AI Product Lead) — Đội 046LTD**  
-**Sản phẩm:** Nera — Trợ lý AI Bất Động Sản & Đặt Lịch Xem Nhà O2O  
-**Chương trình:** AI20K Build Phase Cohort 3  
-**Bản chạy thực tế (Live URL):** [https://www.nerahome.space/](https://www.nerahome.space/)  
-**Mã nguồn (Repository):** [github.com/AI20K-Build-Phase-Cohort-3/P-046](https://github.com/AI20K-Build-Phase-Cohort-3/P-046)
+# HỒ SƠ DỰ ÁN NERA (P-046)
+
+**Đội:** 046LTD — Vũ Thế Lực, Phạm Trung Kiên
+**Sản phẩm:** Nera, trợ lý AI tìm nhà và đặt lịch xem nhà
+**Chương trình:** AI20K Build Phase Cohort 3
+**Bản chạy thật:** https://www.nerahome.space/
+**Mã nguồn:** https://github.com/AI20K-Build-Phase-Cohort-3/P-046
+**Số liệu trong hồ sơ này đo ngày:** 29/08/2026
+
+Mọi con số dưới đây đều kèm cách kiểm chứng lại. Không có con số nào chép từ bản báo cáo cũ.
 
 ---
 
-# MỤC LỤC
-1. [TỔNG QUAN BÀI TOÁN & GIẢI PHÁP SẢN PHẨM](#1-tổng-quan-bài-toán--giải-pháp-sản-phẩm)
-2. [KIẾN TRÚC KỸ THUẬT & CƠ CHẾ VẬN HÀNH](#2-kiến-trúc-kỹ-thuật--cơ-chế-vận-hành)
-3. [BÁO CÁO PHÂN CÔNG & ĐÓNG GÓP THỰC TẾ (LỰC & KIÊN)](#3-báo-cáo-phân-công--đóng-góp-thực-tế-lực--kiên)
-4. [KẾT QUẢ ĐO LƯỜNG & KIỂM THỬ THỰC NGHIỆM](#4-kết-quả-đo-lường--kiểm-thử-thực-nghiệm)
-5. [ĐỐI CHIẾU XỬ LÝ TOÀN DIỆN CÁC PHẢN HỒI CỦA MENTOR](#5-đối-chiếu-xử-lý-toàn-diện-các-phản-hồi-của-mentor)
-6. [KỊCH BẢN THUYẾT TRÌNH BẢO VỆ 5 PHÚT (DEMO DAY PITCH)](#6-kịch-bản-thuyết-trình-bảo-vệ-5-phút-demo-day-pitch)
-7. [BỘ CÂU HỎI VẤN ĐÁP PHẢN BIỆN (DEFENSE Q&A)](#7-bộ-câu-hỏi-vấn-đáp-phản-biện-defense-qa)
-8. [KẾ HOẠCH HÀNH ĐỘNG PHASE 2 (NEXT STEPS)](#8-kế-hoạch-hành-động-phase-2-next-steps)
+## Mục lục
+
+1. [Bài toán và giải pháp](#1-bài-toán-và-giải-pháp)
+2. [Kiến trúc và cơ chế vận hành](#2-kiến-trúc-và-cơ-chế-vận-hành)
+3. [Phân công và đóng góp](#3-phân-công-và-đóng-góp)
+4. [Số liệu đo được và cách kiểm chứng](#4-số-liệu-đo-được-và-cách-kiểm-chứng)
+5. [Giới hạn đã biết](#5-giới-hạn-đã-biết)
+6. [Đối chiếu phản hồi của mentor](#6-đối-chiếu-phản-hồi-của-mentor)
+7. [Kịch bản thuyết trình 5 phút](#7-kịch-bản-thuyết-trình-5-phút)
+8. [Câu hỏi phản biện](#8-câu-hỏi-phản-biện)
+9. [Kế hoạch Phase 2](#9-kế-hoạch-phase-2)
 
 ---
 
-# 1. TỔNG QUAN BÀI TOÁN & GIẢI PHÁP SẢN PHẨM
+## 1. Bài toán và giải pháp
 
-### 📍 1.1. Thực trạng & Nỗi đau ngành BĐS O2O (Online-to-Offline)
-Trong quy trình môi giới bất động sản truyền thống, việc hẹn khách đi xem nhà mẫu hoặc căn thực tế gặp 2 nỗi đau đứt gãy:
-- **Người tìm nhà:** Nhu cầu tự nhiên bị ép vào bộ lọc cứng; mất ngữ cảnh liên tục giữa các lần tìm kiếm; phải chờ đợi môi giới phản hồi thụ động.
-- **Doanh nghiệp & Đội ngũ Sale:** Điều phối lịch rảnh thủ công qua tin nhắn Zalo/Chat, dẫn đến tình trạng **trùng lịch (double-booking)** giữa các Sale, bỏ lỡ khách hàng tiềm năng.
+### 1.1. Hai chỗ đứt gãy trong quy trình xem nhà
 
-### 🎯 1.2. Giải pháp Nera
-Nera là hệ thống trợ lý AI đàm thoại giúp:
-1. **Tìm kiếm BĐS bằng ngôn ngữ tự nhiên:** Hiểu các nhu cầu mềm ("căn 2PN gần bệnh viện Bạch Mai dưới 3 tỷ, tiện đi làm").
-2. **Duy trì bộ nhớ ngữ cảnh đa lượt (Multi-turn Memory):** Tự động kế thừa các tiêu chí đã chọn mà khách không cần nhắc lại.
-3. **Đặt lịch thông minh & Giữ chỗ tạm thời (Soft-hold 15 phút):** Tự động đối soát khung giờ trống của Sale trong cơ sở dữ liệu và khóa tạm slot để tránh trùng lịch.
-4. **Phê duyệt con người (Human-in-the-loop - HITL):** Bắt buộc nhân viên Sale đăng nhập hệ thống duyệt lịch trước khi tạo lịch hẹn chính thức.
+Người tìm nhà phải tự ghép thông tin từ hàng loạt tin đăng rời rạc. Bộ lọc trên các sàn hiện nay chỉ hiểu tiêu chí cứng như giá, số phòng, quận. Những nhu cầu thật của người mua thì không nằm gọn trong bộ lọc: gần chỗ làm, tiện đưa con đi học, chấp nhận xa trung tâm để đổi lấy diện tích. Mỗi lần quay lại tìm, họ nhập lại từ đầu.
+
+Phía doanh nghiệp, việc điều phối lịch xem nhà chạy thủ công qua Zalo và tin nhắn. Hai Sale cùng nhận một khung giờ cho một căn là chuyện xảy ra thường xuyên, và mỗi lần trùng lịch là một lần khách mất thiện cảm.
+
+### 1.2. Nera làm gì
+
+Nera biến việc tìm nhà thành một cuộc hội thoại. Khách mô tả nhu cầu bằng câu nói thường ngày, hệ thống hỏi lại phần còn thiếu, giữ tiêu chí qua nhiều lượt, rồi truy vấn dữ liệu thật để trả về những căn phù hợp kèm lý do.
+
+Khi khách chọn được căn muốn xem, Nera đối chiếu khung giờ rảnh của Sale trong cơ sở dữ liệu và khóa tạm căn đó trong 15 phút để tránh hai khách cùng đặt. Lịch chỉ thành chính thức sau khi Sale bấm duyệt. AI không tự chốt lịch với khách hàng thật.
 
 ---
 
-# 2. KIẾN TRÚC KỸ THUẬT & CƠ CHẾ VẬN HÀNH
+## 2. Kiến trúc và cơ chế vận hành
 
 ```
 [ Frontend: Next.js 14 / Vercel ]
-        │ (REST API / SSE Streaming / HttpOnly Cookie)
+        │ REST + SSE Streaming, HttpOnly Cookie
         ▼
-[ Backend: FastAPI / Render ] ── [ Auth & RBAC: 4 Roles (Customer, Sale, Coordinator, Admin) ]
+[ Backend: FastAPI / Render ] ── [ Auth & RBAC: CUSTOMER, SALE, COORDINATOR, ADMIN ]
         │
         ▼
-[ Multi-Agent Orchestration: LangGraph ]
-  ├── Supervisor Node (Điều phối & Phân loại Intent)
-  ├── Inventory Agent (Truy vấn dữ liệu & Lọc ràng buộc cứng trên 167 BĐS thật)
-  ├── Booking Agent (Xác thực slot lịch & Tạo đề xuất)
-  └── Respond Node (Sinh câu trả lời tự nhiên có Grounding)
+[ Multi-Agent Orchestration: LangGraph StateGraph ]
+  ├── Supervisor Node      phân loại intent, giữ ngữ cảnh đa lượt
+  ├── Inventory Agent      truy vấn 167 BĐS thật, lọc ràng buộc cứng
+  ├── Booking Tools        đối chiếu slot, tạo yêu cầu đặt lịch
+  └── Respond Node         sinh câu trả lời, gắn nhãn ai_mode
         │
-        ├── LLM Service (OpenRouter / Dynamic Model Routing)
-        ├── External APIs: Goong Maps & Google Routes (Đo khoảng cách & Tuyến đường)
-        ├── Affordability Engine (Tính toán khả năng tài chính & Khoản vay)
-        └── Memory Layer: CustomerMemoryService (PostgreSQL Persistence + Redis/In-Memory Cache)
+        ├── LLM Service            OpenRouter, định tuyến model động
+        ├── Goong Maps             Geocode, Distance Matrix, Nearby Search
+        ├── Affordability Engine   tính khoản vay bằng công thức, không qua LLM
+        └── CustomerMemoryService  PostgreSQL, cache qua Redis
 ```
 
-### 🔒 2.1. Phân quyền chặt chẽ (RBAC) 4 vai trò
-- **Khách hàng (`CUSTOMER`):** Tìm kiếm nhà, trò chuyện AI, xem chi tiết BĐS, đặt lịch hẹn và quản lý lịch cá nhân (`/my-bookings`).
-- **Chuyên viên Sale (`SALE`):** Nhận thông báo, xem danh sách yêu cầu đặt lịch, duyệt/từ chối lịch hẹn, xem lịch trình trong ngày (`/sale`).
-- **Điều phối viên (`COORDINATOR`):** Phân bổ lại lịch hẹn khi Sale bận hoặc xử lý hàng đợi HITL.
-- **Quản trị viên (`ADMIN`):** Quản lý người dùng, khóa/mở tài khoản, theo dõi số liệu KPI và phễu chuyển đổi (`/admin`).
+### 2.1. Bốn vai trò và quyền tương ứng
 
-### 🛡️ 2.2. Tính kiên cường của hệ thống (System Resilience)
-- **In-memory Fallback:** Khi dịch vụ Redis gặp sự cố, hệ thống tự động chuyển sang lưu trữ tạm thời trên bộ nhớ RAM của tiến trình backend, không làm sập ứng dụng.
-- **Rule-based Fallback:** Khi API mô hình ngôn ngữ bị gián đoạn, hệ thống kích hoạt luật cứng và hiển thị minh bạch nhãn `ai_mode: fallback` trên giao diện người dùng.
+| Vai trò | Làm được gì | Chặn ở đâu |
+| :--- | :--- | :--- |
+| `CUSTOMER` | Chat, tìm nhà, xem chi tiết, đặt lịch, quản lý lịch tại `/my-bookings` | |
+| `SALE` | Nhận yêu cầu, duyệt hoặc từ chối lịch, xem lịch trình ngày tại `/sale` | `require_roles(UserRole.SALE)` |
+| `COORDINATOR` | Phân bổ lại lịch khi Sale bận, xử lý hàng đợi HITL | `hitl_service.py:69` |
+| `ADMIN` | Quản lý người dùng, khóa mở tài khoản, xem KPI tại `/admin` | `admin.py`, 6 endpoint |
 
----
+Cả bốn vai trò đều đi qua một hàm gác duy nhất là `require_roles` trong `src/api/routes/auth.py`. Bộ test `tests/test_role_authorization.py` kiểm cả chiều từ chối lẫn chiều cho qua, vì một guard chỉ biết chặn mà chặn nhầm cả người đúng vai thì cũng hỏng.
 
-# 3. BÁO CÁO PHÂN CÔNG & ĐÓNG GÓP THỰC TẾ (LỰC & KIÊN)
+### 2.2. Hệ thống hỏng từng phần thay vì sập
 
-### 👤 3.1. Vũ Thế Lực — PM / AI Product & Data Quality Lead
-- **Định hình bài toán & Nghiệp vụ sản phẩm:** Xây dựng User Journey cho 4 nhóm người dùng, thiết kế cơ chế giữ căn 15 phút (`PropertyHold`) và luồng phê duyệt con người (HITL).
-- **Thiết kế UX Explainability (`feat(chat): confirm what Nera understood`):** Đưa ra quyết định sản phẩm: Trước khi trả kết quả danh sách nhà, AI bắt buộc phải tóm tắt lại những gì đã hiểu để người dùng kiểm chứng, tạo dựng niềm tin (User Trust).
-- **Thiết lập chốt chặn Trung thực (`fix(search): recognise rental vocabulary`):** Xây dựng rào chắn ngăn AI bịa đặt: Khi dữ liệu hệ thống chỉ có tin Bán mà khách hỏi Thuê, AI thẳng thắn thừa nhận hệ thống chưa có dữ liệu thuê thay vì tự sinh tin giả.
-- **Làm sạch & Bảo vệ dữ liệu (`fix(inventory): strip broker contact pitch`):** Xây dựng bộ lọc loại bỏ số điện thoại rác và lời chào môi giới ngoài từ dữ liệu crawl để bảo vệ uy tín nền tảng.
-- **Bảo mật & Kiểm soát chất lượng:** Tích hợp mã hóa Fernet cho Token Calendar at-rest, xây dựng bộ test tự động và chuẩn hóa hồ sơ dự án.
+Redis mất kết nối thì `InMemoryFallback` trong `src/services/redis_service.py` tiếp quản, giữ trạng thái chat trong RAM tiến trình. Ứng dụng chạy tiếp, chỉ mất khả năng chia sẻ trạng thái giữa nhiều tiến trình.
 
-### 👤 3.2. Phạm Trung Kiên — Tech Lead / AI Core & Fullstack
-- **Kiến trúc Multi-Agent LangGraph:** Thiết kế StateGraph điều phối các Agent chuyên trách (Supervisor, Inventory, Booking, RespondNode).
-- **Tích hợp Bản đồ & Định tuyến:** Tích hợp Goong Maps API đo khoảng cách và nhúng Iframe bản đồ chỉ đường trực tiếp vào PropertyCard.
-- **Engine Tài chính (`affordability.py`):** Xây dựng thuật toán tính toán dòng tiền trả góp vay mua nhà theo lãi suất và thời hạn vay.
-- **Bảo mật & UI/UX:** Xây dựng chốt chặn Demo Password Guard, Mật khẩu ngẫu nhiên OAuth, đồng bộ Brand Identity và thiết kế giao diện Next.js.
+LLM lỗi hoặc quá hạn chờ thì `supervisor_node` và `respond_node` bắt exception rồi rơi về nhánh luật cứng. Trạng thái này không bị giấu: API trả `ai_mode: fallback` và giao diện hiển thị nhãn tương ứng.
+
+Tiền bạc không đi qua LLM. Toàn bộ phép tính khoản vay và khả năng chi trả nằm trong `src/services/affordability.py`, tất định, có 13 test phủ. Model chỉ được đọc lại con số đã tính, không được tự nhẩm.
 
 ---
 
-# 4. KẾT QUẢ ĐO LƯỜNG & KIỂM THỬ THỰC NGHIỆM
+## 3. Phân công và đóng góp
 
-### 📊 4.1. Kết quả Đo lường Thực tế trên Production & Máy chủ
-- **Quy mô dữ liệu BĐS thật:** **167 bất động sản có thật tại Hà Nội** (108 bản ghi từ `004_crawled_data.sql` + 59 bản ghi từ `002_seed.sql`).
-- **Độ trễ đo thực tế:**
-  - *Lệnh chốt lịch Booking:* **0.53s** (phản hồi tức thời).
-  - *Chat tìm kiếm (Heuristic / Direct):* **~2.1s**.
-  - *Chat tìm kiếm qua LLM trên Render Production:* **8–9s khi máy nóng** (và ~16s khi Render Cold Start).
-  - *Định hướng Phase 2:* Tối ưu còn 1 lượt gọi LLM và sử dụng model có cache để hạ độ trễ xuống ≤ 4.0s.
-- **Tỷ lệ thành công cuộc gọi API:** **100.0% (23/23 lượt gọi HTTP 200)** trong suite đánh giá lưu lượng live.
+### 3.1. Vũ Thế Lực — PM, AI Product và Data Quality
 
-### 🧪 4.2. Bộ kiểm thử tự động (Test Suite)
-- **Tổng số Unit / Integration Tests:** **149 tests pass, 0 fail**, ruff clean.
-- **Test phân quyền 403 (`tests/test_role_authorization.py`):** Xác nhận 100% trường hợp Customer truy cập trái phép API Sale/Admin đều bị trả về `403 Forbidden`.
-- **Test bảo mật OAuth (`tests/test_google_oauth_password.py`):** Xác nhận tài khoản Google OAuth có mật khẩu ngẫu nhiên an toàn, chặn hoàn toàn hình thức đoán mật khẩu `gauth_<email>`.
-- **Test Demo Password Guard (`tests/test_demo_password_guard.py`):** Xác nhận mật khẩu demo bị vô hiệu hóa hoàn toàn trên môi trường `production` và `staging`.
-- **Test mã hóa Token (`tests/test_token_encryption.py`):** Xác thực mã hóa và giải mã đối xứng Fernet cho token Google Calendar.
-- **Test Redis Fallback & Lock (`tests/test_redis_service.py`):** Xác thực cơ chế in-memory fallback, rate limiting và distributed lock.
+Định hình nghiệp vụ sản phẩm: xây User Journey cho bốn nhóm người dùng, thiết kế cơ chế giữ căn 15 phút (`PropertyHold`) và luồng phê duyệt của Sale.
 
----
+Quyết định sản phẩm về explainability (`feat(chat): confirm what Nera understood`): trước khi đổ danh sách nhà, Nera phải tóm tắt lại nó hiểu gì để khách kịp sửa. Khách thấy Nera hiểu sai ở dòng đầu và sửa bằng một câu, thay vì cuộn qua năm căn sai.
 
-# 5. ĐỐI CHIẾU XỬ LÝ TOÀN DIỆN CÁC PHẢN HỒI CỦA MENTOR
+Chốt chặn trung thực (`fix(search): recognise rental vocabulary`): khi khách hỏi thuê mà kho chỉ có tin bán, Nera nói thẳng là chưa có dữ liệu thuê. Không trộn tin bán vào kết quả thuê để lấp chỗ trống.
 
-| Issue | Vấn đề Mentor chỉ ra | Hiện trạng giải quyết | Minh chứng trong Code |
-| :--- | :--- | :---: | :--- |
-| **Issue 1** | Schema cũ mâu thuẫn, MOCKUI chết, đường dẫn hardcode Windows | 🟢 **ĐÃ XONG 100%** | Đã xóa `database/mvp/`, xóa `README_boilerplate.md`, không còn `MOCKUI/`, `README.md` dùng đường dẫn tương đối. |
-| **Issue 2** | Thiếu test service lớn, không có test từ chối quyền 403, test mem0 lấy lệ | 🟢 **ĐÃ XONG 100%** | 149 tests pass bao phủ: `test_role_authorization.py` (403), `test_redis_service.py`, `test_booking_service.py`, `test_token_encryption.py`. |
-| **Issue 3** | Token Calendar plaintext, rò `str(e)` ra client, `/docs` mở ở production | 🟢 **ĐÃ XONG 100%** | `auth_service.py` mã hóa Fernet at-rest; `src/main.py` tắt Swagger ở prod & có Global Exception Handler; `logger.exception()` giấu lỗi SQL. |
-| **Issue 4** | Lỗi ruff thiếu import `Path` trong `src/main.py` làm crash auto-seed | 🟢 **ĐÃ XONG 100%** | `src/main.py:7` đã import `from pathlib import Path`, khởi động auto-seed trơn tru. |
-| **Issue 5** | `verify_password` nhận mật khẩu demo ở mọi môi trường | 🟢 **ĐÃ XONG 100%** | `auth_service.py:26` đã chặn `if settings.app_env != "development": return False` và có test kiểm thử đa môi trường. |
-| **Issue 6** | Tài khoản Google OAuth có mật khẩu đoán được `gauth_{email}` | 🟢 **ĐÃ XONG 100%** | `google_oauth.py:167` đổi sang sinh ngẫu nhiên bằng `secrets.token_urlsafe(32)` và có test hồi quy xác minh. |
+Làm sạch dữ liệu (`fix(inventory): strip broker contact pitch`): bộ lọc bỏ số điện thoại và lời chào môi giới khỏi mô tả căn. Đo trên 59 tin thật, 46 tin có đoạn liên hệ, bộ lọc giữ lại 90% ký tự có nghĩa.
+
+Bảo mật và chất lượng: mã hóa Fernet cho token Google Calendar lưu trong cơ sở dữ liệu, dựng bộ test tự động, chuẩn hóa hồ sơ dự án.
+
+### 3.2. Phạm Trung Kiên — Tech Lead, AI Core và Fullstack
+
+Kiến trúc multi-agent trên LangGraph: thiết kế StateGraph điều phối Supervisor, Inventory, Booking và RespondNode.
+
+Tích hợp bản đồ: chuyển toàn bộ tầng địa lý từ Google Maps Platform sang Goong (Geocode, Distance Matrix, Nearby Search), thêm badge khoảng cách trên PropertyCard và khung bản đồ chỉ đường.
+
+Engine tài chính `affordability.py`: thuật toán tính dòng tiền trả góp theo lãi suất và thời hạn vay.
+
+Bảo mật và giao diện: chốt chặn mật khẩu demo theo môi trường, mật khẩu ngẫu nhiên cho tài khoản OAuth, global exception handler, đồng bộ nhận diện thương hiệu và dựng giao diện Next.js.
 
 ---
 
-# 6. KỊCH BẢN THUYẾT TRÌNH BẢO VỆ 5 PHÚT (DEMO DAY PITCH)
+## 4. Số liệu đo được và cách kiểm chứng
 
-### ⏱️ PHÚT 1: Mở đầu & Nêu bài toán thực tế (Vũ Thế Lực trình bày)
-> *"Kính thưa Hội đồng và các Mentor, em là **Vũ Thế Lực** – đại diện nhóm P-046 mang đến sản phẩm **Nera – Trợ lý AI Bất động sản và Đặt lịch xem nhà O2O**.*  
->  
-> *Trong thị trường BĐS hiện nay, việc dẫn khách đi xem nhà mẫu đang gặp 2 nỗi đau lớn:*  
-> 1. *Khách hàng bị ép vào các bộ lọc cứng nhắc, mất ngữ cảnh liên tục giữa các lần tìm kiếm.*  
-> 2. *Điều phối lịch xem nhà thủ công qua tin nhắn dẫn tới tình trạng **trùng lịch (double-booking)** giữa các Sale.*  
->  
-> *Nera ra đời để giải quyết triệt để bài toán này bằng mô hình **Multi-Agent kết hợp Grounding trên 167 BĐS thật và cơ chế Human-in-the-loop**."*
+### 4.1. Quy mô dữ liệu
 
----
+167 bất động sản thật trong cơ sở dữ liệu production: 108 bản ghi từ `database/004_crawled_data.sql` và 59 bản ghi từ `database/005_batdongsan_data.sql`.
 
-### ⏱️ PHÚT 2 - 3: Giải pháp kiến trúc & Demo trực tiếp (Phạm Trung Kiên trình bày / demo)
-> *"Hệ thống của chúng em đang chạy thực tế tại địa chỉ `nerahome.space` với kiến trúc 3 lớp:*  
-> 1. *Giao diện Next.js App Router mượt mà.*  
-> 2. *Hệ thống Multi-Agent trên LangGraph: **Supervisor** giữ ngữ cảnh, **Inventory Agent** lọc nhà theo ràng buộc cứng, và **Booking Agent** quản lý lịch trống.*  
-> 3. *Cơ sở dữ liệu PostgreSQL chứa 167 tin BĐS thật và Redis quản lý bộ nhớ đệm.*  
->  
-> *(Thực hiện Demo trực tiếp):*  
-> - *Khách chat: 'Tìm căn 2PN ở Cầu Giấy dưới 3 tỷ, đi xe đến ĐH Quốc Gia dưới 10 phút'.*  
-> - *AI tóm tắt lại tiêu chí -> Gọi Goong Maps đo khoảng cách thật -> Trả về thẻ nhà có thật trong DB kèm bản đồ Iframe.*  
-> - *Khách chọn đặt lịch xem lúc 9:00 sáng -> Hệ thống tạo bản ghi **giữ chỗ 15 phút (PropertyHold)**.*  
-> - *Chuyển sang màn hình `/sale` của nhân viên: Sale nhận thông báo, bấm **Duyệt** -> Lịch hẹn chính thức được xác nhận."*
+Kiểm chứng: `GET https://bookingbot-api-q0t9.onrender.com/api/v1/properties?page_size=1` trả về trường `total`.
 
----
+### 4.2. Độ trễ thật
 
-### ⏱️ PHÚT 4 - 5: Tính kỷ luật sản phẩm, Đánh giá & Tương lai (Vũ Thế Lực kết luận)
-> *"Điểm cốt lõi làm nên sự khác biệt của Nera từ góc nhìn **AI Product** chính là **Sự trung thực và Tính kiên cường của hệ thống** (Resilience):*  
-> - *AI không bao giờ tự ý chốt lịch ảo: Con người (Sale) luôn là người phê duyệt cuối cùng (HITL).*  
-> - *Hệ thống có cơ chế Fallback minh bạch: Nếu Redis sập, tự động chuyển sang In-memory; nếu LLM gặp sự cố, hệ thống chuyển sang Fallback theo luật.*  
-> - *Bộ kiểm thử tự động đạt 149 tests pass (0 fail) và 0 lỗi compile.*  
-> - *Về độ trễ 8-9s trên bản Cloud Free Tier, nhóm đã xác định rõ nguyên nhân do gọi 2 lượt LLM và đặt kế hoạch tối ưu xuống dưới 4s ở Phase 2.*  
->  
-> *Xin cảm ơn Hội đồng và rất mong nhận được những câu hỏi góp ý từ các Mentor!"*
+| Luồng | Đo được | Ghi chú |
+| :--- | ---: | :--- |
+| Chốt lịch booking | 0,53s | Không gọi LLM |
+| Chat tìm kiếm, production, máy đã nóng | 8–9s | Hai lượt gọi LLM mỗi turn |
+| Chat tìm kiếm, lượt đầu sau cold start | ~16s | Render free tier ngủ sau 15 phút |
+| Suite đánh giá lưu lượng, 23 lượt | avg 5,27s, P95 9,52s | `eval/results/DEMO_DAY_TRAFFIC_EVALUATION_REPORT.md` |
 
----
+Release gate của đội đặt ở mức trung bình 4,0s và P95 6,0s. Cả hai chỉ số hiện chưa đạt, và báo cáo đánh giá ghi rõ trạng thái "Chưa đạt" thay vì làm tròn thành đạt. Nguyên nhân đã xác định, cách xử lý nằm ở mục 9.
 
-# 7. BỘ CÂU HỎI VẤN ĐÁP PHẢN BIỆN (DEFENSE Q&A)
+### 4.3. Bộ kiểm thử
 
-#### ❓ Câu 1: *"Tại sao không để AI tự động chốt lịch luôn cho khách mà phải bắt Sale duyệt (HITL) cho mất công?"*
-> **Trả lời (Góc nhìn PM):**  
-> *"Dạ thưa Mentor, trong BĐS O2O, việc đi xem nhà phát sinh chi phí thực tế (thời gian di chuyển của Sale, mở cửa căn hộ, xe đưa đón). Nếu để AI tự chốt, chỉ cần khách spam hoặc AI hiểu nhầm sẽ gây lãng phí nguồn lực rất lớn. Giữ chỗ 15 phút và để Sale duyệt là điểm cân bằng hoàn hảo: vừa giải phóng 80% thời gian tư vấn ban đầu cho Sale, vừa giữ trách nhiệm pháp lý và kiểm soát thực tế thuộc về con người."*
+157 test pass, 0 fail. `ruff check src/ tests/` sạch. Chạy lại bằng `pytest` và `ruff check src/ tests/`.
 
-#### ❓ Câu 2: *"Làm sao bạn đảm bảo AI không bịa ra giá nhà hoặc địa chỉ ảo (Hallucination)?"*
-> **Trả lời (Góc nhìn AI Product):**  
-> *"Dạ, nhóm áp dụng kiến trúc **SQL Grounding**. LLM không có quyền tự sinh dữ liệu BĐS. LLM chỉ đóng vai trò trích xuất tiêu chí (Entity Extraction) để Backend query trực tiếp vào PostgreSQL. Mọi câu trả lời đều gắn nhãn `llm_grounded` lấy từ 167 BĐS thực tế. Nếu không có nhà thỏa mãn hoặc thiếu dữ liệu, hệ thống bắt buộc AI thông báo không tìm thấy thay vì suy đoán."*
+Bộ test không phụ thuộc API key, cơ sở dữ liệu hay mạng, nên chạy được trên máy trống.
 
-#### ❓ Câu 3: *"Nếu API của OpenAI bị timeout hoặc Redis bị sập thì sản phẩm của bạn có chết không?"*
-> **Trả lời (Góc nhìn Kỹ thuật & Resilience):**  
-> *"Dạ không. Nhóm đã thiết kế sẵn **2 tầng Fallback**:*  
-> 1. *Với Redis: Hệ thống có cơ chế In-memory fallback tự động chuyển sang lưu tạm trong RAM của tiến trình.*  
-> 2. *Với LLM: Hệ thống bắt exception và kích hoạt Rule-based Fallback, đồng thời UI hiển thị rõ nhãn 'Fallback theo luật' để người dùng không bị gián đoạn trải nghiệm."*
+Một số test đáng nói:
 
-#### ❓ Câu 4: *"Sự khác biệt lớn nhất giữa việc tìm kiếm bằng Nera so với gõ bộ lọc trên Batdongsan.com.vn là gì?"*
-> **Trả lời (Góc nhìn UX & AI Value):**  
-> *"Bộ lọc truyền thống chỉ hiểu các tiêu chí cứng và bắt người dùng nhập lại từ đầu. Nera hiểu được các **nhu cầu mềm kết hợp ngữ cảnh đa lượt** (ví dụ: 'tìm căn vừa tiền cho vợ chồng mới cưới, gần viện Bạch Mai để tiện đi làm'). Khách có thể đổi tiêu chí từng bước mà không cần chọn lại từ đầu nhờ lớp Memory của hệ thống."*
+`tests/test_role_authorization.py` kiểm khách hàng gọi endpoint của Sale và của Admin đều nhận 403, Sale gọi endpoint Admin cũng nhận 403, và đúng vai thì được đi qua.
+
+`tests/test_redis_service.py` kiểm nhánh fallback in-memory: khóa phân tán, rate limit, và quan trọng nhất là hai khách không được giữ cùng một căn. Chính bộ test này phát hiện `acquire_hold` ở chế độ fallback đọc trạng thái từ một nơi rồi ghi vào nơi khác, nên chưa bao giờ thấy hold đang tồn tại.
+
+`tests/test_geo_constraints.py` kiểm câu đặt lịch không bị đọc nhầm thành ràng buộc đi lại. Trước khi có test này, câu "đặt lịch 10h" sinh ra ràng buộc đi lại 600 phút.
+
+`tests/test_token_encryption.py` kiểm token Google Calendar mã hóa và giải mã đúng, và bản mã không còn giữ tiền tố `ya29.` của token gốc.
+
+`tests/test_llm_model_selection.py` kiểm câu trả lời khai đúng tên model đã chạy, và khai `null` khi lượt đó chạy bằng luật cứng thay vì mượn tên một model không tham gia.
+
+### 4.4. Tình trạng production
+
+`GET /health` trả `{"status":"ok","database":"ok","env":"production"}`. Một lượt chat thật trả về 20 bất động sản với `ai_mode: llm_grounded`.
 
 ---
 
-# 8. KẾ HOẠCH HÀNH ĐỘNG PHASE 2 (NEXT STEPS)
+## 5. Giới hạn đã biết
 
-- **P0 — Kéo giảm độ trễ chat:** Rút gọn còn 1 lượt gọi LLM cho mỗi turn chat và cấu hình caching prompt để hạ độ trễ xuống dưới 4.0s.
-- **P1 — Mở rộng dữ liệu:** Bổ sung thêm tin BĐS Cho Thuê (Rental) và mở rộng phạm vi quận huyện.
-- **P2 — Đồng bộ Lịch 2 chiều:** Tích hợp API tạo sự kiện Google Calendar trực tiếp vào tài khoản của nhân viên Sale sau khi duyệt lịch.
+Phần này liệt kê những gì chưa xong, để người đọc không phải tự đi tìm.
+
+**Độ trễ chưa đạt gate.** 8–9s so với mục tiêu 4,0s. Nguyên nhân là mỗi lượt tìm kiếm gọi LLM hai lần: một lần ở Supervisor để phân loại intent và trích tiêu chí, một lần ở Inventory để viết đoạn giới thiệu kết quả. Cộng thêm model đang dùng là bản miễn phí trên OpenRouter.
+
+**Văn bản giới thiệu do LLM viết.** Thẻ bất động sản lấy nguyên số liệu từ cơ sở dữ liệu, không qua LLM. Nhưng đoạn văn giới thiệu phía trên thẻ thì do model viết lại từ payload gồm giá, diện tích, số phòng. Prompt cấm bịa số và có nhánh dự phòng tất định khi model lỗi, nhưng chưa có bước đối chiếu tự động giữa văn bản và dữ liệu gốc. Đây là đánh đổi có chủ đích để câu trả lời tự nhiên hơn.
+
+**Goong không có chế độ đi bộ.** API chỉ hỗ trợ ô tô và xe hai bánh. Yêu cầu đi bộ hiện dùng hồ sơ xe đạp nên thời gian là ước lượng, không phải số đo. Mã nguồn ghi rõ chỗ này thay vì im lặng.
+
+**Không có dữ liệu giao thông theo thời gian thực.** Distance Matrix của Goong không nhận tham số thời gian khởi hành, nên API trả `traffic_aware: false`. Bản Google trước đây có, bản hiện tại thì không, và hồ sơ không khai ngược lại.
+
+**Thông báo ngoài ứng dụng chưa bật.** Mã cho email, SMS và Zalo đã có và chỉ kích hoạt khi có cấu hình tương ứng. Hiện chưa cấu hình nên chỉ còn thông báo trong ứng dụng.
+
+**CI chưa chạy được.** 40 lần chạy gần nhất trên GitHub Actions đều dừng ở khâu cấp máy do hạn mức thanh toán của tổ chức, chưa lần nào tới bước lint. Đội chạy `pytest` và `ruff` tại máy trước mỗi lần đẩy code.
+
+---
+
+## 6. Đối chiếu phản hồi của mentor
+
+| Vấn đề mentor nêu | Hiện trạng | Minh chứng |
+| :--- | :---: | :--- |
+| Schema cũ mâu thuẫn, thư mục MOCKUI chết, README hardcode đường dẫn Windows | Xong | Đã xóa `database/mvp/`, `README_boilerplate.md`, `MOCKUI/`. README dùng đường dẫn tương đối |
+| Thiếu test cho service lớn, không có test từ chối quyền 403, test mem0 lấy lệ | Xong | 157 test pass. `test_role_authorization.py`, `test_redis_service.py`, `test_booking_service.py`, `test_token_encryption.py`. Test mem0 lấy lệ bị xóa thay vì vá |
+| Token Calendar lưu plaintext, rò `str(e)` ra client, `/docs` mở ở production | Xong | `auth_service.py` mã hóa Fernet at-rest. `src/main.py` tắt Swagger ngoài môi trường development và có global exception handler. `logger.exception()` giữ chi tiết SQL ở phía máy chủ |
+| Lỗi ruff thiếu import `Path` làm crash auto-seed | Xong | `src/main.py` import `from pathlib import Path`, auto-seed chạy bình thường |
+| `verify_password` nhận mật khẩu demo ở mọi môi trường | Xong | `auth_service.py` chặn bằng `if settings.app_env != "development": return False` |
+| Tài khoản Google OAuth có mật khẩu đoán được `gauth_{email}` | Xong | `google_oauth.py` sinh ngẫu nhiên bằng `secrets.token_urlsafe(32)`, có test hồi quy |
+
+---
+
+## 7. Kịch bản thuyết trình 5 phút
+
+### Phút 1 — Bài toán (Lực)
+
+"Em là Vũ Thế Lực, nhóm P-046, sản phẩm Nera: trợ lý AI tìm nhà và đặt lịch xem nhà.
+
+Người tìm nhà hôm nay gặp hai chuyện. Thứ nhất, họ bị ép vào bộ lọc cứng và mất ngữ cảnh mỗi lần tìm lại. Thứ hai, việc điều phối lịch xem nhà chạy thủ công qua tin nhắn nên trùng lịch xảy ra thường xuyên.
+
+Nera giải quyết bằng multi-agent, grounding trên 167 bất động sản thật, và cơ chế người duyệt cuối."
+
+### Phút 2 đến 3 — Kiến trúc và demo (Kiên)
+
+"Hệ thống đang chạy tại nerahome.space. Giao diện Next.js gọi FastAPI. Trên đó là LangGraph điều phối bốn agent: Supervisor giữ ngữ cảnh, Inventory lọc nhà, Booking quản lý slot, Respond sinh câu trả lời. Dữ liệu nằm trong PostgreSQL, Redis giữ trạng thái chat.
+
+*(Demo trực tiếp)*
+
+Khách gõ: 'Tìm căn 2PN ở Cầu Giấy dưới 3 tỷ, đi xe đến Đại học Quốc gia dưới 10 phút.'
+
+Nera tóm tắt lại tiêu chí nó hiểu được. Khách xác nhận. Hệ thống gọi Goong đo khoảng cách thật rồi trả về thẻ nhà có trong cơ sở dữ liệu, kèm bản đồ.
+
+Khách chọn đặt lịch 9 giờ sáng. Hệ thống tạo bản ghi giữ căn 15 phút.
+
+Chuyển sang màn hình `/sale`. Sale nhận yêu cầu, bấm duyệt. Lúc này lịch mới thành chính thức."
+
+### Phút 4 đến 5 — Kỷ luật kỹ thuật và kế hoạch (Lực)
+
+"Điểm nhóm em muốn nói không phải là danh sách tính năng, mà là cách nhóm xử lý những chỗ chưa tốt.
+
+AI không tự chốt lịch. Sale là người duyệt cuối, vì mỗi lịch xem nhà tiêu tốn thời gian di chuyển thật của một người thật.
+
+Hệ thống hỏng từng phần chứ không sập. Redis mất thì chuyển sang in-memory. LLM lỗi thì rơi về luật cứng, và nhãn `ai_mode: fallback` hiện ra cho người dùng thấy.
+
+Bộ test hiện có 157 case pass, ruff sạch. Trong lượt rà gần nhất, chính bộ test phát hiện một lỗi thật: ở chế độ fallback, hai khách có thể giữ cùng một căn. Lỗi đã sửa và có test chặn.
+
+Về độ trễ, nhóm đo được 8 đến 9 giây trên bản cloud miễn phí, chưa đạt mức 4 giây nhóm tự đặt. Nguyên nhân là hai lượt gọi LLM mỗi turn. Phase 2 rút còn một lượt và bật cache prompt.
+
+Nhóm chọn nói thẳng con số này thay vì làm tròn nó."
+
+---
+
+## 8. Câu hỏi phản biện
+
+**Tại sao không để AI tự chốt lịch cho nhanh?**
+
+Mỗi lịch xem nhà phát sinh chi phí thật: Sale di chuyển, chủ nhà mở cửa, đôi khi có xe đưa đón. Nếu AI tự chốt thì chỉ cần khách spam hoặc AI hiểu nhầm là lãng phí nguồn lực của người khác. Giữ căn 15 phút cộng với Sale duyệt là điểm cân bằng: AI lo phần sàng lọc ban đầu, trách nhiệm cuối vẫn thuộc về con người.
+
+**Làm sao đảm bảo AI không bịa giá nhà hay địa chỉ?**
+
+Cần tách làm hai phần vì hai phần này có mức đảm bảo khác nhau.
+
+Thẻ bất động sản hiển thị cho khách lấy nguyên số liệu từ PostgreSQL, không đi qua LLM. Giá, diện tích, số phòng, địa chỉ trên thẻ không thể lệch so với cơ sở dữ liệu.
+
+Đoạn văn giới thiệu phía trên thẻ thì do model viết, dựa trên payload chứa đúng những con số đó. Prompt cấm bịa số và có nhánh dự phòng tất định khi model lỗi. Nhưng nhóm chưa có bước đối chiếu tự động giữa văn bản và dữ liệu gốc, nên đây là điểm nhóm ghi nhận là còn hở, và là hạng mục P1 trong Phase 2.
+
+Ngoài ra, LLM không có quyền truy vấn cơ sở dữ liệu. Nó chỉ trích xuất tiêu chí, backend mới là bên chạy câu truy vấn.
+
+**Nếu OpenRouter timeout hoặc Redis sập thì sản phẩm chết không?**
+
+Không. Redis sập thì `InMemoryFallback` giữ trạng thái trong RAM tiến trình, ứng dụng chạy tiếp và chỉ mất khả năng chia sẻ trạng thái giữa nhiều tiến trình. LLM lỗi thì hệ thống rơi về nhánh luật cứng và trả `ai_mode: fallback`, người dùng nhìn thấy nhãn đó chứ không bị lừa rằng AI vẫn đang trả lời.
+
+Cả hai nhánh fallback đều có test. Nhóm không tin vào một nhánh dự phòng chưa từng được chạy qua.
+
+**Khác gì so với bộ lọc trên Batdongsan.com.vn?**
+
+Bộ lọc hiểu tiêu chí cứng và bắt người dùng nhập lại từ đầu mỗi phiên. Nera giữ tiêu chí qua nhiều lượt và hiểu nhu cầu mềm: "tìm căn vừa tiền cho vợ chồng mới cưới, gần viện Bạch Mai để tiện đi làm". Khách đổi một tiêu chí thì những tiêu chí còn lại vẫn giữ nguyên.
+
+Điểm khác thứ hai là Nera nói thẳng khi không có dữ liệu. Khách hỏi nhà cho thuê mà kho chỉ có tin bán thì Nera trả lời là chưa có, không trộn tin bán vào cho đủ số.
+
+**Vì sao chuyển từ Google Maps sang Goong?**
+
+Chi phí và phạm vi phủ dữ liệu Việt Nam. Đánh đổi là Goong không có chế độ đi bộ và không nhận tham số thời gian khởi hành, nên nhóm bỏ luôn tuyên bố về dữ liệu giao thông theo thời gian thực thay vì giữ một cái nhãn không đúng.
+
+---
+
+## 9. Kế hoạch Phase 2
+
+**P0 — Kéo độ trễ xuống dưới 4 giây.** Gộp hai lượt gọi LLM mỗi turn thành một, bật prompt caching, và cân nhắc model trả phí có độ trễ ổn định hơn bản miễn phí hiện tại.
+
+**P1 — Đối chiếu văn bản với dữ liệu gốc.** Thêm bước kiểm sau khi model sinh đoạn giới thiệu: mọi con số xuất hiện trong văn bản phải khớp với payload, lệch thì rơi về bản tất định. Việc này đóng lại điểm hở đã nêu ở mục 5.
+
+**P2 — Mở rộng dữ liệu.** Bổ sung tin cho thuê và mở rộng phạm vi quận huyện, vì hiện tại kho chỉ có tin bán.
+
+**P3 — Đồng bộ lịch hai chiều.** Tạo sự kiện trực tiếp trong Google Calendar của Sale sau khi lịch được duyệt.
+
+**P4 — Bật lại CI.** Cần hạn mức GitHub Actions của tổ chức. Chưa có CI thì lỗi chỉ được phát hiện khi có người chạy tay, và đó là lý do một số lỗi ở lượt rà gần nhất lọt được vào nhánh develop.
