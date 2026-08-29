@@ -36,16 +36,16 @@ function MiniLineChart({ data }: { data: DailyBooking[] }) {
         <AreaChart data={formattedData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--forest)" stopOpacity={0.2}/>
+              <stop offset="5%" stopColor="var(--forest)" stopOpacity={0.25}/>
               <stop offset="95%" stopColor="var(--forest)" stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-          <XAxis dataKey="date" tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
-          <YAxis tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-          <Area type="monotone" dataKey="total" stroke="var(--forest)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTotal)" name="Tổng booking" />
-          <Area type="monotone" dataKey="confirmed" stroke="var(--coral)" strokeWidth={2} strokeDasharray="5 5" fill="none" name="Đã xác nhận" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.03)" />
+          <XAxis dataKey="date" tick={{fontSize: 10, fill: "var(--muted)", fontWeight: 500}} axisLine={false} tickLine={false} tickMargin={10} />
+          <YAxis tick={{fontSize: 10, fill: "var(--muted)", fontWeight: 500}} axisLine={false} tickLine={false} tickMargin={10} />
+          <Tooltip contentStyle={{ borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', boxShadow: '0 10px 25px rgba(0,0,0,0.08)' }} itemStyle={{ fontWeight: 600 }} />
+          <Area type="monotone" dataKey="total" stroke="var(--forest)" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" name="Tổng booking" />
+          <Area type="monotone" dataKey="confirmed" stroke="var(--coral)" strokeWidth={2.5} strokeDasharray="6 6" fill="none" name="Đã xác nhận" />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -74,7 +74,7 @@ function DonutChart({ dist }: { dist: Record<string, number> }) {
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip contentStyle={{ borderRadius: '0.75rem', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+            <Tooltip contentStyle={{ borderRadius: '0.85rem', border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 20px rgba(0,0,0,0.08)', fontSize: '12px' }} itemStyle={{ fontWeight: 600 }} />
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -102,12 +102,12 @@ function BarChart({ data }: { data: WeeklyConversion[] }) {
     <div className="h-48 w-full mt-4">
       <ResponsiveContainer width="100%" height="100%">
         <RechartsBarChart data={formattedData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
-          <XAxis dataKey="week_label" tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
-          <YAxis tick={{fontSize: 10, fill: "var(--muted)"}} axisLine={false} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.03)" />
+          <XAxis dataKey="week_label" tick={{fontSize: 10, fill: "var(--muted)", fontWeight: 500}} axisLine={false} tickLine={false} tickMargin={10} />
+          <YAxis tick={{fontSize: 10, fill: "var(--muted)", fontWeight: 500}} axisLine={false} tickLine={false} tickMargin={10} />
           <Tooltip 
-            cursor={{fill: 'rgba(0,0,0,0.02)'}}
-            contentStyle={{ borderRadius: '0.75rem', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: '12px' }} 
+            cursor={{fill: 'rgba(0,0,0,0.03)'}}
+            contentStyle={{ borderRadius: '0.85rem', border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 20px rgba(0,0,0,0.08)', fontSize: '12px' }} itemStyle={{ fontWeight: 600 }} 
           />
           <Bar dataKey="rate" radius={[6, 6, 0, 0]} name="Tỷ lệ chốt (%)">
             {formattedData.map((entry, index) => (
@@ -179,7 +179,7 @@ function AdminDashboardContent() {
   }
 
   const sidebar = (
-    <aside className={`bg-[var(--ink)] p-5 text-white lg:sticky lg:top-0 lg:min-h-screen lg:w-72 ${sidebarOpen ? "fixed inset-0 z-50" : "hidden lg:block"}`}>
+    <aside className={`bg-[var(--ink)] p-5 text-white lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:rounded-[2rem] lg:w-[280px] lg:shadow-xl lg:border lg:border-black/5 lg:overflow-y-auto ${sidebarOpen ? "fixed inset-0 z-50" : "hidden lg:block"} custom-scrollbar`}>
       <div className="flex items-center justify-between border-b border-white/10 pb-5">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10"><FaRobot className="text-[#a9c9b0]" /></span>
@@ -210,7 +210,7 @@ function AdminDashboardContent() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f4f5f1] text-[var(--ink)] lg:flex">
+    <div className="min-h-screen bg-[#f4f5f1] text-[var(--ink)] lg:flex lg:p-4 gap-4">
       {sidebar}
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
@@ -237,10 +237,14 @@ function AdminDashboardContent() {
             { label: "Tỷ lệ xác nhận", value: overview ? `${overview.stats.conversion_rate}%` : undefined, note: "Booking chuyển thành lịch", icon: FaChartLine },
             { label: "No-show", value: overview?.stats.no_shows, note: "Cần gọi lại khách", icon: FaExclamationTriangle },
           ].map(({ label, value, note, icon: Icon }, index) => (
-            <div key={label} className={`rounded-[1.5rem] p-5 shadow-sm ${index === 1 && Number(value) > 0 ? "bg-[#fff1e8]" : "bg-white"}`}>
-              <div className="flex items-center justify-between"><p className="text-sm text-[var(--muted)]">{label}</p><Icon className={index === 1 ? "text-[var(--coral)]" : "text-[var(--forest)]"} /></div>
-              <p className="mt-3 text-4xl font-semibold">{value ?? "–"}</p>
-              <p className="mt-2 text-xs text-[var(--muted)]">{note}</p>
+            <div key={label} className={`group rounded-[1.6rem] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_3px_rgba(0,0,0,0.04)] border transition duration-300 hover:-translate-y-1 hover:shadow-md ${
+              index === 1 && Number(value) > 0 
+                ? "bg-gradient-to-br from-[#fff6f0] to-[#fff1e8] border-orange-900/5 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(234,88,12,0.08)]" 
+                : "bg-gradient-to-br from-white to-[#fbfaf7] border-black/[0.03]"
+            }`}>
+              <div className="flex items-center justify-between"><p className="text-sm font-medium text-[var(--muted)]">{label}</p><Icon className={index === 1 ? "text-[var(--coral)]" : "text-[var(--forest)]/70"} /></div>
+              <p className="mt-4 text-4xl font-semibold tracking-tight text-[var(--ink)]">{value ?? "–"}</p>
+              <p className="mt-2 text-xs font-medium text-[var(--muted)]">{note}</p>
             </div>
           ))}
         </section>
@@ -272,7 +276,11 @@ function AdminDashboardContent() {
             ["No-show rate", `${analytics?.conversion_funnel?.no_show_rate ?? 0}%`, `${analytics?.conversion_funnel?.no_show ?? 0} no-show`],
             ["Reminder success", `${analytics?.reminder_performance?.delivery_success_rate ?? 0}%`, `${analytics?.reminder_performance?.sent ?? 0}/${analytics?.reminder_performance?.scheduled ?? 0} đã gửi`],
           ].map(([label, value, note]) => (
-            <div key={label} className="rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-2 text-3xl font-semibold">{value}</p><p className="mt-2 text-xs text-[var(--muted)]">{note}</p></div>
+            <div key={label} className="group rounded-[1.6rem] border border-black/[0.03] bg-gradient-to-br from-white to-[#fbfaf7] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_3px_rgba(0,0,0,0.04)] transition duration-300 hover:-translate-y-1 hover:shadow-md">
+              <p className="text-xs font-medium text-[var(--muted)]">{label}</p>
+              <p className="mt-3 text-3xl font-semibold tracking-tight text-[var(--ink)]">{value}</p>
+              <p className="mt-2 text-xs font-medium text-[var(--muted)]">{note}</p>
+            </div>
           ))}
         </section>
 

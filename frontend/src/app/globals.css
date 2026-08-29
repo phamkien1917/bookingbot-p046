@@ -59,6 +59,10 @@ html { scroll-behavior: smooth; }
   30% { transform: translateY(-5px); opacity: 1; }
 }
 
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
 .animate-soft-rise { animation: soft-rise .7s cubic-bezier(.2,.75,.2,1) both; }
 .animate-message-in { animation: message-in .38s cubic-bezier(.2,.75,.2,1) both; }
 .animate-card-rise { animation: card-rise .55s cubic-bezier(.2,.75,.2,1) both; }

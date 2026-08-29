@@ -197,8 +197,6 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
     ):
         if re.search(pattern, text):
             categories.append(category)
-    if categories:
-        result["nearby_categories"] = categories
 
     landmark = re.search(
         r"\bcach\s+(.+?)\s+(?:duoi|khong qua|toi da|trong vong)\s*\d+(?:[.,]\d+)?\s*(?:km|phut)\b",
@@ -213,6 +211,23 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
         candidate = landmark.group(1).strip(" ,.-")
         if candidate and candidate not in {"vi tri nay", "day", "do"}:
             result["commute_landmark"] = candidate
+            # If the landmark name itself contains a category keyword
+            # (e.g. "dai hoc bach khoa" contains "dai hoc" → "university"),
+            # remove that category from nearby_categories to avoid a
+            # redundant Goong Places search that would show a misleading
+            # "not found" warning even though distance filtering succeeded.
+            norm_candidate = normalize_text(candidate)
+            categories = [c for c in categories if not any(
+                kw in norm_candidate for kw in {
+                    "school": ["truong hoc", "truong cap", "mam non"],
+                    "hospital": ["benh vien", "phong kham"],
+                    "university": ["dai hoc", "cao dang"],
+                    "supermarket": ["sieu thi"],
+                    "park": ["cong vien"],
+                }.get(c, [])
+            )]
+    if categories:
+        result["nearby_categories"] = categories
     return result
 
 

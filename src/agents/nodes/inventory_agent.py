@@ -1405,13 +1405,20 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         memory_summary=state.get("memory_summary")
     )
 
+    # Only show the geo warning when distance filtering truly failed —
+    # i.e. no property in the final set carries verified distance data.
+    show_geo_warning = bool(
+        geo_note
+        and not any(p.get("distance_evidence") for p in properties)
+    )
+
     return {
         "selected_properties": properties,
         "search_results": properties,
         "current_property_id": None,
         "selected_property_index": None,
         "response": (
-            f"⚠️ {geo_note}\n\n" if geo_note else ""
+            f"⚠️ {geo_note}\n\n" if show_geo_warning else ""
         ) + search_response_text,
         "response_kind": "SEARCH_RESULTS",
         "phase": "SEARCH_RESULTS",

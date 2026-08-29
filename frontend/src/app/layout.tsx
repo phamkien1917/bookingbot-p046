@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
 import ChatLauncher from "@/components/ChatLauncher";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Nera — Trợ lý AI tìm và đặt lịch xem nhà",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full font-sans">
         <AuthProvider>
           {children}
+          <Toaster richColors position="bottom-center" />
           <ChatLauncher />
         </AuthProvider>
       </body>
