@@ -24,8 +24,14 @@ logger = logging.getLogger(__name__)
 
 
 def _route_after_worker(state: AgentState) -> str:
-    """Escalate worker failures into the durable HITL queue."""
-    return "hitl" if state.get("awaiting_human") and not state.get("hitl_case_id") else "respond"
+    """Escalate worker failures into the durable HITL queue.
+
+    The case id is no longer skipped over: it now survives between turns, and
+    hitl_agent is the node that decides what to do with it — report the case as
+    pending, deliver a resolved decision, or open a new one. Routing past it on a
+    known id would strand the customer on a case they never hear back about.
+    """
+    return "hitl" if state.get("awaiting_human") else "respond"
 
 
 def _timed(name: str, node: Callable) -> Callable:

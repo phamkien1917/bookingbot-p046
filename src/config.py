@@ -49,8 +49,6 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model_name: str = "gpt-4o-mini"
 
-    # Grounded production chat LLM
-
     # Database
     database_url: str = "postgresql+asyncpg://visitops:change-this-local-password@localhost:5432/visitops"
 

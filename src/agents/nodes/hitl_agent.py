@@ -19,6 +19,15 @@ def _customer_uuid(state: AgentState) -> UUID | None:
         return None
 
 
+def _same_request(case, state: AgentState) -> bool:
+    """Is the queued case about the same thing the customer is asking for now?"""
+    wanted = state.get("hitl_context") or {}
+    if not wanted:
+        return True
+    stored = case.context or {}
+    return all(stored.get(key) == value for key, value in wanted.items())
+
+
 async def hitl_agent(state: AgentState) -> dict:
     """Persist a review request or return its latest durable decision."""
     existing_id = state.get("hitl_case_id")
@@ -38,7 +47,10 @@ async def hitl_agent(state: AgentState) -> dict:
                     "human_decision": decision,
                     "response": decision.get("message") or "Yêu cầu của bạn đã được điều phối viên xử lý.",
                 }
-            if case:
+            # A pending case only covers the request it was opened for. Asking about
+            # a different property must open its own case instead of being folded
+            # into the one already queued.
+            if case and case.status == "PENDING" and _same_request(case, state):
                 return {
                     "awaiting_human": True,
                     "response": f"Yêu cầu `{case.case_code}` đang chờ điều phối viên xử lý.",
