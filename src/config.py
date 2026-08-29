@@ -58,7 +58,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://visitops:change-this-local-password@localhost:5432/visitops"
 
     # Model settings
-    model_name: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    # The :free Nemotron endpoint answers roughly one call in five with HTTP 200
+    # and a body of {"error": "Upstream error from Nvidia: Service temporarily
+    # overloaded"}, which drops the supervisor to its regex heuristic mid-booking.
+    # Override with MODEL_NAME if a free tier is acceptable for the environment.
+    model_name: str = "openai/gpt-4o-mini"
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=4096, ge=1, le=128000)
 
