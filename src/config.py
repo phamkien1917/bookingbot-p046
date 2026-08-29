@@ -50,9 +50,6 @@ class Settings(BaseSettings):
     openai_model_name: str = "gpt-4o-mini"
 
     # Grounded production chat LLM
-    chat_llm_enabled: bool = True
-    chat_llm_timeout_seconds: int = Field(default=20, ge=3, le=120)
-    chat_llm_circuit_breaker_seconds: int = Field(default=30, ge=1, le=600)
 
     # Database
     database_url: str = "postgresql+asyncpg://visitops:change-this-local-password@localhost:5432/visitops"
