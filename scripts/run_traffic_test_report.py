@@ -176,16 +176,16 @@ def send_chat_request(message: str, session_id: str) -> dict:
 
 def run_evaluation():
     print("=" * 70)
-    print(f"🚀 BẮT ĐẦU CHẠY SUITE ĐÁNH GIÁ TRAFFIC NERA AI (PHASE 2 & DEMO DAY)")
+    print("🚀 BẮT ĐẦU CHẠY SUITE ĐÁNH GIÁ TRAFFIC NERA AI (PHASE 2 & DEMO DAY)")
     print(f"🌐 Target API: {API_URL}")
     print(f"⏰ Thời gian bắt đầu: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70)
 
     total_scenarios = sum(len(c["scenarios"]) for c in TEST_SUITES)
-    total_turns = sum(len(s["turns"]) for c in TEST_SUITES for s in c["scenarios"])
-    
+
     results = []
     latencies = []
+    stage_totals: dict[str, int] = {}
     success_count = 0
     grounded_count = 0
     fallback_count = 0
@@ -215,6 +215,9 @@ def run_evaluation():
                 status = res.get("_status", 500)
                 ai_mode = res.get("ai_mode", "unknown")
                 prop_count = len(res.get("properties", []))
+                timings = res.get("stage_timings") or {}
+                for stage, ms in timings.items():
+                    stage_totals[stage] = stage_totals.get(stage, 0) + ms
 
                 latencies.append(lat)
                 if status == 200:
@@ -233,6 +236,7 @@ def run_evaluation():
                     "latency": round(lat, 2),
                     "ai_mode": ai_mode,
                     "properties_count": prop_count,
+                    "stage_timings": timings,
                     "response": res.get("response", ""),
                     "insights": res.get("insights", {})
                 })
@@ -257,6 +261,12 @@ def run_evaluation():
     print(f"- Tỷ lệ thành công HTTP 200: {success_count}/{executed_turns} ({success_count/executed_turns*100:.1f}%)")
     print(f"- Thời gian phản hồi trung bình: {avg_latency:.2f}s")
     print(f"- Độ trễ P50 (Median): {p50_latency:.2f}s | P95: {p95_latency:.2f}s (Min: {min_latency:.2f}s, Max: {max_latency:.2f}s)")
+    if stage_totals and executed_turns:
+        breakdown = " | ".join(
+            f"{stage}: {ms / executed_turns / 1000:.2f}s"
+            for stage, ms in sorted(stage_totals.items(), key=lambda kv: -kv[1])
+        )
+        print(f"- Trung bình mỗi node (đo trong server): {breakdown}")
     print(f"- Số lượt phản hồi Grounded (DB): {grounded_count} | Fallback/Từ chối an toàn: {fallback_count}")
     print("=" * 70)
 
@@ -286,6 +296,12 @@ def run_evaluation():
         f.write(f"| **Tỷ lệ lỗi hệ thống (Crash/500)** | **{error_rate:.1f}%** ({error_count}/{executed_turns}) | 0.0% | {verdict(error_count == 0)} |\n")
         f.write(f"| **Phản hồi có Grounding (`llm_grounded`)** | **{grounded_count} lượt** | 100% khi có dữ liệu | — |\n")
         f.write(f"| **Phản hồi rơi fallback** | **{fallback_count} lượt** | — | — |\n\n")
+        if stage_totals and executed_turns:
+            f.write("### Thời gian trung bình mỗi node (đo trong server, mỗi lượt)\n\n")
+            f.write("| Node | Trung bình / lượt |\n| :--- | ---: |\n")
+            for stage, ms in sorted(stage_totals.items(), key=lambda kv: -kv[1]):
+                f.write(f"| `{stage}` | {ms / executed_turns / 1000:.2f}s |\n")
+            f.write("\n")
         f.write("---\n\n")
         f.write("## 2. CHI TIẾT KẾT QUẢ THEO TỪNG NHÓM NGHIỆP VỤ\n\n")
 

@@ -215,6 +215,9 @@ async def _execute_chat_turn(
         ai_mode = final_state.get("ai_mode") or "llm_grounded"
         ai_model = final_state.get("ai_model")
         ai_latency_ms = int(final_state.get("ai_latency_ms") or 0)
+        stage_timings = {k: int(v) for k, v in (final_state.get("stage_timings") or {}).items()}
+        if stage_timings:
+            logger.info("Chat stage timings session=%s %s", session_id, stage_timings)
         auth_required = bool(final_state.get("auth_required"))
 
         # Save metadata and update state
@@ -297,6 +300,7 @@ async def _execute_chat_turn(
             ai_mode=ai_mode,
             ai_model=ai_model,
             ai_latency_ms=ai_latency_ms,
+            stage_timings=stage_timings,
             ai_fallback_reason="provider_unavailable" if ai_mode == "fallback" else None,
         )
 
