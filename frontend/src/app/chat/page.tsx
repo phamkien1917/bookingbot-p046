@@ -547,10 +547,10 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
   return (
     <article
       style={{ animationDelay: `${animDelay}ms` }}
-      className="animate-card-rise mt-4 overflow-hidden rounded-[1.5rem] border border-black/5 bg-white shadow-[0_14px_40px_rgba(22,47,42,.08)]"
+      className="animate-card-rise mt-4 overflow-hidden rounded-[1.5rem] border border-black/5 bg-white shadow-[0_14px_40px_rgba(22,47,42,.08)] transition-all hover:shadow-[0_20px_50px_rgba(22,47,42,.12)]"
     >
       <div className="sm:flex">
-        <div className="h-48 bg-stone-100 sm:h-auto sm:w-52 shrink-0">
+        <div className="h-48 bg-stone-100 sm:h-auto sm:w-52 shrink-0 relative">
           {(property.image || property.media?.[0]?.url)
             ? <PropertyImage src={property.image || property.media[0].url} alt={property.title} className="h-full w-full object-cover" />
             : <div className="grid h-full min-h-40 place-items-center text-4xl">🏠</div>}
@@ -561,26 +561,17 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
             <span className="shrink-0 whitespace-nowrap text-right font-bold text-[var(--coral)] sm:text-base">{formatPropertyPrice(property.list_price)}</span>
           </div>
           <p className="mt-2 text-xs text-[var(--muted)]">
-            <FaMapMarkerAlt className="mr-1 inline" />
+            <FaMapMarkerAlt className="mr-1 inline text-stone-400" />
             {formatPropertyAddress(property)}
           </p>
+          {property.distance_evidence && (
+            <p className="mt-2 text-xs font-semibold text-[var(--forest)] bg-emerald-50 border border-emerald-100 w-fit px-2.5 py-1 rounded-full flex items-center gap-1">
+              <span>📍</span> Cách {property.distance_evidence.distance_km} km ({property.distance_evidence.duration_minutes} phút) đến {property.distance_evidence.destination}
+            </p>
+          )}
           <p className="mt-2 text-xs text-[var(--muted)]">
             <FaBed className="mr-1 inline text-[var(--forest)]" />{property.bedrooms ?? 0} phòng ngủ · {property.area_sqm} m²
           </p>
-          {property.distance_evidence && (
-            <div className="mt-2 flex flex-col items-start gap-2">
-              <p className="rounded-lg bg-[#eef4ee] px-3 py-2 text-xs font-medium text-[var(--forest)]">
-                <FaCompass className="mr-1.5 inline" />
-                📍 Cách {property.distance_evidence.distance_km} km ({property.distance_evidence.duration_minutes} phút) đến {property.distance_evidence.destination}
-              </p>
-              <button 
-                onClick={() => setShowMap(!showMap)}
-                className="text-xs font-semibold text-[var(--coral)] hover:underline flex items-center gap-1"
-              >
-                🗺️ {showMap ? "Đóng bản đồ" : "Xem bản đồ"}
-              </button>
-            </div>
-          )}
           {property.nearby_evidence?.[0] && (
             <p className="mt-2 text-xs text-[var(--muted)]">
               <FaMapMarkerAlt className="mr-1 inline text-[var(--forest)]" />
@@ -600,45 +591,57 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
             </button>
           )}
           {showReasons && (
-            <div className="mt-2 rounded-xl bg-[#f0f5f1] px-4 py-3 space-y-1 text-xs">
+            <div className="mt-2 rounded-xl bg-[#f0f5f1] px-4 py-3 space-y-1.5 text-xs border border-emerald-100/60">
               {ok.map(r => (
                 <p key={r} className="flex items-start gap-1.5 text-[var(--forest)]">
-                  <FaCheckCircle className="mt-0.5 shrink-0 text-emerald-500" />{r}
+                  <FaCheckCircle className="mt-0.5 shrink-0 text-emerald-600" />{r}
                 </p>
               ))}
               {caution.map(r => (
                 <p key={r} className="flex items-start gap-1.5 text-amber-700">
-                  <FaExclamationCircle className="mt-0.5 shrink-0" />{r}
+                  <FaExclamationCircle className="mt-0.5 shrink-0 text-amber-600" />{r}
                 </p>
               ))}
             </div>
           )}
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2 items-center">
             <button onClick={onDetail} className="cursor-pointer rounded-full border border-black/10 px-4 py-2 text-xs font-semibold transition hover:bg-stone-50">Chi tiết</button>
+            {(property.latitude && property.longitude) && (
+              <button
+                onClick={() => setShowMap(!showMap)}
+                className="cursor-pointer flex items-center rounded-full border border-[var(--forest)] text-[var(--forest)] px-4 py-2 text-xs font-semibold transition hover:bg-emerald-50">
+                <FaCompass className="inline mr-1" /> {showMap ? "Ẩn bản đồ" : "Xem bản đồ"}
+              </button>
+            )}
             <button onClick={onSave} aria-pressed={savedIds.has(property.id)}
               className="cursor-pointer rounded-full border border-[var(--sage)]/50 px-4 py-2 text-xs font-semibold text-[var(--forest)] transition hover:bg-[#edf3ed]">
               {savedIds.has(property.id) ? <FaBookmark className="mr-1 inline" /> : <FaRegBookmark className="mr-1 inline" />}
               {savedIds.has(property.id) ? "Đã lưu" : "Lưu"}
             </button>
-            <button onClick={onBook} className="cursor-pointer rounded-full bg-[var(--forest)] px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90">
+            <button onClick={onBook} className="cursor-pointer rounded-full bg-[var(--forest)] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-90 hover:shadow">
               <FaCalendarAlt className="mr-1 inline" />Đặt lịch xem
             </button>
             <button onClick={onReject}
-              className="cursor-pointer rounded-full border border-black/8 px-4 py-2 text-xs font-medium text-[var(--muted)] transition hover:border-red-200 hover:text-red-500">
-              <FaTimesCircle className="mr-1 inline" />Không phù hợp
+              className="cursor-pointer rounded-full border border-black/10 px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:bg-red-50 hover:text-red-600 ml-auto"
+              title="Loại căn này khỏi kết quả">
+              <FaTimesCircle className="text-base" />
             </button>
           </div>
-          {/* MAP IFRAME */}
-          {showMap && (
-            <div className="mt-4 rounded-xl overflow-hidden border border-stone-200">
+
+          {/* Iframe bản đồ lộ trình */}
+          {showMap && property.latitude && property.longitude && (
+            <div className="mt-4 overflow-hidden rounded-xl border border-black/10 bg-stone-100 shadow-inner">
               <iframe
+                title={`Bản đồ ${property.title}`}
                 width="100%"
-                height="200"
-                frameBorder="0" style={{ border: 0 }}
-                src={`https://www.google.com/maps?saddr=${property.latitude},${property.longitude}&daddr=${encodeURIComponent(property.distance_evidence?.destination || '')}&hl=vi&output=embed`}
+                height="220"
+                style={{ border: 0 }}
+                loading="lazy"
                 allowFullScreen
-              ></iframe>
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://www.google.com/maps?saddr=${property.latitude},${property.longitude}&daddr=${encodeURIComponent(property.distance_evidence?.destination || property.address_line || 'Hà Nội')}&hl=vi&output=embed`}
+              />
             </div>
           )}
         </div>
