@@ -17,6 +17,8 @@ import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
 import { formatPropertyAddress, formatPropertyTitle } from "@/lib/propertyAddress";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -1071,10 +1073,14 @@ function ChatContent() {
 
   async function save(property: Property) {
     if (!user) { router.push("/login?next=/chat"); return; }
-    if (user.role !== "CUSTOMER") { setError("Chỉ tài khoản khách hàng có thể lưu nhà."); return; }
+    if (user.role !== "CUSTOMER") { toast.error("Chỉ tài khoản khách hàng có thể lưu nhà."); return; }
     const saved = savedIds.has(property.id);
-    try { await apiFetch(`/favorites/${property.id}`, { method: saved ? "DELETE" : "PUT" }); await loadSavedProperties(); }
-    catch { setError("Không thể cập nhật nhà đã lưu."); }
+    try { 
+      await apiFetch(`/favorites/${property.id}`, { method: saved ? "DELETE" : "PUT" }); 
+      await loadSavedProperties(); 
+      toast.success(saved ? "Đã bỏ lưu bất động sản" : "Đã lưu vào danh sách yêu thích");
+    }
+    catch { toast.error("Không thể cập nhật nhà đã lưu."); }
   }
 
   function book(property: Property) {
@@ -1271,11 +1277,17 @@ function ChatContent() {
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mx-auto max-w-3xl space-y-6">
+            <AnimatePresence initial={false}>
             {messages.map((message, index) => {
               const isTypingThisMessage = streamingIndex === index;
 
               return (
-                <div key={`${message.role}-${index}`} className="animate-message-in">
+                <motion.div 
+                  key={`${message.role}-${index}`}
+                  initial={{ opacity: 0, y: 10, scale: 0.985 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.38, ease: [0.2, 0.75, 0.2, 1] }}
+                >
                   {message.role === "user" ? (
                     <div className="flex justify-end">
                       <div className="w-fit max-w-[80%] rounded-[1.35rem] rounded-tr-xs bg-[var(--ink)] px-5 py-3 text-[15px] leading-relaxed text-white shadow-xs whitespace-pre-line break-words">
@@ -1392,26 +1404,38 @@ function ChatContent() {
                       </div>
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })}
+            </AnimatePresence>
 
             {loading && (
-              <div className="flex animate-message-in items-start gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--forest)] text-white shadow-xs animate-pulse">
-                  <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-4.5 w-4.5" />
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-start gap-3"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-2xl bg-gradient-to-br from-[var(--forest)] to-[#1e4a3e] text-white shadow-md animate-pulse shrink-0">
+                  <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-4.5 w-4.5 drop-shadow-sm" />
                 </span>
-                <div className="flex items-center gap-3 rounded-[1.35rem] rounded-tl-xs bg-white px-5 py-4 shadow-xs border border-stone-100">
-                  <div className="flex gap-1.5">
-                    <i className="typing-dot" /><i className="typing-dot [animation-delay:150ms]" /><i className="typing-dot [animation-delay:300ms]" />
+                <div className="w-[280px] space-y-3 rounded-[1.35rem] rounded-tl-xs bg-white px-5 py-4 shadow-sm border border-stone-100 overflow-hidden relative">
+                  {/* Shimmer overlay */}
+                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-[shimmer_1.5s_infinite] z-10" />
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-[var(--forest)] animate-pulse" />
+                    <span aria-live="polite" className="text-xs font-semibold text-[var(--forest)]">
+                      {stage || "Nera đang xử lý..."}
+                    </span>
                   </div>
-                  {/* The streamed stage says what is actually running; the static
-                      line covers the moment before the first stage arrives. */}
-                  <span aria-live="polite" className="text-xs font-medium text-stone-500 animate-pulse">
-                    {stage || "Nera đang phân tích yêu cầu & tìm kiếm dữ liệu…"}
-                  </span>
+                  
+                  <div className="space-y-2">
+                    <div className="h-2.5 w-full rounded-full bg-stone-100" />
+                    <div className="h-2.5 w-4/5 rounded-full bg-stone-100" />
+                    <div className="h-2.5 w-2/3 rounded-full bg-stone-100" />
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {error && (

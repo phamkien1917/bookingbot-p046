@@ -55,12 +55,12 @@ interface CalendarAppointment {
   property: { id: string; title: string; address: string } | null;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  WAITING_APPROVAL: "bg-amber-100 text-amber-700 border-amber-200",
-  CONFIRMED: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  IN_PROGRESS: "bg-blue-100 text-blue-700 border-blue-200",
-  COMPLETED: "bg-stone-100 text-stone-600 border-stone-200",
-  NO_SHOW: "bg-red-100 text-red-600 border-red-200",
+const STATUS_COLORS: Record<string, { bg: string; dot: string; text: string }> = {
+  WAITING_APPROVAL: { bg: "bg-amber-50 border-amber-200", dot: "bg-amber-500", text: "text-amber-700" },
+  CONFIRMED: { bg: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-500", text: "text-emerald-700" },
+  IN_PROGRESS: { bg: "bg-blue-50 border-blue-200", dot: "bg-blue-500", text: "text-blue-700" },
+  COMPLETED: { bg: "bg-stone-50 border-stone-200", dot: "bg-stone-400", text: "text-stone-600" },
+  NO_SHOW: { bg: "bg-red-50 border-red-200", dot: "bg-red-500", text: "text-red-700" },
 };
 const STATUS_LABELS: Record<string, string> = {
   WAITING_APPROVAL: "Đang chờ",
@@ -180,7 +180,12 @@ function WeekCalendar({
               <p><FaRobot className="inline mr-2 text-[var(--forest)]" /><strong>BĐS:</strong> {popup.property?.title ?? "N/A"}</p>
               <p className="text-xs text-[var(--muted)]">{popup.property?.address}</p>
               {popup.customer_note && <p className="text-xs bg-[#f7f5ef] p-3 rounded-xl italic">&quot;{popup.customer_note}&quot;</p>}
-              <p><span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_COLORS[popup.status] ?? "bg-stone-100"}`}>{STATUS_LABELS[popup.status] ?? popup.status}</span></p>
+              <p className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${STATUS_COLORS[popup.status]?.bg ?? "bg-stone-50 border-stone-200"} ${STATUS_COLORS[popup.status]?.text ?? "text-stone-600"}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${STATUS_COLORS[popup.status]?.dot ?? "bg-stone-400"} ${popup.status === "IN_PROGRESS" || popup.status === "WAITING_APPROVAL" ? "animate-pulse" : ""}`} />
+                  {STATUS_LABELS[popup.status] ?? popup.status}
+                </span>
+              </p>
             </div>
             {popup.status === "WAITING_APPROVAL" && (
               <div className="mt-5 flex gap-2">
@@ -275,7 +280,7 @@ function SaleDashboardContent() {
   function remaining(expiresAt: string) { const ms = new Date(expiresAt).getTime() - new Date().getTime(); if (ms <= 0) return "Hết hạn"; const m = Math.floor(ms / 60000); return `còn ${m} phút`; }
 
   const sidebar = (
-    <aside className={`bg-[var(--ink)] p-5 text-white lg:sticky lg:top-0 lg:min-h-screen lg:w-72 ${sidebarOpen ? "fixed inset-0 z-50" : "hidden lg:block"}`}>
+    <aside className={`bg-[var(--ink)] p-5 text-white lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:rounded-[2rem] lg:w-[280px] lg:shadow-xl lg:border lg:border-black/5 lg:overflow-y-auto ${sidebarOpen ? "fixed inset-0 z-50" : "hidden lg:block"} custom-scrollbar`}>
       <div className="flex items-center justify-between border-b border-white/10 pb-5">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10"><FaRobot className="text-[#a9c9b0]" /></span>
@@ -300,7 +305,7 @@ function SaleDashboardContent() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f4f5f1] text-[var(--ink)] lg:flex">
+    <div className="min-h-screen bg-[#f4f5f1] text-[var(--ink)] lg:flex lg:p-4 gap-4">
       {sidebar}
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
@@ -327,10 +332,14 @@ function SaleDashboardContent() {
             { label: "Đã xác nhận", value: overview?.stats.confirmed ?? 0, icon: FaCheckCircle },
             { label: "Appointments tuần này", value: appointments.filter(a => a.status === "CONFIRMED" || a.status === "IN_PROGRESS").length, icon: FaCalendarAlt },
             { label: "Đã hoàn thành", value: appointments.filter(a => a.status === "COMPLETED").length, icon: FaCheck },
-          ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="rounded-[1.5rem] bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between"><p className="text-sm text-[var(--muted)]">{label}</p><Icon className="text-[var(--forest)]" /></div>
-              <p className="mt-3 text-4xl font-semibold">{value}</p>
+          ].map(({ label, value, icon: Icon }, index) => (
+            <div key={label} className={`group rounded-[1.6rem] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_3px_rgba(0,0,0,0.04)] border transition duration-300 hover:-translate-y-1 hover:shadow-md ${
+              index === 0 && Number(value) > 0 
+                ? "bg-gradient-to-br from-[#fff6f0] to-[#fff1e8] border-orange-900/5 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_3px_rgba(234,88,12,0.08)]" 
+                : "bg-gradient-to-br from-white to-[#fbfaf7] border-black/[0.03]"
+            }`}>
+              <div className="flex items-center justify-between"><p className="text-sm font-medium text-[var(--muted)]">{label}</p><Icon className={index === 0 && Number(value) > 0 ? "text-[var(--coral)]" : "text-[var(--forest)]/70"} /></div>
+              <p className="mt-4 text-4xl font-semibold tracking-tight text-[var(--ink)]">{value}</p>
             </div>
           ))}
         </section>
@@ -350,21 +359,21 @@ function SaleDashboardContent() {
               {overview?.pending_requests.map((item) => {
                 const isReschedule = item.customer_note?.includes("Dời lịch từ");
                 return (
-                  <article key={item.id} className="rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm animate-card-rise">
+                  <article key={item.id} className="group rounded-[1.6rem] border border-black/[0.03] bg-gradient-to-br from-white to-[#fbfaf7] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_3px_rgba(0,0,0,0.04)] animate-card-rise transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-bold">{item.customer?.full_name}</p>
-                        <p className="text-xs text-[var(--muted)]">{item.customer?.phone}</p>
+                        <p className="font-bold text-[var(--ink)]">{item.customer?.full_name}</p>
+                        <p className="text-xs font-medium text-[var(--muted)]">{item.customer?.phone}</p>
                       </div>
-                      {item.expires_at && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700"><FaClock className="inline mr-1" />{remaining(item.expires_at)}</span>}
+                      {item.expires_at && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 flex items-center gap-1.5"><FaClock />{remaining(item.expires_at)}</span>}
                     </div>
-                    {isReschedule && <p className="mt-3 text-xs font-semibold text-[var(--coral)]">🔄 Yêu cầu dời lịch</p>}
-                    <p className={`font-semibold text-sm line-clamp-2 ${isReschedule ? 'mt-1' : 'mt-3'}`}>{item.property.title}</p>
-                    <p className="text-xs text-[var(--muted)]">{item.property.address}</p>
-                    <p className="mt-2 flex items-center gap-2 text-xs text-[var(--muted)]"><FaCalendarAlt />{new Date(item.preferred_start).toLocaleString("vi-VN")}</p>
-                    <div className="mt-4 flex gap-2">
-                      <button onClick={() => void handleAccept(item.id)} className="flex-1 rounded-xl bg-[var(--forest)] py-2.5 text-sm font-semibold text-white">✓ {isReschedule ? "Đồng ý dời" : "Nhận"}</button>
-                      <button onClick={() => setReject({ id: item.id, reason: "" })} className="flex-1 rounded-xl border border-[var(--coral)] py-2.5 text-sm font-semibold text-[var(--coral)]">✗ {isReschedule ? "Từ chối dời" : "Từ chối"}</button>
+                    {isReschedule && <p className="mt-4 text-xs font-semibold text-[var(--coral)] flex items-center gap-1.5">🔄 Yêu cầu dời lịch</p>}
+                    <p className={`font-semibold text-[15px] leading-relaxed text-[var(--ink)] line-clamp-2 ${isReschedule ? 'mt-1' : 'mt-4'}`}>{item.property.title}</p>
+                    <p className="mt-1 text-xs font-medium text-[var(--muted)] line-clamp-1">{item.property.address}</p>
+                    <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]"><FaCalendarAlt className="text-[var(--forest)]" />{new Date(item.preferred_start).toLocaleString("vi-VN")}</p>
+                    <div className="mt-5 flex gap-2">
+                      <button onClick={() => void handleAccept(item.id)} className="flex-1 rounded-xl bg-[var(--forest)] py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a4035]">✓ {isReschedule ? "Đồng ý dời" : "Nhận"}</button>
+                      <button onClick={() => setReject({ id: item.id, reason: "" })} className="flex-1 rounded-xl border border-[var(--coral)]/50 py-2.5 text-sm font-semibold text-[var(--coral)] transition hover:bg-[var(--coral)]/5">✗ {isReschedule ? "Từ chối dời" : "Từ chối"}</button>
                     </div>
                   </article>
                 );
@@ -392,14 +401,17 @@ function SaleDashboardContent() {
             <div className="space-y-3">
               {combinedAppointments.length === 0 && <p className="rounded-[1.5rem] bg-white p-10 text-center text-[var(--muted)]">Chưa có lịch trình nào.</p>}
               {combinedAppointments.map((a) => (
-                <div key={a.id} className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-[1.5rem] border border-black/5 bg-white p-5 shadow-sm">
+                <div key={a.id} className="group flex flex-col sm:flex-row sm:items-center gap-4 rounded-[1.6rem] border border-black/[0.03] bg-gradient-to-br from-white to-[#fbfaf7] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_3px_rgba(0,0,0,0.04)] transition duration-300 hover:-translate-y-1 hover:shadow-md">
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold">{a.property?.title ?? a.booking_code}</p>
-                    <p className="text-xs text-[var(--muted)]">{a.property?.address}</p>
-                    <p className="mt-1 text-xs"><FaClock className="inline mr-1" />{new Date(a.starts_at).toLocaleString("vi-VN")} – {new Date(a.ends_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</p>
+                    <p className="font-bold text-[var(--ink)]">{a.property?.title ?? a.booking_code}</p>
+                    <p className="text-xs font-medium text-[var(--muted)]">{a.property?.address}</p>
+                    <p className="mt-1 text-xs font-semibold text-[var(--muted)] flex items-center gap-1.5"><FaClock className="text-[var(--forest)]" />{new Date(a.starts_at).toLocaleString("vi-VN")} – {new Date(a.ends_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_COLORS[a.status] ?? "bg-stone-100"}`}>{STATUS_LABELS[a.status] ?? a.status}</span>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border ${STATUS_COLORS[a.status]?.bg ?? "bg-stone-50 border-stone-200"} ${STATUS_COLORS[a.status]?.text ?? "text-stone-600"}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_COLORS[a.status]?.dot ?? "bg-stone-400"} ${a.status === "IN_PROGRESS" || a.status === "WAITING_APPROVAL" ? "animate-pulse" : ""}`} />
+                      {STATUS_LABELS[a.status] ?? a.status}
+                    </span>
                     {a.status === "CONFIRMED" && (
                       <>
                         <button onClick={() => void handleAppointmentAction(a.id, "check-in")} className="rounded-lg bg-[var(--forest)] px-3 py-1.5 text-xs font-semibold text-white" title="Check-in"><FaUserCheck /></button>
