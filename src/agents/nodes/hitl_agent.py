@@ -32,6 +32,9 @@ async def hitl_agent(state: AgentState) -> dict:
                 decision = case.decision or {}
                 return {
                     "awaiting_human": False,
+                    # Drop the id once the case is closed, otherwise the customer is
+                    # told about the same decision on every following turn.
+                    "hitl_case_id": None,
                     "human_decision": decision,
                     "response": decision.get("message") or "Yêu cầu của bạn đã được điều phối viên xử lý.",
                 }
