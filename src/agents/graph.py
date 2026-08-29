@@ -121,12 +121,32 @@ async def run_agent(
     produces what ainvoke would have returned.
     """
     graph = get_agent_graph()
+    
+    from src.config import get_settings
+    settings = get_settings()
+    callbacks = []
+    
+    if getattr(settings, "langfuse_public_key", None) and getattr(settings, "langfuse_secret_key", None):
+        try:
+            import os
+            os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
+            os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
+            os.environ["LANGFUSE_HOST"] = getattr(settings, "langfuse_host", "https://cloud.langfuse.com")
+            
+            from langfuse.langchain import CallbackHandler
+            langfuse_handler = CallbackHandler()
+            callbacks.append(langfuse_handler)
+        except ImportError:
+            logger.warning("langfuse package is not installed.")
+            
+    config = {"callbacks": callbacks} if callbacks else {}
+
     try:
         if on_stage is None:
-            return await graph.ainvoke(state)
+            return await graph.ainvoke(state, config=config)
 
         merged: dict[str, Any] = dict(state)
-        async for chunk in graph.astream(state, stream_mode="updates"):
+        async for chunk in graph.astream(state, stream_mode="updates", config=config):
             for node_name, updates in chunk.items():
                 if isinstance(updates, dict):
                     merged.update(updates)

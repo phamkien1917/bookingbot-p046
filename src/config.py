@@ -119,6 +119,11 @@ class Settings(BaseSettings):
         description="Maximum number of context messages to include in prompt"
     )
 
+    # Langfuse
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+
 
 @lru_cache
 def get_settings() -> Settings:
