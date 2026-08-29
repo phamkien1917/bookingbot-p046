@@ -378,15 +378,12 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     if understanding is None:
         try:
             llm = get_llm()
-            structured_llm = llm._create_chat_model().with_structured_output(
-                SupervisorUnderstanding,
-                method="json_schema",
-                strict=True,
-            )
             sys_msg = SystemMessage(content=SUPERVISOR_SYSTEM_PROMPT)
             human_msg = HumanMessage(content=json.dumps(context_payload, ensure_ascii=False))
 
-            result = await structured_llm.ainvoke([sys_msg, human_msg])
+            result = await llm.ainvoke_structured(
+                SupervisorUnderstanding, [sys_msg, human_msg]
+            )
             if isinstance(result, SupervisorUnderstanding):
                 understanding = result
                 ai_model = llm.model_name
