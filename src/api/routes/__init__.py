@@ -235,7 +235,10 @@ async def _execute_chat_turn(
             "nearby_categories": final_state.get("nearby_categories", []),
             "monthly_income_vnd": final_state.get("monthly_income_vnd"),
             "own_capital_vnd": final_state.get("own_capital_vnd"),
-            "property_refs": raw_properties if properties else (metadata.get("chat_state", {}).get("property_refs", []) if intent in _PROPERTY_RELEVANT_INTENTS else []),
+            # Keep the previous list whenever this turn produced none. Wiping it on
+            # any non-property intent lost the shortlist mid-booking: one FALLBACK or
+            # SELECT_SLOT turn and "đặt lịch căn 1" had nothing left to resolve.
+            "property_refs": raw_properties if properties else metadata.get("chat_state", {}).get("property_refs", []),
             "search_result_refs": final_state.get("search_results") or metadata.get("chat_state", {}).get("search_result_refs", []),
             "selected_property_id": final_state.get("current_property_id"),
             "selected_property_index": final_state.get("selected_property_index"),
@@ -247,6 +250,7 @@ async def _execute_chat_turn(
             "active_request_code": final_state.get("active_request_code"),
             "pending_action": final_state.get("pending_action"),
             "phase": final_state.get("phase", "IDLE"),
+            "hitl_case_id": final_state.get("hitl_case_id"),
         }
         if settings.app_env != "production" and final_state.get("error"):
             stored_chat_state["debug_error"] = str(final_state["error"])

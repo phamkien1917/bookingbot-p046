@@ -162,7 +162,7 @@ def create_initial_agent_state(
         "direct_response": None,
         "analysis": "",
         "awaiting_human": False,
-        "hitl_case_id": None,
+        "hitl_case_id": stored_state.get("hitl_case_id"),
         "hitl_reason": None,
         "hitl_context": None,
         "human_decision": None,

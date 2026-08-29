@@ -197,6 +197,30 @@ class OpenRouterLLM:
 
         raise last_error or Exception("All models failed")
 
+    async def ainvoke_structured(self, schema: type, messages: list[BaseMessage]):
+        """Structured-output call that falls back down the model list like ainvoke.
+
+        Callers used to build the chat model themselves, which skipped every retry
+        here. OpenRouter answers a struggling upstream with HTTP 200 and a body of
+        just {"error": ...}; the OpenAI SDK then raises on the missing `choices`,
+        and the caller saw one dead model instead of the next one in the list.
+        """
+        last_error: Exception | None = None
+
+        for _ in range(len(self.models) - self.current_model_index):
+            try:
+                structured = self._create_chat_model().with_structured_output(
+                    schema, method="json_schema", strict=True
+                )
+                return await structured.ainvoke(messages)
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Structured call failed on {self.current_model}: {e}")
+                if not self._try_next_model():
+                    raise
+
+        raise last_error or Exception("All models failed")
+
     def bind_tools(self, tools: list[BaseTool]) -> "OpenRouterLLM":
         """Bind tools to this LLM instance.
 
