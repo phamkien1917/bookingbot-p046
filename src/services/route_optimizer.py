@@ -164,10 +164,12 @@ async def optimize_daily_route_plan(
         total_duration_minutes=total_duration if all_grounded else None,
         provider=(
             "NO_ROUTE_NEEDED" if len(ordered) < 2
-            else "Google Routes" if all_grounded
+            else "Goong Distance Matrix" if all_grounded
             else "HAVERSINE_FALLBACK"
         ),
-        traffic_aware=all_grounded and geo.settings.geo_traffic_aware,
+        # Goong's Distance Matrix takes no departure time, so no leg here is
+        # traffic-aware. Claiming otherwise would misreport the plan to Sale.
+        traffic_aware=False,
         feasible=not warnings,
         legs=legs,
         warnings=warnings,

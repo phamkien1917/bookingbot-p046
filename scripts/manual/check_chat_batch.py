@@ -1,9 +1,8 @@
-import urllib.request
-import urllib.error
 import json
-import uuid
 import time
-import sys
+import urllib.error
+import urllib.request
+import uuid
 
 URL = "http://localhost:8000/api/v1/chat"
 OUTPUT_FILE = "test_results.md"
@@ -17,14 +16,14 @@ SCENARIOS = {
     "1.3. Khoảng cách đi bộ": ["Chung cư mini quận Đống Đa.", "Tìm căn nào đi bộ ra ngã tư sở dưới 15 phút."],
     "1.4. Gộp tiêu chí ngay từ đầu": ["Tìm chung cư quận Hai Bà Trưng, giá dưới 4 tỷ, cách Bệnh viện Bạch Mai dưới 2km."],
     "1.5. Lọc khoảng cách cụ thể bằng mét": ["Nhà phố Cổ dưới 20 tỷ.", "Căn nào cách Hồ Gươm khoảng 500m không?"],
-    
+
     # Nhóm 2: Tiện ích xung quanh (Nearby Places)
     "2.1. Tìm tiện ích Y Tế": ["Mua nhà Thanh Xuân, tài chính 4 tỷ.", "Xung quanh có bệnh viện hoặc trạm y tế nào không?"],
     "2.2. Tìm tiện ích Giáo dục": ["Tìm nhà đất quận Hà Đông 5 tỷ.", "Gần đó có trường mầm non hoặc trường cấp 1 nào không?"],
     "2.3. Tìm tiện ích Sinh hoạt": ["Chung cư Nam Từ Liêm.", "Gần căn này có siêu thị hay công viên nào cho trẻ em không?"],
     "2.4. Kết hợp khoảng cách và tiện ích": ["Tìm chung cư gần Bệnh viện E dưới 3km, yêu cầu xung quanh phải có trường học."],
     "2.5. Tiện ích đa dạng": ["Nhà mặt phố Cầu Giấy.", "Kiểm tra xem quanh đó có chợ, siêu thị và công viên không?"],
-    
+
     # Nhóm 3: Giao tiếp đa lượt, thay đổi ý định (Multi-turn refinement)
     "3.1. Đổi ý khoảng cách": [
         "Tìm nhà cách Bến xe Mỹ Đình dưới 1km.",
@@ -41,19 +40,19 @@ SCENARIOS = {
         "Cách bến xe Giáp Bát bao xa?",
         "Thôi đổi sang quận Thanh Xuân đi, cách Ngã tư sở 2km."
     ],
-    
+
     # Nhóm 4: Các trường hợp nhiễu, lỗi chính tả, phương ngữ (Robustness)
     "4.1. Sai lỗi chính tả (Typos)": ["Tym nhà ở đống đâ tài trính 5 tỏi.", "Cách đh Bác Khao dươi 2 cây số."],
     "4.2. Viết tắt (Slang)": ["Tìm cc ở HN, giá dứi 3 củ to.", "Cách bv ĐH Y bn km?"],
     "4.3. Không có chủ ngữ": ["Cầu Giấy, 4 tỷ, 2 phòng ngủ.", "Cách ĐHQG 2km."],
     "4.4. Đơn vị lạ": ["Nhà ở Ba Đình.", "Cách lăng Bác dưới hai ngàn mét."],
-    
+
     # Nhóm 5: Các vị trí ảo hoặc nằm ngoài dữ liệu (Out of scope/Fallback)
     "5.1. Vị trí nước ngoài": ["Tìm nhà ở Hà Nội.", "Khoảng cách từ nhà đó đến tháp Tokyo là bao nhiêu?"],
     "5.2. Vị trí ở tỉnh khác": ["Tìm nhà chung cư Hà Nội.", "Cách chợ Bến Thành bao xa?"],
     "5.3. Tiện ích không tồn tại": ["Tìm nhà gần Rừng rậm Amazon."],
     "5.4. Không xác định được toạ độ": ["Tìm nhà cách nhà chú vượng dưới 2km."],
-    
+
     # Nhóm 6: Hỏi trực tiếp về khoảng cách một nhà cụ thể (Giả định Bot đã gợi ý nhà)
     "6.1. Chi tiết một nhà": ["Tìm nhà ở Đống Đa.", "Căn rẻ nhất cách bệnh viện Xanh Pôn bao nhiêu phút?"],
     "6.2. So sánh khoảng cách": ["Nhà Cầu Giấy.", "Căn nào gần ngã tư Cầu Giấy hơn?"],
@@ -82,7 +81,7 @@ def send_message(message: str, session_id: str):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(URL, data=data, method="POST")
     req.add_header("Content-Type", "application/json")
-    
+
     try:
         with urllib.request.urlopen(req, timeout=120) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -95,36 +94,36 @@ def run_tests():
     total_questions = sum(len(msgs) for msgs in SCENARIOS.values())
     print(f"BẮT ĐẦU CHẠY KIỂM THỬ: {len(SCENARIOS)} Kịch bản, {total_questions} Câu hỏi.")
     print(f"KẾT QUẢ SẼ ĐƯỢC LƯU VÀO FILE: {OUTPUT_FILE}")
-    
+
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        f.write(f"# BÁO CÁO KẾT QUẢ TEST GOONG API & CHAT\n")
+        f.write("# BÁO CÁO KẾT QUẢ TEST GOONG API & CHAT\n")
         f.write(f"Tổng số kịch bản: {len(SCENARIOS)}\n")
         f.write(f"Tổng số câu hỏi: {total_questions}\n\n")
-        
+
         for scenario_name, messages in SCENARIOS.items():
             print(f"\n▶ Đang xử lý: {scenario_name} ({len(messages)} turns)...")
             f.write(f"## {scenario_name}\n")
             session_id = str(uuid.uuid4())
-            
+
             for idx, msg in enumerate(messages):
                 print(f"  - Lượt {idx+1}: {msg[:30]}...")
                 f.write(f"**👤 Lượt {idx+1} (User):** {msg}\n")
-                
+
                 start_time = time.time()
                 result = send_message(msg, session_id)
                 elapsed = time.time() - start_time
-                
+
                 if "error" in result:
                     f.write(f"> ❌ **LỖI:** {result['error']}\n\n")
                     continue
-                    
+
                 f.write(f"> 🤖 **Agent ({elapsed:.1f}s):** {result.get('response')}\n\n")
-                
+
                 # In ra Insights
                 insights = result.get("insights", {})
                 if insights:
                     f.write(f"  - *Insights:* `{json.dumps(insights, ensure_ascii=False)}`\n")
-                    
+
                 # In ra Properties
                 properties = result.get("properties", [])
                 if properties:
@@ -138,7 +137,7 @@ def run_tests():
                             f.write(f"    - Nhà {p.get('id')}: Có tiện ích xung quanh.\n")
                 f.write("\n")
                 time.sleep(1) # Nghỉ 1 chút tránh quá tải API
-                
+
     print(f"\nĐÃ HOÀN THÀNH TOÀN BỘ. Vui lòng kiểm tra file {OUTPUT_FILE} để xem chi tiết.")
 
 if __name__ == "__main__":

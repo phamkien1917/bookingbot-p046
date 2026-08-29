@@ -1,7 +1,8 @@
 import re
 
+
 def analyze_results():
-    with open("test_results.md", "r", encoding="utf-8") as f:
+    with open("eval/results/goong_chat_batch_2026-08-28.md", encoding="utf-8") as f:
         content = f.read()
 
     # Count total turns
@@ -15,13 +16,13 @@ def analyze_results():
     # Count distance and nearby evidence triggers
     distances = len(re.findall(r"km, \d+(?:\.\d+)?phút", content))
     nearbys = len(re.findall(r"Có tiện ích xung quanh", content))
-    
+
     # Check for "Đã xác minh bằng Goong" text
     goong_verified = len(re.findall(r"Đã xác minh bằng Goong", content))
-    
+
     # Check for Fallback scenarios (Group 5)
     fallback_section = content.split("## 5.1.")[-1].split("## 6.1.")[0] if "## 5.1." in content else ""
-    
+
     print("=== KẾT QUẢ PHÂN TÍCH ====================")
     print(f"Tổng số lượt hỏi: {total_turns}")
     print(f"Số lượt bị lỗi HTTP/Code: {total_errors}")
@@ -33,7 +34,7 @@ def analyze_results():
         print("Hệ thống đã nhận diện được các địa điểm ảo/nước ngoài.")
     else:
         print("Không tìm thấy dữ liệu nhóm 5.")
-        
+
     print("=========================================")
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from src.api.routes import router
 from src.config import get_settings
@@ -188,10 +190,6 @@ async def health():
         "app": settings.app_name,
         "env": settings.app_env,
     }
-
-
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 
 @app.exception_handler(Exception)

@@ -178,13 +178,14 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
     distance = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+(?:[.,]\d+)?)\s*km\b", text)
     if distance:
         result["max_commute_km"] = float(distance.group(1).replace(",", "."))
+    # The limit prefix is required on both units. Without it "dat lich 10h" reads
+    # as a 600-minute commute limit, and every booking turn carries a fake geo filter.
     duration_min = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*phut\b", text)
-    if duration_min:
-        result["max_commute_minutes"] = int(duration_min.group(1))
-
-    duration_hour = re.search(r"(?:duoi|khong qua|toi da|trong vong)?\s*(\d+)\s*(?:tieng|gio|h)\b", text)
+    duration_hour = re.search(r"(?:duoi|khong qua|toi da|trong vong)\s*(\d+)\s*(?:tieng|gio|h)\b", text)
     if duration_hour:
         result["max_commute_minutes"] = int(duration_hour.group(1)) * 60
+    elif duration_min:
+        result["max_commute_minutes"] = int(duration_min.group(1))
 
     categories = []
     for pattern, category in (

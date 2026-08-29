@@ -11,7 +11,6 @@ import hashlib
 import json
 import logging
 import math
-import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -88,13 +87,6 @@ def has_valid_coordinates(item: dict[str, Any]) -> bool:
         return True
     min_lat, max_lat, min_lon, max_lon = bounds
     return min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
-
-
-def _duration_seconds(value: str | None) -> float | None:
-    if not value:
-        return None
-    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)s", value)
-    return float(match.group(1)) if match else None
 
 
 class GeoService:
@@ -188,13 +180,15 @@ class GeoService:
                 "origins": [[round(lat, 6), round(lon, 6)] for lat, lon in origins],
                 "destination": [round(destination[0], 6), round(destination[1], 6)],
                 "travel_mode": mode,
-                "departure_time": departure_time.isoformat() if departure_time else None,
             },
         )
         cached = await self._cache_get(cache_key)
         if isinstance(cached, dict):
             return {int(index): evidence for index, evidence in cached.items()}
 
+        # Goong only offers car and bike. Walking and transit are served by the
+        # nearest available profile, so their durations are approximations.
+        # ponytail: swap in a walking-capable provider if pedestrian ETAs start to matter.
         mode_mapping = {"DRIVE": "car", "TWO_WHEELER": "bike", "WALK": "bike", "BICYCLE": "bike", "TRANSIT": "car"}
         vehicle = mode_mapping.get(mode, "car")
         origins_str = "|".join(f"{lat},{lon}" for lat, lon in origins)
@@ -272,8 +266,8 @@ class GeoService:
                             "category": keyword,
                             "straight_line_km": round(distance, 2),
                         })
-                except httpx.HTTPError:
-                    pass
+                except httpx.HTTPError as exc:
+                    logger.warning("Goong nearby search failed for %s: %s", keyword, exc)
         return places
 
     async def diagnose_capabilities(self) -> dict[str, Any]:
