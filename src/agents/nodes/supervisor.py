@@ -17,6 +17,10 @@ from pydantic import BaseModel, Field
 
 from src.agents.state import AgentState, AgentType, Intent
 from src.services.affordability import (
+    DEFAULT_ANNUAL_RATE,
+    DEFAULT_MAX_DTI,
+    DEFAULT_TERM_YEARS,
+    assess_target_price,
     calculate_loan_schedule,
     estimate_affordability,
     explain_loan_calculation,
@@ -635,13 +639,16 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     monthly_income = understanding.monthly_income_vnd or state.get("monthly_income_vnd")
     own_capital = understanding.own_capital_vnd or state.get("own_capital_vnd")
     affordability_note = None
+    estimate = None
     if monthly_income:
         estimate = estimate_affordability(monthly_income, own_capital_vnd=own_capital)
         if estimate:
             affordability_note = explain_affordability(estimate)
             # An explicit budget from the customer always wins over a derived one.
+            # Round the derived ceiling to a clean figure — a raw 2,657,990,000
+            # shows up in the search reply as "dưới 2.65799 tỷ".
             if not merged_criteria.get("max_price"):
-                merged_criteria["max_price"] = estimate.assumed_price_vnd
+                merged_criteria["max_price"] = round(estimate.assumed_price_vnd / 100_000_000) * 100_000_000
 
     # Target date / hour resolution
     target_date = parse_requested_date(query)
@@ -672,6 +679,21 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         if matched_prop:
             ordinal = matched_idx
             matched_prop_id = str(matched_prop["id"])
+
+    # "vay mua căn số 1 được không" — answer against that căn's real price, not the
+    # generic ceiling. Needs the income estimate and a resolved shortlist entry.
+    if (
+        estimate is not None
+        and ordinal is not None
+        and 0 <= ordinal < len(property_pool)
+        and re.search(r"\b(vay|tra gop|du tien|kha nang|mua noi|mua duoc|co mua)\b", norm_query)
+        and re.search(r"\b(duoc khong|co the|kha thi|on khong|the nao|bao nhieu)\b", norm_query)
+    ):
+        _target = property_pool[ordinal]
+        _target_price = _target.get("list_price") or _target.get("price")
+        if _target_price:
+            affordability_note = assess_target_price(estimate, int(_target_price))
+            understanding.intent = Intent.CONSULTATION_QA
 
     # Soft preferences & household context accumulation
     soft_prefs = list(state.get("soft_preferences", []))
@@ -837,17 +859,17 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         down_payment_vnd = int(round(prop_vnd * 0.3))
         loan_vnd = prop_vnd - down_payment_vnd
 
-        # Monthly payment estimate for 20 years at 9%
-        r_month = 0.09 / 12
-        n_months = 240
+        # Monthly payment estimate, same assumptions as affordability.py.
+        r_month = DEFAULT_ANNUAL_RATE / 12
+        n_months = DEFAULT_TERM_YEARS * 12
         monthly_payment = int(round(loan_vnd * (r_month * (1 + r_month)**n_months) / ((1 + r_month)**n_months - 1)))
-        min_safe_income = int(round(monthly_payment / 0.4))
+        min_safe_income = int(round(monthly_payment / DEFAULT_MAX_DTI))
 
         understanding.direct_response = (
             f"Với mức tài chính / thu nhập **{format_vnd(cap_vnd)}**, bạn **chưa đủ điều kiện tài chính để mua nhà tầm {format_vnd(prop_vnd)}** ở thời điểm hiện tại.\n\n"
             f"📊 **Bài toán tài chính để mua căn nhà {format_vnd(prop_vnd)}:**\n"
             f"- **Vốn tự có ban đầu (tối thiểu 30%):** Cần khoảng **{format_vnd(down_payment_vnd)}** để thanh toán đợt đầu.\n"
-            f"- **Khoản vay ngân hàng (70% ~ {format_vnd(loan_vnd)}):** Vay trong 20 năm (lãi suất ~9%/năm), mỗi tháng bạn cần trả góp cả gốc và lãi khoảng **{format_vnd(monthly_payment)}/tháng**.\n"
+            f"- **Khoản vay ngân hàng (70% ~ {format_vnd(loan_vnd)}):** Vay trong {DEFAULT_TERM_YEARS} năm (lãi suất ~{DEFAULT_ANNUAL_RATE * 100:.0f}%/năm), mỗi tháng bạn cần trả góp cả gốc và lãi khoảng **{format_vnd(monthly_payment)}/tháng**.\n"
             f"- **Thu nhập an toàn (DTI ≤ 40%):** Thu nhập hàng tháng của bạn hoặc gia đình cần đạt từ **{format_vnd(min_safe_income)}/tháng** trở lên để vừa trả nợ vừa đảm bảo sinh hoạt.\n\n"
             f"💡 **Lời khuyên từ Nera:**\n"
             f"- Với tài chính {format_vnd(cap_vnd)}/tháng, phương án phù hợp nhất hiện tại là **thuê căn hộ/phòng trọ** trong tầm giá 1 – 2 triệu/tháng và tích lũy thêm vốn.\n"

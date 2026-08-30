@@ -12,12 +12,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Conservative defaults for the Vietnamese market. Banks will often lend against
-# a higher debt-service ratio; 40% is the prudent line for a first-time buyer who
-# still needs to live on the remainder.
+# Conservative defaults for the Vietnamese market, 2026.
+# - MAX_DTI 40%: banks lend higher, but 40% is the prudent line for a first-time
+#   buyer who still needs to live on the remainder (also MB's stated advice:
+#   trả góp hàng tháng ≤ 40% thu nhập).
+# - ANNUAL_RATE 9%: post-promo floating rate. Home-loan surveys (04/2026) put the
+#   market band at ~7–9%/năm; the 6–7.5% teasers only last 6–24 months, so 9% is
+#   the honest number for a 20+ year loan.
+# - TERM 25 years: current standard for the big banks (many now offer 30–35).
 DEFAULT_MAX_DTI = 0.40
-DEFAULT_ANNUAL_RATE = 0.10
-DEFAULT_TERM_YEARS = 20
+DEFAULT_ANNUAL_RATE = 0.09
+DEFAULT_TERM_YEARS = 25
 DEFAULT_DOWN_PAYMENT_RATIO = 0.30
 
 # Below this the numbers stop being meaningful; treat as "not enough information".
@@ -171,6 +176,32 @@ def purchase_guidance_lines(estimate: AffordabilityEstimate) -> str:
     return "\n".join(lines) + "\n"
 
 
+def assess_target_price(estimate: AffordabilityEstimate, target_price_vnd: int) -> str:
+    """State whether one specific listing price fits the income-derived ceiling.
+
+    Used when the customer asks "vay mua căn số 1 được không" — the generic
+    ceiling is not an answer until it is compared against that căn's price.
+    """
+    ceiling = estimate.assumed_price_vnd
+    base = explain(estimate)
+    if target_price_vnd <= ceiling:
+        room = ceiling - target_price_vnd
+        verdict = (
+            f"Căn bạn nhắm khoảng {format_vnd(target_price_vnd)} — **nằm trong tầm** "
+            f"~{format_vnd(ceiling)} bạn lo được"
+            + (f" (còn dư khoảng {format_vnd(room)})" if room >= 100_000_000 else "")
+            + ", nên phương án vay là khả thi."
+        )
+    else:
+        gap = target_price_vnd - ceiling
+        verdict = (
+            f"Căn bạn nhắm khoảng {format_vnd(target_price_vnd)} — **cao hơn** tầm "
+            f"~{format_vnd(ceiling)} bạn lo được khoảng {format_vnd(gap)}. "
+            "Cần thêm vốn tự có, kéo dài thời hạn vay, hoặc chọn căn giá thấp hơn."
+        )
+    return f"{base}\n\n{verdict}"
+
+
 @dataclass(frozen=True, slots=True)
 class LoanCalculationResult:
     """Exact loan amortization numbers on reducing balance."""
@@ -278,9 +309,9 @@ def _demo() -> None:
     est = estimate_affordability(17_500_000)
     assert est is not None
     assert est.max_monthly_payment_vnd == 7_000_000, est.max_monthly_payment_vnd
-    # 20-year annuity at 10% services roughly 103x the monthly payment.
-    assert 700_000_000 < est.max_loan_vnd < 760_000_000, est.max_loan_vnd
-    assert 1_000_000_000 < est.assumed_price_vnd < 1_100_000_000, est.assumed_price_vnd
+    # 25-year annuity at 9% services roughly 119x the monthly payment.
+    assert 800_000_000 < est.max_loan_vnd < 870_000_000, est.max_loan_vnd
+    assert 1_150_000_000 < est.assumed_price_vnd < 1_240_000_000, est.assumed_price_vnd
     assert est.needs_capital_question
 
     # Known capital replaces the assumption and raises the ceiling.
@@ -302,7 +333,7 @@ def _demo() -> None:
     # A zero rate degrades to simple division, not a divide-by-zero.
     zero_rate = estimate_affordability(17_500_000, annual_rate=0.0)
     assert zero_rate is not None
-    assert zero_rate.max_loan_vnd == 7_000_000 * 240
+    assert zero_rate.max_loan_vnd == 7_000_000 * DEFAULT_TERM_YEARS * 12
 
     assert format_vnd(1_630_000_000) == "1.63 tỷ"
     assert format_vnd(7_000_000) == "7 triệu"

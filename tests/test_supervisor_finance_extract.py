@@ -37,11 +37,3 @@ def test_income_in_ty_needs_month_marker():
     # "thu nhập 1 tỷ" with no month marker is ambiguous — do not guess.
     assert _run("thu nhập 1 tỷ")[0] is None
     assert _run("thu nhập 1 tỷ mỗi tháng")[0] == 1 * B
-
-
-if __name__ == "__main__":
-    test_income_one_month_phrasing_and_own_capital()
-    test_income_slash_thang_and_de_danh()
-    test_plain_price_is_not_income()
-    test_income_in_ty_needs_month_marker()
-    print("ok")
