@@ -14,14 +14,14 @@ def test_income_becomes_a_payment_capped_at_the_dti() -> None:
     assert estimate.max_monthly_payment_vnd == int(17_500_000 * DEFAULT_MAX_DTI)
 
 
-def test_twenty_year_loan_at_ten_percent_lands_in_the_expected_range() -> None:
-    """A 7tr/month payment services roughly 725tr over 20 years at 10%/year."""
+def test_loan_lands_in_the_expected_range() -> None:
+    """A 7tr/month payment services roughly 834tr over 25 years at 9%/year."""
     estimate = estimate_affordability(17_500_000)
 
     assert estimate is not None
-    assert 700_000_000 < estimate.max_loan_vnd < 760_000_000
-    # With the standard 30% down assumption that is a home just over 1 tỷ.
-    assert 1_000_000_000 < estimate.assumed_price_vnd < 1_100_000_000
+    assert 800_000_000 < estimate.max_loan_vnd < 870_000_000
+    # With the standard 30% down assumption that is a home just under 1.2 tỷ.
+    assert 1_150_000_000 < estimate.assumed_price_vnd < 1_240_000_000
 
 
 def test_unknown_savings_is_flagged_rather_than_hidden() -> None:
@@ -59,15 +59,15 @@ def test_zero_interest_does_not_divide_by_zero() -> None:
     estimate = estimate_affordability(17_500_000, annual_rate=0.0)
 
     assert estimate is not None
-    assert estimate.max_loan_vnd == 7_000_000 * 240
+    assert estimate.max_loan_vnd == 7_000_000 * 300
 
 
 def test_explanation_names_every_assumption_it_relies_on() -> None:
     text = explain(estimate_affordability(17_500_000))  # type: ignore[arg-type]
 
     assert "40%" in text  # the debt-service ratio
-    assert "10%/năm" in text  # the interest rate
-    assert "20 năm" in text  # the term
+    assert "9%/năm" in text  # the interest rate
+    assert "25 năm" in text  # the term
     assert "tham khảo" in text  # it does not present itself as a bank decision
 
 
