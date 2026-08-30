@@ -246,7 +246,7 @@ def _extract_finance(norm_query: str) -> tuple[int | None, int | None]:
     """
     income = None
     income_hint = re.search(
-        r"\b(?:thu nhap|luong|lam ra|kiem duoc|kiem)\b[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*(trieu|tr|ty|ti)\b",
+        r"\b(?:thu nhap|luong|lam ra|kiem duoc|kiem dc)\b[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*(trieu|tr|ty|ti)\b",
         norm_query,
     )
     per_month = bool(re.search(r"\b(?:mot|moi|1)\s*thang\b|/\s*thang\b|hang thang", norm_query))
@@ -255,7 +255,7 @@ def _extract_finance(norm_query: str) -> tuple[int | None, int | None]:
 
     capital = None
     cap_hint = re.search(
-        r"\b(?:co san|co sang|de danh|tiet kiem|von tu co|von|hien co|dang co|tich luy)\b"
+        r"\b(?:co san|de danh|tiet kiem|von tu co|von tich luy|hien co|dang co)\b"
         r"[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*(trieu|tr|ty|ti)\b",
         norm_query,
     )
