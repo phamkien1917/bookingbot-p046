@@ -151,7 +151,8 @@ LƯU Ý QUAN TRỌNG:
 - Khi khách bắt đầu một nhu cầu mua/tìm mới chung chung (ví dụ: "t muốn mua 1 căn nhà ?", "tôi muốn mua nhà", "muốn tìm nhà", "cần mua nhà", "tìm nhà") mà KHÔNG nêu rõ địa điểm hay tầm giá trong câu hiện tại: BẮT BUỘC đặt is_new_search=true và ĐỂ TRỐNG TOÀN BỘ tiêu chí (criteria), KHÔNG tự ý copy tiêu chí cũ từ các lượt chat trước.
 - Khi khách yêu cầu tiếp tục tìm kiếm theo nhu cầu cũ/sở thích đã lưu (ví dụ: "Tiếp tục tìm kiếm với nhu cầu cũ của tôi", "tiếp tục hành trình", "tìm theo nhu cầu cũ", "sở thích đã lưu"): Intent PHẢI LÀ SEARCH_PROPERTY, đặt is_new_search=false và kế thừa active_search_criteria từ context.
 - Khi khách nêu THU NHẬP thay vì tầm giá (ví dụ: "tôi làm 15-20 triệu/tháng thì mua được căn nào", "lương em 25 củ"): điền monthly_income_vnd và ĐỂ TRỐNG max_price. Hệ thống sẽ tự tính tầm giá từ thu nhập; bạn KHÔNG được tự nhẩm ra con số ngân sách. Intent vẫn là SEARCH_PROPERTY nếu khách đang hỏi có căn nào phù hợp.
-- Khi khách nêu VỐN TỰ CÓ (ví dụ: "em có sẵn 800 triệu", "tôi để dành được 1 tỷ"): điền own_capital_vnd. Vốn tự có khác thu nhập, đừng gộp làm một.
+- Một con số tiền đi kèm "thu nhập" / "lương" / "mình làm" / "mỗi tháng" / "một tháng" / "/tháng" LUÔN là thu nhập hàng tháng, KHÔNG phải giá nhà — dù con số lớn (40 triệu, 60 triệu). TUYỆT ĐỐI không đặt nó thành max_price, không hỏi lại "thuê hay mua", không suy diễn thành "40 tỷ". Ví dụ "thu nhập mình 40 triệu một tháng, có sẵn 1 tỷ, vay mua căn số 1 được không" → monthly_income_vnd=40000000, own_capital_vnd=1000000000; intent CONSULTATION_QA nếu khách hỏi khả năng vay cho một căn cụ thể đã chọn, hoặc SEARCH_PROPERTY nếu chưa chọn căn nào.
+- Khi khách nêu VỐN TỰ CÓ (ví dụ: "em có sẵn 800 triệu", "tôi để dành được 1 tỷ", "có sẵn 1 tỷ"): điền own_capital_vnd. Vốn tự có khác thu nhập, đừng gộp làm một.
 - Nếu khách vừa nêu thu nhập vừa nêu tầm giá cụ thể, giữ nguyên tầm giá khách nói và vẫn điền monthly_income_vnd.
 """
 
@@ -229,6 +230,38 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
     if categories:
         result["nearby_categories"] = categories
     return result
+
+
+def _vnd_from_match(number: str, unit: str) -> int:
+    n = float(number.replace(",", "."))
+    return int(round(n * (1_000_000_000 if unit in {"ty", "ti"} else 1_000_000)))
+
+
+def _extract_finance(norm_query: str) -> tuple[int | None, int | None]:
+    """Pull monthly income and own-capital (VND) out of colloquial phrasing.
+
+    Backstop for when the model reads a stated income as a listing price
+    ("thu nhập mình 40 triệu một tháng" -> "bạn muốn mua căn 40 tỷ?").
+    Returns (monthly_income_vnd, own_capital_vnd); either may be None.
+    """
+    income = None
+    income_hint = re.search(
+        r"\b(?:thu nhap|luong|lam ra|kiem duoc|kiem)\b[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*(trieu|tr|ty|ti)\b",
+        norm_query,
+    )
+    per_month = bool(re.search(r"\b(?:mot|moi|1)\s*thang\b|/\s*thang\b|hang thang", norm_query))
+    if income_hint and (per_month or income_hint.group(2) in {"trieu", "tr"}):
+        income = _vnd_from_match(*income_hint.groups())
+
+    capital = None
+    cap_hint = re.search(
+        r"\b(?:co san|co sang|de danh|tiet kiem|von tu co|von|hien co|dang co|tich luy)\b"
+        r"[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*(trieu|tr|ty|ti)\b",
+        norm_query,
+    )
+    if cap_hint:
+        capital = _vnd_from_match(*cap_hint.groups())
+    return income, capital
 
 
 def _area_is_geo_target(area: str, geo: dict[str, Any]) -> bool:
@@ -587,6 +620,14 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
     elif understanding.is_new_search:
         merged_criteria.pop("min_floor", None)
         merged_criteria.pop("max_floor", None)
+
+    # Backstop for when the model reads a stated monthly income as a listing price
+    # ("thu nhập mình 40 triệu một tháng" -> "bạn muốn mua căn 40 tỷ?").
+    _det_income, _det_capital = _extract_finance(norm_query)
+    if understanding.monthly_income_vnd is None:
+        understanding.monthly_income_vnd = _det_income
+    if understanding.own_capital_vnd is None:
+        understanding.own_capital_vnd = _det_capital
 
     # Income -> price ceiling. The model reports the income figure the customer
     # said; every number derived from it is computed in affordability.py, because
