@@ -26,7 +26,7 @@ export default function PropertyTile({
   const image = property.image || property.media?.[0]?.url;
   const location = [property.district, property.province].filter(Boolean).join(", ") || property.address_full || "Đang cập nhật vị trí";
   const displayTitle = formatPropertyTitle(property.title);
-  const askPrompt = encodeURIComponent(`Phân tích ưu nhược điểm và tìm căn tương tự ${displayTitle}`);
+  const askPrompt = encodeURIComponent(`Review chi tiết căn ${displayTitle}`);
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-[1.65rem] border border-black/5 bg-white shadow-[0_12px_35px_rgba(22,47,42,.06)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_24px_55px_rgba(22,47,42,.13)] hover:border-black/10">
@@ -95,7 +95,7 @@ export default function PropertyTile({
 
         <div className="mt-5 grid grid-cols-2 gap-2.5 border-t border-black/5 pt-4">
           <Link
-            href={`/chat?prompt=${askPrompt}`}
+            href={`/chat?property_id=${property.id}&prompt=${askPrompt}`}
             className="inline-flex items-center justify-center rounded-full border border-black/10 bg-white px-3 py-2.5 text-center text-xs font-semibold text-stone-700 transition-all duration-200 hover:bg-stone-50 hover:border-[var(--sage)] hover:text-[var(--forest)] shadow-xs"
           >
             <FaMagic className="mr-1.5 inline text-[var(--coral)]" />

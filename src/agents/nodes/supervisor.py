@@ -891,7 +891,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         Intent.SEARCH_PROPERTY,
         Intent.SELECT_PROPERTY,
     ):
-        if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
+        if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|phan tich|uu nhuoc diem|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
             intent = Intent.PROPERTY_DETAILS
     elif re.search(r"\b(tiep tuc hanh trinh|nhu cau cu|so thich da luu|tiep tuc tim kiem)\b", norm_query):
         intent = Intent.SEARCH_PROPERTY

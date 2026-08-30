@@ -191,8 +191,8 @@ function HomepageExplore({
                           {property.area_sqm} m² · {property.bedrooms ?? "–"} PN
                         </span>
                         <Link
-                          href={`/chat?prompt=${encodeURIComponent(
-                            `Phân tích dự án/căn ${property.title}`
+                          href={`/chat?property_id=${property.id}&prompt=${encodeURIComponent(
+                            `Review chi tiết căn ${property.title}`
                           )}`}
                           className="font-semibold text-[var(--forest)] hover:underline inline-flex items-center gap-1"
                         >
