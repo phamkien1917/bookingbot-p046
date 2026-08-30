@@ -6,8 +6,26 @@ import re
 from typing import Any
 
 # Comprehensive prefixes to remove (crawler junk, marketing prefixes, noisy sale keywords)
+# A listing title runs "<real title> - CK 25,5% + Full nội thất - LH ngay 09xx xxx".
+# Split at the first sales marker and keep only the head.
+_TITLE_TAIL_CUT = re.compile(
+    r"\s*(?:[-–—,|]\s*)?(?:"
+    r"lh(?:\s*ngay)?(?![a-zà-ỹ])"
+    r"|li[eê]n\s*h[eệ]"
+    r"|hotline|zalo|call\b"
+    r"|ck\s*\d"                       # chiết khấu 25,5%
+    r"|chi[eế]t\s*kh[aấ]u"
+    r"|0\d[\d\s.]{6,}"                # phone number
+    r"|\d\s*\*{3,}"                   # masked phone
+    r"|gi[aá]\s*ch[iỉ]\b"
+    r")",
+    re.IGNORECASE,
+)
+
 _JUNK_PREFIXES = [
     re.compile(r"^\s*gi[oỏ]\s*h[aà]ng\s*m[oớ]i\s*\|\|\s*", re.IGNORECASE),
+    re.compile(r"^\s*(?:nhanh\s*(?:k[eẻ]o\s*h[eế]t|tay|ch[aâ]n)|[dđ][uừ]ng\s*b[oỏ]\s*l[oỡ])\s*[!.:-]*\s*", re.IGNORECASE),
+    re.compile(r"^\s*gi[oỏ]\s*h[aà]ng\s*(?:c[dđ]t|ch[uủ]\s*[dđ][aầ]u\s*t[uư])\s*", re.IGNORECASE),
     re.compile(r"^\s*\[(?:hot|si[eê]u\s*ph[aẩ]m|g[aấ]p|ch[ií]nh\s*ch[uủ]|b[aá]n\s*g[aấ]p)\]\s*", re.IGNORECASE),
     re.compile(r"^\s*(?:[🏡🏠🏢✨🔥💥⚡️🌟*]+)\s*", re.IGNORECASE),
     re.compile(r"^\s*(?:t[oô]i\s+)?(?:ch[ií]nh\s*ch[uủ])\s*(?:c[aầ]n\s*b[aá]n|b[aá]n\s*g[aấ]p|b[aá]n)?\s*", re.IGNORECASE),
@@ -58,6 +76,10 @@ def clean_property_title(raw_title: str | None) -> str | None:
         return raw_title
 
     title = raw_title.strip()
+
+    # Step 0: Cut the sales tail — discount %, contact details, "LH ngay 09xx".
+    # Everything from the first such marker on is an ad, not a description.
+    title = _TITLE_TAIL_CUT.split(title, maxsplit=1)[0].strip(" -–—,·|+")
 
     # Step 1: Remove noisy junk / seller announcement prefixes first
     for pat in _JUNK_PREFIXES:

@@ -52,8 +52,40 @@ def _price_text(value: Any) -> str:
     if amount is None:
         return "Liên hệ"
     if amount >= 1_000_000_000:
-        return f"{amount / 1_000_000_000:g} tỷ"
-    return f"{amount / 1_000_000:g} triệu"
+        return f"{round(amount / 1_000_000_000, 2):g} tỷ"
+    return f"{round(amount / 1_000_000):g} triệu"
+
+
+_KIND_LABELS = {
+    "APARTMENT": "Căn hộ",
+    "HOUSE": "Nhà riêng",
+    "VILLA": "Biệt thự",
+    "TOWNHOUSE": "Nhà phố",
+    "LAND": "Đất nền",
+    "COMMERCIAL": "Mặt bằng kinh doanh",
+}
+
+
+def _display_title(prop: Property) -> str | None:
+    """Clean the crawled title; fall back to a title built from the real fields
+    when what is left is still an ad fragment ("Nhà", "An Gia", "...CK 25,5%")."""
+    cleaned = (clean_property_title(prop.title) or "").strip()
+    generic = normalize_text(cleaned) in {
+        "", "nha", "ban nha", "can ho", "chung cu", "dat", "dat nen", "biet thu", "nha pho", "nha dat",
+    }
+    if cleaned and len(cleaned) >= 12 and not generic:
+        return cleaned
+
+    kind = _KIND_LABELS.get(prop.property_kind.value if prop.property_kind else "", "Bất động sản")
+    bits = [kind]
+    if prop.bedrooms:
+        bits.append(f"{prop.bedrooms}PN")
+    area = _num(prop.area_sqm)
+    if area:
+        bits.append(f"{area:g}m²")
+    where = prop.ward or prop.district or prop.province
+    head = " ".join(bits)
+    return f"{head} · {where}" if where else head
 
 
 def serialize_property_item(prop: Property) -> dict[str, Any]:
@@ -74,7 +106,7 @@ def serialize_property_item(prop: Property) -> dict[str, Any]:
         "id": str(prop.id),
         "code": prop.code,
         "property_kind": prop.property_kind.value if prop.property_kind else None,
-        "title": clean_property_title(prop.title),
+        "title": _display_title(prop),
         "description": clean_property_description(prop.description),
         "status": prop.status.value if prop.status else None,
         "address_line": prop.address_line,
@@ -1172,6 +1204,46 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
                 "Căn hộ Quận 7 dưới 5 tỷ",
                 "Nhà riêng Cầu Giấy 3 phòng ngủ",
                 "Chung cư 2PN gần trung tâm",
+            ],
+        }
+
+    has_location = bool(
+        criteria.get("district")
+        or criteria.get("province")
+        or criteria.get("region")
+        or criteria.get("area_or_ward")
+        or criteria.get("ward")
+        or state.get("commute_landmark")
+        or state.get("user_location")
+    )
+    # A budget with no place to spend it pulls homes from every province at once
+    # (the screenshot: Bình Dương and Long An for a Hà Nội buyer). Ask where first,
+    # unless the customer already has a shortlist from an earlier located search or
+    # is explicitly resuming a saved need.
+    if (
+        has_core_filters
+        and not has_location
+        and not is_resume
+        and not existing_properties
+        and not search_pool
+    ):
+        aff = state.get("affordability_note")
+        crit_line = format_criteria_summary(criteria)
+        ask = (
+            (f"Nera đã ghi nhận tiêu chí **{crit_line}**. " if crit_line else "")
+            + "Bạn muốn tìm ở **khu vực nào** (ví dụ: Cầu Giấy, Nam Từ Liêm, Quận 7) "
+            "để Nera lọc chính xác nhé?"
+        )
+        return {
+            "response": f"{aff}\n\n{ask}" if aff else ask,
+            "response_kind": "ASK_CRITERIA",
+            "search_criteria": criteria,
+            "phase": "IDLE",
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": [
+                "Khu vực Cầu Giấy",
+                "Khu vực Nam Từ Liêm",
+                "Quận 7, TP.HCM",
             ],
         }
 

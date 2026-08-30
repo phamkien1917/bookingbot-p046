@@ -5,6 +5,41 @@
 
 ---
 
+## 2026-08-30
+
+| Member | Task | Status | Output | Time |
+|--------|------|--------|--------|------|
+| Vu The Luc | Rà commit `90954f6` (Langfuse) sau buổi mentor review, phát hiện tích hợp là no-op | ✅ Done | chưa commit | — |
+| Vu The Luc | Thêm `langfuse>=3.0.0` vào `requirements.txt` và cài vào `.venv` (bản 4.15.1) | ✅ Done | chưa commit | — |
+| Vu The Luc | Gom phần khởi tạo Langfuse thành helper `_trace_callbacks()` có cache trong `src/agents/graph.py`, bỏ import lồng trong hàm và ghi đè `os.environ` mỗi request | ✅ Done | chưa commit | — |
+| Vu The Luc | Dọn 4 cảnh báo ruff (`W293`) trong `graph.py` | ✅ Done | chưa commit | — |
+| Vu The Luc | `.env.example`: gộp khối tracing, đặt `LANGCHAIN_TRACING_V2=false` mặc định, ghi chú chỉ bật một tracer | ✅ Done | chưa commit | — |
+| Vu The Luc | Bọc `GeoService.enrich_and_filter` bằng lớp đo thời gian, log riêng ms của vòng gọi Goong tách khỏi chi phí LLM | ✅ Done | chưa commit | — |
+| Vu The Luc | `run_agent` gắn `langfuse_session_id` + `langfuse_user_id` cho mỗi lượt để Langfuse gom cả phiên chat | ✅ Done | chưa commit | — |
+| Vu The Luc | Đặt key Langfuse thật vào `.env`, xác minh `auth_check()` = True và callback dựng được | ✅ Done | chưa commit | — |
+| Vu The Luc | Viết kịch bản demo đo độ trễ bằng Langfuse (bản curl 3 lượt + bản chat giao diện 12 lượt) | ✅ Done | `docs/demo/LANGFUSE_OBSERVABILITY_DEMO.md` | — |
+| Vu The Luc | Sửa lỗi supervisor đọc "thu nhập 40 triệu một tháng" thành giá nhà (hỏi lại "40 tỷ hay thuê"). Thêm `_extract_finance()` backstop + siết prompt; test hồi quy `test_supervisor_finance_extract.py` | ✅ Done | chưa commit | — |
+
+**Bối cảnh:**
+
+- Langfuse trong commit `90954f6` không chạy: `langfuse` thiếu trong `requirements.txt`, chưa cài trong `.venv`. Code rơi vào nhánh `ImportError`, callback rỗng, graph chạy không có trace.
+- So với `stage_timings` (`1ccf9a3`): phần đo cũ chỉ tới mức node (supervisor / inventory / respond). Langfuse thêm mức dưới node — thời gian từng lời gọi LLM, token, chi phí, cây trace lồng nhau, gom theo session.
+- Một lượt tìm nhà gọi LLM ba lần tuần tự (supervisor lấy intent, inventory dựng câu trả lời, respond chốt) cộng vòng gọi Goong khi lọc khoảng cách. `stage_timings` gộp Goong và LLM vào một số cho node inventory; giờ log geo tách riêng, Langfuse tách từng lời gọi LLM.
+- LangSmith (`LANGCHAIN_*`) là deliverable #4 của khoá nên giữ lại, chỉ tắt mặc định để không chạy trùng hai tracer.
+- `issues.md` bị commit `90954f6` xoá kèm: kiểm nhanh thì các lỗi đã sửa thật ở nơi khác (`verify_password` có chặn `app_env != "development"`, F821 thiếu import `Path` đã fix), xoá file hợp lý.
+
+**Kiểm tra:** `ruff check src/` sạch, `pytest tests -q` 174 pass, import `from langfuse.langchain import CallbackHandler` chạy được trên bản 4.15.1, `_trace_callbacks()` trả `()` khi chưa có key.
+
+**Tiếp theo:**
+
+- Đặt `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` thật vào `.env`, chạy một lượt tìm nhà để lấy trace.
+- Đối chiếu số Langfuse với `stage_timings` và dòng log `geo.enrich_and_filter took ... ms`.
+- Commit các thay đổi trên nhánh `develop`.
+
+**Tổng kết ngày:** hoàn thiện tích hợp Langfuse (từ no-op thành chạy được), tách phép đo Goong, dọn lint. Chưa commit.
+
+---
+
 ## 2026-08-29
 
 | Member | Task | Status | Output | Time |

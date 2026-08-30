@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +33,7 @@ jobs:
           JWT_SECRET_KEY: ci-only-secret-with-at-least-thirty-two-bytes
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     defaults:
       run:
         working-directory: frontend
@@ -59,3 +59,18 @@ jobs:
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  deploy:
+    name: Deploy lên Render
+    needs: [backend, frontend]
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
+            echo "RENDER_DEPLOY_HOOK is not set, skipping deploy."
+          else
+            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+            echo "Deploy triggered successfully."
+          fi

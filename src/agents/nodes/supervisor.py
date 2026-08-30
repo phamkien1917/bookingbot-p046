@@ -17,6 +17,10 @@ from pydantic import BaseModel, Field
 
 from src.agents.state import AgentState, AgentType, Intent
 from src.services.affordability import (
+    DEFAULT_ANNUAL_RATE,
+    DEFAULT_MAX_DTI,
+    DEFAULT_TERM_YEARS,
+    assess_target_price,
     calculate_loan_schedule,
     estimate_affordability,
     explain_loan_calculation,
@@ -151,7 +155,8 @@ LƯU Ý QUAN TRỌNG:
 - Khi khách bắt đầu một nhu cầu mua/tìm mới chung chung (ví dụ: "t muốn mua 1 căn nhà ?", "tôi muốn mua nhà", "muốn tìm nhà", "cần mua nhà", "tìm nhà") mà KHÔNG nêu rõ địa điểm hay tầm giá trong câu hiện tại: BẮT BUỘC đặt is_new_search=true và ĐỂ TRỐNG TOÀN BỘ tiêu chí (criteria), KHÔNG tự ý copy tiêu chí cũ từ các lượt chat trước.
 - Khi khách yêu cầu tiếp tục tìm kiếm theo nhu cầu cũ/sở thích đã lưu (ví dụ: "Tiếp tục tìm kiếm với nhu cầu cũ của tôi", "tiếp tục hành trình", "tìm theo nhu cầu cũ", "sở thích đã lưu"): Intent PHẢI LÀ SEARCH_PROPERTY, đặt is_new_search=false và kế thừa active_search_criteria từ context.
 - Khi khách nêu THU NHẬP thay vì tầm giá (ví dụ: "tôi làm 15-20 triệu/tháng thì mua được căn nào", "lương em 25 củ"): điền monthly_income_vnd và ĐỂ TRỐNG max_price. Hệ thống sẽ tự tính tầm giá từ thu nhập; bạn KHÔNG được tự nhẩm ra con số ngân sách. Intent vẫn là SEARCH_PROPERTY nếu khách đang hỏi có căn nào phù hợp.
-- Khi khách nêu VỐN TỰ CÓ (ví dụ: "em có sẵn 800 triệu", "tôi để dành được 1 tỷ"): điền own_capital_vnd. Vốn tự có khác thu nhập, đừng gộp làm một.
+- Một con số tiền đi kèm "thu nhập" / "lương" / "mình làm" / "mỗi tháng" / "một tháng" / "/tháng" LUÔN là thu nhập hàng tháng, KHÔNG phải giá nhà — dù con số lớn (40 triệu, 60 triệu). TUYỆT ĐỐI không đặt nó thành max_price, không hỏi lại "thuê hay mua", không suy diễn thành "40 tỷ". Ví dụ "thu nhập mình 40 triệu một tháng, có sẵn 1 tỷ, vay mua căn số 1 được không" → monthly_income_vnd=40000000, own_capital_vnd=1000000000; intent CONSULTATION_QA nếu khách hỏi khả năng vay cho một căn cụ thể đã chọn, hoặc SEARCH_PROPERTY nếu chưa chọn căn nào.
+- Khi khách nêu VỐN TỰ CÓ (ví dụ: "em có sẵn 800 triệu", "tôi để dành được 1 tỷ", "có sẵn 1 tỷ"): điền own_capital_vnd. Vốn tự có khác thu nhập, đừng gộp làm một.
 - Nếu khách vừa nêu thu nhập vừa nêu tầm giá cụ thể, giữ nguyên tầm giá khách nói và vẫn điền monthly_income_vnd.
 """
 
@@ -229,6 +234,38 @@ def _extract_geo_constraints(message: str) -> dict[str, Any]:
     if categories:
         result["nearby_categories"] = categories
     return result
+
+
+def _vnd_from_match(number: str, unit: str) -> int:
+    n = float(number.replace(",", "."))
+    return int(round(n * (1_000_000_000 if unit in {"ty", "ti"} else 1_000_000)))
+
+
+def _extract_finance(norm_query: str) -> tuple[int | None, int | None]:
+    """Pull monthly income and own-capital (VND) out of colloquial phrasing.
+
+    Backstop for when the model reads a stated income as a listing price
+    ("thu nhập mình 40 triệu một tháng" -> "bạn muốn mua căn 40 tỷ?").
+    Returns (monthly_income_vnd, own_capital_vnd); either may be None.
+    """
+    income = None
+    income_hint = re.search(
+        r"\b(?:thu nhap|luong|lam ra|kiem duoc|kiem dc)\b[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*(trieu|tr|ty|ti)\b",
+        norm_query,
+    )
+    per_month = bool(re.search(r"\b(?:mot|moi|1)\s*thang\b|/\s*thang\b|hang thang", norm_query))
+    if income_hint and (per_month or income_hint.group(2) in {"trieu", "tr"}):
+        income = _vnd_from_match(*income_hint.groups())
+
+    capital = None
+    cap_hint = re.search(
+        r"\b(?:co san|de danh|tiet kiem|von tu co|von tich luy|hien co|dang co)\b"
+        r"[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*(trieu|tr|ty|ti)\b",
+        norm_query,
+    )
+    if cap_hint:
+        capital = _vnd_from_match(*cap_hint.groups())
+    return income, capital
 
 
 def _area_is_geo_target(area: str, geo: dict[str, Any]) -> bool:
@@ -588,19 +625,30 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         merged_criteria.pop("min_floor", None)
         merged_criteria.pop("max_floor", None)
 
+    # Backstop for when the model reads a stated monthly income as a listing price
+    # ("thu nhập mình 40 triệu một tháng" -> "bạn muốn mua căn 40 tỷ?").
+    _det_income, _det_capital = _extract_finance(norm_query)
+    if understanding.monthly_income_vnd is None:
+        understanding.monthly_income_vnd = _det_income
+    if understanding.own_capital_vnd is None:
+        understanding.own_capital_vnd = _det_capital
+
     # Income -> price ceiling. The model reports the income figure the customer
     # said; every number derived from it is computed in affordability.py, because
     # a budget the model guessed wrong sends someone to view homes they cannot buy.
     monthly_income = understanding.monthly_income_vnd or state.get("monthly_income_vnd")
     own_capital = understanding.own_capital_vnd or state.get("own_capital_vnd")
     affordability_note = None
+    estimate = None
     if monthly_income:
         estimate = estimate_affordability(monthly_income, own_capital_vnd=own_capital)
         if estimate:
             affordability_note = explain_affordability(estimate)
             # An explicit budget from the customer always wins over a derived one.
+            # Round the derived ceiling to a clean figure — a raw 2,657,990,000
+            # shows up in the search reply as "dưới 2.65799 tỷ".
             if not merged_criteria.get("max_price"):
-                merged_criteria["max_price"] = estimate.assumed_price_vnd
+                merged_criteria["max_price"] = round(estimate.assumed_price_vnd / 100_000_000) * 100_000_000
 
     # Target date / hour resolution
     target_date = parse_requested_date(query)
@@ -631,6 +679,21 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         if matched_prop:
             ordinal = matched_idx
             matched_prop_id = str(matched_prop["id"])
+
+    # "vay mua căn số 1 được không" — answer against that căn's real price, not the
+    # generic ceiling. Needs the income estimate and a resolved shortlist entry.
+    if (
+        estimate is not None
+        and ordinal is not None
+        and 0 <= ordinal < len(property_pool)
+        and re.search(r"\b(vay|tra gop|du tien|kha nang|mua noi|mua duoc|co mua)\b", norm_query)
+        and re.search(r"\b(duoc khong|co the|kha thi|on khong|the nao|bao nhieu)\b", norm_query)
+    ):
+        _target = property_pool[ordinal]
+        _target_price = _target.get("list_price") or _target.get("price")
+        if _target_price:
+            affordability_note = assess_target_price(estimate, int(_target_price))
+            understanding.intent = Intent.CONSULTATION_QA
 
     # Soft preferences & household context accumulation
     soft_prefs = list(state.get("soft_preferences", []))
@@ -796,17 +859,17 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         down_payment_vnd = int(round(prop_vnd * 0.3))
         loan_vnd = prop_vnd - down_payment_vnd
 
-        # Monthly payment estimate for 20 years at 9%
-        r_month = 0.09 / 12
-        n_months = 240
+        # Monthly payment estimate, same assumptions as affordability.py.
+        r_month = DEFAULT_ANNUAL_RATE / 12
+        n_months = DEFAULT_TERM_YEARS * 12
         monthly_payment = int(round(loan_vnd * (r_month * (1 + r_month)**n_months) / ((1 + r_month)**n_months - 1)))
-        min_safe_income = int(round(monthly_payment / 0.4))
+        min_safe_income = int(round(monthly_payment / DEFAULT_MAX_DTI))
 
         understanding.direct_response = (
             f"Với mức tài chính / thu nhập **{format_vnd(cap_vnd)}**, bạn **chưa đủ điều kiện tài chính để mua nhà tầm {format_vnd(prop_vnd)}** ở thời điểm hiện tại.\n\n"
             f"📊 **Bài toán tài chính để mua căn nhà {format_vnd(prop_vnd)}:**\n"
             f"- **Vốn tự có ban đầu (tối thiểu 30%):** Cần khoảng **{format_vnd(down_payment_vnd)}** để thanh toán đợt đầu.\n"
-            f"- **Khoản vay ngân hàng (70% ~ {format_vnd(loan_vnd)}):** Vay trong 20 năm (lãi suất ~9%/năm), mỗi tháng bạn cần trả góp cả gốc và lãi khoảng **{format_vnd(monthly_payment)}/tháng**.\n"
+            f"- **Khoản vay ngân hàng (70% ~ {format_vnd(loan_vnd)}):** Vay trong {DEFAULT_TERM_YEARS} năm (lãi suất ~{DEFAULT_ANNUAL_RATE * 100:.0f}%/năm), mỗi tháng bạn cần trả góp cả gốc và lãi khoảng **{format_vnd(monthly_payment)}/tháng**.\n"
             f"- **Thu nhập an toàn (DTI ≤ 40%):** Thu nhập hàng tháng của bạn hoặc gia đình cần đạt từ **{format_vnd(min_safe_income)}/tháng** trở lên để vừa trả nợ vừa đảm bảo sinh hoạt.\n\n"
             f"💡 **Lời khuyên từ Nera:**\n"
             f"- Với tài chính {format_vnd(cap_vnd)}/tháng, phương án phù hợp nhất hiện tại là **thuê căn hộ/phòng trọ** trong tầm giá 1 – 2 triệu/tháng và tích lũy thêm vốn.\n"
@@ -828,7 +891,7 @@ async def supervisor_node(state: AgentState) -> dict[str, Any]:
         Intent.SEARCH_PROPERTY,
         Intent.SELECT_PROPERTY,
     ):
-        if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
+        if re.search(r"\b(can nay|nha nay|can dang xem|can hien tai|review|phan tich|uu nhuoc diem|danh gia|chi tiet|thong tin|phap ly|gia bao nhieu|dien tich|phong ngu|huong gi|co ban cong|co cho de xe)\b", norm_query):
             intent = Intent.PROPERTY_DETAILS
     elif re.search(r"\b(tiep tuc hanh trinh|nhu cau cu|so thich da luu|tiep tuc tim kiem)\b", norm_query):
         intent = Intent.SEARCH_PROPERTY
