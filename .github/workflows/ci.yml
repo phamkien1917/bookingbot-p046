@@ -59,3 +59,18 @@ jobs:
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  deploy:
+    name: Deploy lên Render
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
+            echo "RENDER_DEPLOY_HOOK is not set, skipping deploy."
+          else
+            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+            echo "Deploy triggered successfully."
+          fi
