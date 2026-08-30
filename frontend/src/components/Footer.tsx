@@ -26,7 +26,7 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-white/40">
-          <p>© 2026 Nera · AI Home Companion. Tất cả quyền được bảo lưu.</p>
+          <p>© 2026 Nera · AI Home Companion · Nhóm P-046 (AI20K Build Phase Cohort 3). Tất cả quyền được bảo lưu.</p>
           <p className="text-[11px] text-white/35">AI hiểu nhu cầu · Dữ liệu kiểm chứng · Con người xác nhận</p>
         </div>
       </div>
