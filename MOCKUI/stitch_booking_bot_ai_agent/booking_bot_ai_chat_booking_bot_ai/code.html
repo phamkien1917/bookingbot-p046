@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Booking Bot AI - Giao diện Đặt Lịch</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#002113",
+                        "on-primary-fixed-variant": "#314865",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "tertiary-container": "#002a1a",
+                        "surface-container-low": "#f2f4f6",
+                        "background": "#f7f9fb",
+                        "on-surface-variant": "#43474d",
+                        "surface-bright": "#f7f9fb",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#001f27",
+                        "inverse-surface": "#2d3133",
+                        "primary-container": "#0a2540",
+                        "on-secondary-container": "#005669",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#d8dadc",
+                        "surface-container": "#eceef0",
+                        "error": "#ba1a1a",
+                        "surface": "#f7f9fb",
+                        "on-secondary-fixed-variant": "#004e5f",
+                        "inverse-primary": "#b0c8eb",
+                        "on-background": "#191c1e",
+                        "on-tertiary-container": "#009e6d",
+                        "primary-fixed": "#d2e4ff",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "secondary": "#00677e",
+                        "on-error-container": "#93000a",
+                        "outline": "#74777e",
+                        "on-primary-fixed": "#001c37",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#49607e",
+                        "on-primary-container": "#768dad",
+                        "secondary-container": "#00d2fd",
+                        "surface-container-high": "#e6e8ea",
+                        "primary": "#000f22",
+                        "tertiary": "#001209",
+                        "secondary-fixed-dim": "#3cd7ff",
+                        "secondary-fixed": "#b4ebff",
+                        "outline-variant": "#c4c6ce",
+                        "primary-fixed-dim": "#b0c8eb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "xxl": "48px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-xl": ["Manrope"],
+                        "headline-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Manrope"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-xl": ["40px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e0e3e5; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c4c6ce; }
+        
+        .ai-gradient-text {
+            background: linear-gradient(to right, #00d2fd, #4edea3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ai-gradient-bg {
+            background: linear-gradient(135deg, rgba(0, 210, 253, 0.1), rgba(78, 222, 163, 0.1));
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen overflow-hidden flex selection:bg-secondary-fixed selection:text-on-secondary-fixed">
+<!-- Column 1: Sidebar Trái -->
+<aside class="w-72 bg-surface-container-low border-r border-outline-variant/30 flex flex-col flex-shrink-0">
+<!-- Logo / Brand Area -->
+<div class="h-20 flex items-center px-container-margin border-b border-outline-variant/30 shrink-0">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Booking Bot AI</span>
+</div>
+</div>
+<!-- Navigation Contextual -->
+<nav class="flex-1 overflow-y-auto p-md flex flex-col gap-sm">
+<!-- Action Button -->
+<button class="w-full bg-primary text-on-primary hover:bg-primary/90 transition-colors duration-200 rounded-lg py-md px-md flex items-center justify-center gap-sm shadow-sm mb-md">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span class="font-label-md text-label-md">Cuộc hội thoại mới</span>
+</button>
+<!-- Menu Items -->
+<div class="flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors shadow-sm" href="#">
+<span class="material-symbols-outlined text-[20px] text-primary">chat</span>
+<span>Cuộc hội thoại hiện tại</span>
+</a>
+<div class="mt-lg mb-sm px-md">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Lối tắt</span>
+</div>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">history</span>
+<span>Lịch sử đặt lịch</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">calendar_month</span>
+<span>Lịch xem của tôi</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">person</span>
+<span>Hồ sơ</span>
+</a>
+</div>
+</nav>
+<!-- User Footer Mini -->
+<div class="p-md border-t border-outline-variant/30 mt-auto">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant/30 shrink-0">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A minimalist, professional avatar placeholder showing a simple geometric silhouette against a neutral light grey background, suitable for a PropTech application interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjSgqF0yQt-u_95sDpzmSQh22WSKBkqfDhDeHrArU3x4yxcPeKG3gvecezBpFqbsuHIRjjvz6l7pOuJYDsZ5vOF5X1IC9U6lFsWvTPq0h9Usm9ECQksjEANvObF3Nl5YAg4FP2YTAtk9mdbnLBW6JmcihPaIAUITTpoqb3FszV_inV2z6sEJJcG0ie42Pt_U7wVk5IKJe427Jp_2OO6kH-VPz_mbifBN_1wyGhabQZopsAVsAwyhpC"/>
+</div>
+<div class="flex flex-col truncate">
+<span class="font-label-md text-label-md text-on-surface truncate">Nguyễn Văn A</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Khách hàng</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Column 2: Chat Area (Center) -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface-lowest relative">
+<!-- Chat Header -->
+<header class="h-20 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 flex items-center justify-between px-container-margin sticky top-0 z-10 shrink-0 shadow-sm">
+<div class="flex items-center gap-md">
+<div class="relative">
+<div class="w-12 h-12 rounded-full ai-gradient-bg flex items-center justify-center border border-secondary-fixed/50 shadow-sm">
+<span class="material-symbols-outlined text-secondary text-[24px]" style="font-variation-settings: 'FILL' 1;">robot_2</span>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#4edea3] border-2 border-surface rounded-full"></span>
+</div>
+<div class="flex flex-col">
+<h1 class="font-headline-md text-headline-md text-primary tracking-tight">Trợ lý Đặt Lịch AI</h1>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-xs">
+                        Tôi có thể giúp bạn đặt lịch 24/7
+                    </span>
+</div>
+</div>
+<button class="w-10 h-10 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</header>
+<!-- Chat History (Scrollable) -->
+<div class="flex-1 overflow-y-auto p-container-margin flex flex-col gap-lg">
+<!-- AI Message Bubble -->
+<div class="flex gap-md max-w-[85%]">
+<div class="w-8 h-8 rounded-full ai-gradient-bg flex items-center justify-center shrink-0 mt-1">
+<span class="material-symbols-outlined text-secondary text-[16px]">smart_toy</span>
+</div>
+<div class="flex flex-col gap-sm">
+<div class="bg-surface-container-low border border-secondary-fixed/20 rounded-2xl rounded-tl-sm p-md shadow-sm">
+<p class="font-body-md text-body-md text-on-surface">
+                            Xin chào! Tôi là Trợ lý AI của hệ thống. Tôi thấy bạn đang quan tâm đến các căn hộ tại khu vực <strong class="text-primary">Quận 2</strong>. Bạn muốn đặt lịch xem nhà vào thời gian nào để tôi sắp xếp nhân viên hỗ trợ?
+                        </p>
+</div>
+<!-- Quick Suggestion Chips -->
+<div class="flex flex-wrap gap-sm mt-xs">
+<button class="px-md py-sm rounded-full border border-outline-variant bg-surface hover:border-secondary hover:text-secondary transition-colors font-label-sm text-label-sm text-on-surface-variant">
+                            Sáng mai (09:00 - 11:00)
+                        </button>
+<button class="px-md py-sm rounded-full border border-outline-variant bg-surface hover:border-secondary hover:text-secondary transition-colors font-label-sm text-label-sm text-on-surface-variant">
+                            Cuối tuần này
+                        </button>
+<button class="px-md py-sm rounded-full border border-outline-variant bg-surface hover:border-secondary hover:text-secondary transition-colors font-label-sm text-label-sm text-on-surface-variant">
+                            Xem các căn có sẵn hôm nay
+                        </button>
+</div>
+</div>
+</div>
+<!-- User Message Bubble -->
+<div class="flex gap-md max-w-[85%] self-end flex-row-reverse">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest shrink-0 mt-1 overflow-hidden border border-outline-variant/30">
+<img alt="User" class="w-full h-full object-cover" data-alt="A minimalist, professional avatar placeholder showing a simple geometric silhouette against a neutral light grey background, suitable for a PropTech application interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVpyCWnEXwcn46BxGKyqQtpasozj-7TXFRrcnJG5nJRE8eI7ek2z0unws3_4Emey_BqQBsiDwVjwaHbm_qUggJ5wEfY9i2qcFRmMYQ25mt22PeWA9w9KkqKM_XzkUFceeef3qH4N0fd-lAPPi78fVQWfgchsH_ceT8ig0qCrYVkSwAs1YUhEN8CFrz7SoZy4ai1kiraBOdZPDY4eHDiBzNZteYHCig_lpbNLFI2yglQ9qAYMojcxBs"/>
+</div>
+<div class="bg-primary text-on-primary rounded-2xl rounded-tr-sm p-md shadow-sm">
+<p class="font-body-md text-body-md">
+                        Mình muốn xem căn hộ The Vista mã VIS-204 vào chiều mai khoảng 14:00.
+                    </p>
+</div>
+</div>
+<!-- AI Message - Processing/Action -->
+<div class="flex gap-md max-w-[85%]">
+<div class="w-8 h-8 rounded-full ai-gradient-bg flex items-center justify-center shrink-0 mt-1">
+<span class="material-symbols-outlined text-secondary text-[16px]">smart_toy</span>
+</div>
+<div class="flex flex-col gap-sm">
+<div class="bg-secondary-fixed/10 border border-secondary/20 rounded-2xl rounded-tl-sm p-md shadow-sm relative overflow-hidden">
+<!-- Decorative AI subtle glow -->
+<div class="absolute -top-10 -left-10 w-24 h-24 bg-secondary/10 rounded-full blur-xl"></div>
+<p class="font-body-md text-body-md text-on-surface relative z-10">
+                            Đã hiểu! Tôi đang kiểm tra lịch trống của căn <strong class="text-primary">VIS-204</strong> và giữ chỗ tạm thời cho bạn vào lúc <strong class="text-primary">14:00, Ngày mai</strong>.
+                            <br/><br/>
+                            Hệ thống đang tìm kiếm nhân viên phụ trách khu vực này để xác nhận lịch với bạn. Vui lòng xem thông tin tóm tắt bên phải nhé.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Chat Input Area -->
+<div class="p-container-margin border-t border-outline-variant/30 bg-surface shrink-0">
+<div class="flex items-end gap-sm bg-surface-container-lowest border border-outline-variant rounded-xl p-sm focus-within:border-secondary focus-within:ring-1 focus-within:ring-secondary transition-all shadow-sm">
+<button class="w-10 h-10 shrink-0 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+<div class="flex-1 min-h-[44px]">
+<textarea class="w-full h-full bg-transparent border-none focus:ring-0 resize-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 py-sm" placeholder="Nhập tin nhắn để yêu cầu AI hỗ trợ..." rows="1"></textarea>
+</div>
+<div class="flex items-center gap-xs shrink-0">
+<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container" title="Chọn ngày giờ">
+<span class="material-symbols-outlined">calendar_month</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors shadow-sm ml-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+<div class="mt-sm text-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant/70">AI có thể đưa ra thông tin chưa chính xác. Vui lòng kiểm tra lại.</span>
+</div>
+</div>
+</main>
+<!-- Column 3: Booking Summary (Right) -->
+<aside class="w-[360px] bg-surface-container-lowest border-l border-outline-variant/30 flex flex-col flex-shrink-0 shadow-[-4px_0_24px_rgba(10,37,64,0.02)] z-20">
+<div class="h-20 flex items-center px-container-margin border-b border-outline-variant/30 shrink-0 bg-surface">
+<h2 class="font-headline-md text-headline-md text-primary tracking-tight">Thông tin đặt lịch</h2>
+</div>
+<div class="flex-1 overflow-y-auto p-container-margin flex flex-col gap-lg">
+<!-- Timer Status Card -->
+<div class="bg-surface-container rounded-xl p-md border border-outline-variant/50 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-secondary"></div>
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-xs">
+<div class="flex items-center gap-sm">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-label-md text-label-md text-secondary uppercase tracking-wider">Đang giữ căn</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Hệ thống đang ưu tiên giữ khung giờ này cho bạn.</p>
+</div>
+<div class="bg-surface border border-outline-variant/30 rounded-lg px-md py-sm shadow-sm flex flex-col items-center">
+<span class="font-headline-lg text-headline-lg font-bold text-primary leading-none" id="countdown-timer">14:32</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Phút còn lại</span>
+</div>
+</div>
+</div>
+<!-- Apartment Info Card -->
+<div class="bg-surface border border-outline-variant/30 rounded-xl overflow-hidden shadow-sm flex flex-col group">
+<div class="h-40 relative overflow-hidden">
+<img alt="Apartment Thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A bright, modern apartment interior view showing a spacious living room with large floor-to-ceiling windows, minimalist contemporary furniture, neutral color palette with deep navy and cyan accents, high key lighting, PropTech application thumbnail style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBawWyCTSNDrKn3U-pZKvodKF9YBc7v6FP_tu_W5FHrQYYnnvsVOFhK8Uy1WXNO4Zl56ZL7IN2HUNO-Ag-EakhDyYgUEwIeo1X3kKPcCccsGs79weMrvRO-M-DXsqeOaBJFXLNsjaL563JN0LLhqEqhlb02a4eyeUPEB634sJduUAZlLHYE9t82rYwt2JTWrmLkF_axq9CYmKveRdrqvtyPapnW5VWvs5aqRD_wkn_fGO7PEE9u6CKv"/>
+<div class="absolute top-sm right-sm bg-surface/90 backdrop-blur-sm px-sm py-xs rounded font-label-sm text-label-sm text-primary font-bold shadow-sm">
+                        VIS-204
+                    </div>
+</div>
+<div class="p-md flex flex-col gap-sm">
+<h3 class="font-headline-md text-[20px] leading-tight font-bold text-primary">The Vista An Phú - 2PN</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+                        Quận 2, TP. Hồ Chí Minh
+                    </p>
+<div class="h-[1px] w-full bg-outline-variant/20 my-sm"></div>
+<div class="flex flex-col gap-sm">
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Thời gian xem:</span>
+<span class="font-label-md text-label-md text-primary bg-secondary-fixed/20 px-sm py-xs rounded">14:00, Ngày mai</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Loại hình:</span>
+<span class="font-body-md text-body-md text-on-surface font-medium">Trực tiếp</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Assigned Staff Box -->
+<div class="border border-outline-variant/40 border-dashed rounded-xl p-md bg-surface-container-low flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-surface border border-outline-variant/30 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant animate-spin" style="animation-duration: 3s;">sync</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Đang tìm nhân viên...</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Hệ thống đang ghép nối với chuyên viên khu vực.</span>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="p-container-margin border-t border-outline-variant/30 shrink-0 bg-surface">
+<button class="w-full bg-surface border border-error text-error hover:bg-error-container hover:border-error-container transition-colors duration-200 rounded-lg py-md px-md font-label-md text-label-md flex justify-center items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">cancel</span>
+                Hủy yêu cầu đặt lịch
+            </button>
+</div>
+</aside>
+<script>
+        // Simple mock timer logic for demonstration
+        let time = 14 * 60 + 32; // 14:32 in seconds
+        const timerElement = document.getElementById('countdown-timer');
+        
+        setInterval(() => {
+            if (time > 0) {
+                time--;
+                const minutes = Math.floor(time / 60);
+                const seconds = time % 60;
+                timerElement.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    </script>
+</body></html>

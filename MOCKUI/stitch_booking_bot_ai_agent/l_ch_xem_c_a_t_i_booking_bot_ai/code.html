@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lịch xem của tôi - Booking Bot AI</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#002113",
+                    "on-primary-fixed-variant": "#314865",
+                    "surface-container-highest": "#e0e3e5",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "on-tertiary-fixed-variant": "#005236",
+                    "tertiary-fixed": "#6ffbbe",
+                    "tertiary-container": "#002a1a",
+                    "surface-container-low": "#f2f4f6",
+                    "background": "#f7f9fb",
+                    "on-surface-variant": "#43474d",
+                    "surface-bright": "#f7f9fb",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed": "#001f27",
+                    "inverse-surface": "#2d3133",
+                    "primary-container": "#0a2540",
+                    "on-secondary-container": "#005669",
+                    "error-container": "#ffdad6",
+                    "on-primary": "#ffffff",
+                    "surface-variant": "#e0e3e5",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-error": "#ffffff",
+                    "surface-dim": "#d8dadc",
+                    "surface-container": "#eceef0",
+                    "error": "#ba1a1a",
+                    "surface": "#f7f9fb",
+                    "on-secondary-fixed-variant": "#004e5f",
+                    "inverse-primary": "#b0c8eb",
+                    "on-background": "#191c1e",
+                    "on-tertiary-container": "#009e6d",
+                    "primary-fixed": "#d2e4ff",
+                    "tertiary-fixed-dim": "#4edea3",
+                    "secondary": "#00677e",
+                    "on-error-container": "#93000a",
+                    "outline": "#74777e",
+                    "on-primary-fixed": "#001c37",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#49607e",
+                    "on-primary-container": "#768dad",
+                    "secondary-container": "#00d2fd",
+                    "surface-container-high": "#e6e8ea",
+                    "primary": "#000f22",
+                    "tertiary": "#001209",
+                    "secondary-fixed-dim": "#3cd7ff",
+                    "secondary-fixed": "#b4ebff",
+                    "outline-variant": "#c4c6ce",
+                    "primary-fixed-dim": "#b0c8eb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-margin": "24px",
+                    "lg": "24px",
+                    "xl": "32px",
+                    "xs": "4px",
+                    "sm": "8px",
+                    "xxl": "48px",
+                    "md": "16px",
+                    "gutter": "16px",
+                    "base": "8px"
+            },
+            "fontFamily": {
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "headline-xl": ["Manrope"],
+                    "headline-md": ["Manrope"],
+                    "headline-lg": ["Manrope"],
+                    "label-sm": ["Inter"],
+                    "headline-lg-mobile": ["Manrope"],
+                    "label-md": ["Inter"]
+            },
+            "fontSize": {
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-xl": ["40px", {"lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        /* Ambient shadow utility */
+        .shadow-ambient {
+            box-shadow: 0 4px 24px rgba(0, 15, 34, 0.04);
+        }
+        .shadow-ambient-hover:hover {
+            box-shadow: 0 8px 32px rgba(0, 15, 34, 0.08);
+        }
+        /* Hide scrollbar for horizontal tabs */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col antialiased">
+<!-- TopNavBar -->
+<header class="docked full-width top-0 sticky z-50 bg-surface/80 border-b border-outline-variant/30 backdrop-blur-md shadow-sm">
+<div class="flex justify-between items-center px-container-margin h-20 w-full max-w-7xl mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary" data-icon="robot_2" data-weight="fill" style="font-variation-settings: 'FILL' 1;">robot_2</span>
+<span class="font-headline-md text-headline-md font-bold text-primary">Booking Bot AI</span>
+</div>
+<!-- Navigation Links (Desktop) -->
+<nav class="hidden md:flex items-center h-full gap-xl">
+<a class="h-full flex items-center text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">
+<span class="font-label-md text-label-md">Trang chủ</span>
+</a>
+<a class="h-full flex items-center text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">
+<span class="font-label-md text-label-md">Căn hộ</span>
+</a>
+<a class="h-full flex items-center text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">
+<span class="font-label-md text-label-md">Cách hoạt động</span>
+</a>
+<!-- Active Item: Lịch xem của tôi -->
+<a class="h-full flex items-center text-secondary font-bold border-b-2 border-secondary scale-95 transition-transform" href="#">
+<span class="font-label-md text-label-md">Lịch xem của tôi</span>
+</a>
+</nav>
+<!-- Actions -->
+<div class="hidden md:flex items-center gap-md">
+<button class="font-label-md text-label-md text-primary hover:bg-secondary-container/10 transition-colors duration-200 px-md py-sm rounded-lg">Đăng nhập</button>
+<button class="font-label-md text-label-md bg-primary text-on-primary px-lg py-sm rounded-lg hover:opacity-90 transition-opacity">Đặt lịch xem nhà</button>
+</div>
+<!-- Mobile Menu Toggle -->
+<button class="md:hidden text-primary">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-7xl mx-auto px-container-margin py-xl flex flex-col gap-xl">
+<!-- Page Header & Tabs -->
+<section class="flex flex-col gap-lg">
+<h1 class="font-headline-lg-mobile md:font-headline-xl text-headline-lg-mobile md:text-headline-xl text-primary">Lịch xem của tôi</h1>
+<!-- Filter Tabs -->
+<div class="w-full overflow-x-auto no-scrollbar pb-xs">
+<div class="flex items-center gap-sm min-w-max">
+<button class="px-md py-sm rounded-full bg-primary text-on-primary font-label-md text-label-md transition-colors">Sắp tới</button>
+<button class="px-md py-sm rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Đang chờ</button>
+<button class="px-md py-sm rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Đã hoàn thành</button>
+<button class="px-md py-sm rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Đã hủy</button>
+</div>
+</div>
+</section>
+<!-- Booking Cards Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+<!-- Card 1: Đã xác nhận -->
+<article class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-ambient shadow-ambient-hover transition-all flex flex-col overflow-hidden group">
+<!-- Image -->
+<div class="h-48 w-full relative overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A highly detailed architectural photograph of a modern, luxury apartment living room. Bright natural sunlight streams through large floor-to-ceiling windows, illuminating a minimalist beige sofa and a sleek marble coffee table. The interior design relies on a pristine white and soft grey palette with subtle, elegant blue accents. The atmosphere is serene, high-end, and perfectly represents a premium real estate property in a clean, light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMxG2TrjJd4zLzQwm2Vn1U3miBBzbDN5SaxOA96mKg6PwKiNKfl9brc8kIj7PSHftiN7FrCx1klbyLTsvPweGIMBKqUeKYBieU_2e_bAw-h4mFIPJoo6fEPUC5XVbzKbehSwIKYr8LZX59Wnwc42WatLq1pNpggjPhuPB6ME5odcxL3sE4l2ujcK9v5Ji6EKz6KJ8ado4MytPoiv6rFbtcz2B_IaVP6SyhLMT0yX-tZ4ETO5bwW2zF"/>
+<!-- Badge Overlay -->
+<div class="absolute top-sm right-sm bg-tertiary-fixed text-on-tertiary-fixed px-sm py-xs rounded-lg font-label-sm text-label-sm backdrop-blur-md">
+                        Đã xác nhận
+                    </div>
+</div>
+<!-- Content -->
+<div class="p-lg flex flex-col gap-md flex-grow">
+<!-- Title & Time -->
+<div class="flex flex-col gap-xs">
+<h2 class="font-headline-md text-headline-md text-primary line-clamp-1">Vinhomes Central Park - Căn 2PN</h2>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+<span class="font-body-sm text-body-sm">14:00 - 15:00, T5, 12/10/2024</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="location_on">location_on</span>
+<span class="font-body-sm text-body-sm line-clamp-1">Tháp Landmark 2, 208 Nguyễn Hữu Cảnh</span>
+</div>
+</div>
+<hr class="border-outline-variant/20"/>
+<!-- Agent Info -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<img class="w-10 h-10 rounded-full object-cover bg-surface-container" data-alt="A professional headshot portrait of a friendly Asian real estate agent. She is wearing a smart-casual dark navy blazer over a crisp white shirt. The background is a soft, blurred bright modern office space, reinforcing a trustworthy and approachable AI PropTech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZ3_-S5GvyeXgSF_UCPjhREJJeELTyXz3zzjI7njKzY1u3-u1-PkLTX44OgIAqj-KS8TB3KrtuVEJsFQgJMrtyQmcqDMUsK4bapWQ-AHq1-qmMEcjzwqjK-_C9s2-Pr3S7FvVN7pQxMgoN0sWscKZHthfQnZoGr8LZFSYBveS7A7BoTW4UgJVzBb5hnEuXfyYVfpaV0lCR-5TQK1r-pLUktXbC1J5K0_3Cq5uIPOkZ07i_l5ScBNfD"/>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Nguyễn Trần My</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Sale phụ trách</span>
+</div>
+</div>
+<button class="w-8 h-8 rounded-full bg-secondary-container/20 text-secondary flex items-center justify-center hover:bg-secondary-container transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="chat">chat</span>
+</button>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-sm mt-auto pt-sm">
+<button class="flex-1 bg-surface-container-high text-error font-label-md text-label-md py-sm rounded-lg hover:bg-error-container hover:text-on-error-container transition-colors">Hủy lịch</button>
+<button class="flex-1 bg-primary text-on-primary font-label-md text-label-md py-sm rounded-lg hover:bg-secondary transition-colors shadow-sm">Chi tiết</button>
+</div>
+</div>
+</article>
+<!-- Card 2: Đang giữ căn -->
+<article class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-ambient shadow-ambient-hover transition-all flex flex-col overflow-hidden group">
+<!-- Image -->
+<div class="h-48 w-full relative overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A professional, high-resolution interior photo of a sleek modern kitchen in a high-end apartment. It features a stunning marble island, state-of-the-art stainless steel appliances, and minimalist cabinetry in warm wood tones. Bright morning light creates soft shadows, enhancing the clean, uncluttered, and luxurious PropTech atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDd_ou8ffROYsjQoHWnJN3D6Xwip-6i5_HeoxhNQCktyUuq0oqLExzIZ_b5GG5bm_GlHHqK8tHZ7XGi5gRBWueLRG-FMZkLMM3dctepWL8WbSpuRg5rkmmtl2jULKBlV2s7hpNxDhMw7kn1-cDjXeH7dXDMWkf3Lr7X3O1QUWHN3LYu_EK3BRURXl6pXzJAfOL3cybyqQ2LwZ-auj7_WJk8cV66DDKilNbFRfw7THUwWIO-MaxzrvBu"/>
+<!-- Badge Overlay -->
+<div class="absolute top-sm right-sm bg-secondary-fixed text-on-secondary-fixed px-sm py-xs rounded-lg font-label-sm text-label-sm backdrop-blur-md flex items-center gap-xs">
+<span class="material-symbols-outlined text-[14px]" data-icon="schedule">schedule</span>
+                        Đang giữ căn (12:45)
+                    </div>
+</div>
+<!-- Content -->
+<div class="p-lg flex flex-col gap-md flex-grow">
+<!-- Title & Time -->
+<div class="flex flex-col gap-xs">
+<h2 class="font-headline-md text-headline-md text-primary line-clamp-1">Masteri Thảo Điền - T2 3PN</h2>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+<span class="font-body-sm text-body-sm">09:30 - 10:15, T7, 14/10/2024</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="location_on">location_on</span>
+<span class="font-body-sm text-body-sm line-clamp-1">Tháp T2, 159 Xa Lộ Hà Nội, Quận 2</span>
+</div>
+</div>
+<hr class="border-outline-variant/20"/>
+<!-- Agent Info -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-md text-label-md font-bold">
+                                AI
+                            </div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Bot Đặt Lịch</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Đang xử lý</span>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-sm mt-auto pt-sm">
+<button class="flex-1 bg-surface-container-high text-error font-label-md text-label-md py-sm rounded-lg hover:bg-error-container hover:text-on-error-container transition-colors">Hủy lịch</button>
+<button class="flex-1 bg-gradient-to-r from-secondary to-tertiary-container text-white font-label-md text-label-md py-sm rounded-lg hover:opacity-90 transition-opacity shadow-sm flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="check_circle">check_circle</span>
+                            Xác nhận ngay
+                        </button>
+</div>
+</div>
+</article>
+<!-- Empty state filler or additional card could go here to complete the grid visually -->
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) - Using structure from TopNavBar logic as base for mobile destination -->
+<nav class="md:hidden fixed bottom-0 w-full bg-surface/90 backdrop-blur-lg border-t border-outline-variant/20 flex justify-around items-center h-16 pb-safe z-50">
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm mt-xs text-[10px]">Trang chủ</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="apartment">apartment</span>
+<span class="font-label-sm text-label-sm mt-xs text-[10px]">Căn hộ</span>
+</a>
+<!-- Active Mobile Item -->
+<a class="flex flex-col items-center justify-center w-full h-full text-secondary relative" href="#">
+<div class="absolute -top-3 w-12 h-1 rounded-full bg-secondary"></div>
+<span class="material-symbols-outlined" data-icon="calendar_month" data-weight="fill" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+<span class="font-label-sm text-label-sm mt-xs text-[10px] font-bold">Lịch xem</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-xs text-[10px]">Tài khoản</span>
+</a>
+</nav>
+<div class="h-16 md:hidden"></div> <!-- Spacer for mobile nav -->
+</body></html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Chi tiết căn hộ - Booking Bot AI</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#002113",
+                        "on-primary-fixed-variant": "#314865",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "tertiary-fixed": "#6ffbbe",
+                        "tertiary-container": "#002a1a",
+                        "surface-container-low": "#f2f4f6",
+                        "background": "#f7f9fb",
+                        "on-surface-variant": "#43474d",
+                        "surface-bright": "#f7f9fb",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed": "#001f27",
+                        "inverse-surface": "#2d3133",
+                        "primary-container": "#0a2540",
+                        "on-secondary-container": "#005669",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#d8dadc",
+                        "surface-container": "#eceef0",
+                        "error": "#ba1a1a",
+                        "surface": "#f7f9fb",
+                        "on-secondary-fixed-variant": "#004e5f",
+                        "inverse-primary": "#b0c8eb",
+                        "on-background": "#191c1e",
+                        "on-tertiary-container": "#009e6d",
+                        "primary-fixed": "#d2e4ff",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "secondary": "#00677e",
+                        "on-error-container": "#93000a",
+                        "outline": "#74777e",
+                        "on-primary-fixed": "#001c37",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#49607e",
+                        "on-primary-container": "#768dad",
+                        "secondary-container": "#00d2fd",
+                        "surface-container-high": "#e6e8ea",
+                        "primary": "#000f22",
+                        "tertiary": "#001209",
+                        "secondary-fixed-dim": "#3cd7ff",
+                        "secondary-fixed": "#b4ebff",
+                        "outline-variant": "#c4c6ce",
+                        "primary-fixed-dim": "#b0c8eb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "lg": "24px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "xxl": "48px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-xl": ["Manrope"],
+                        "headline-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Manrope"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-xl": ["40px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom subtle shadow for cards */
+        .ambient-shadow {
+            box-shadow: 0 4px 24px -4px rgba(0, 15, 34, 0.04), 0 2px 8px -2px rgba(0, 15, 34, 0.02);
+        }
+        .ai-gradient-btn {
+            background: linear-gradient(135deg, #00d2fd 0%, #00677e 100%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<!-- TopNavBar Component -->
+<nav class="bg-surface/80 dark:bg-surface/80 backdrop-blur-md docked full-width top-0 sticky bg-surface/80 dark:bg-surface/80 border-b border-outline-variant/30 shadow-sm z-50">
+<div class="flex justify-between items-center px-container-margin h-20 w-full max-w-7xl mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-sm cursor-pointer hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<span class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed">Booking Bot AI</span>
+</div>
+<!-- Navigation Links (Desktop) -->
+<div class="hidden md:flex items-center gap-lg">
+<!-- Trang chủ (Inactive) -->
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary hover:bg-secondary-container/10 transition-colors duration-200 px-md py-sm rounded-lg active:scale-95 transition-transform" href="#">Trang chủ</a>
+<!-- Căn hộ (Active) -->
+<a class="font-label-md text-label-md text-secondary dark:text-secondary-fixed-dim font-bold border-b-2 border-secondary px-md py-sm active:scale-95 transition-transform" href="#">Căn hộ</a>
+<!-- Cách hoạt động (Inactive) -->
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary hover:bg-secondary-container/10 transition-colors duration-200 px-md py-sm rounded-lg active:scale-95 transition-transform" href="#">Cách hoạt động</a>
+<!-- Lịch xem của tôi (Inactive) -->
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-surface-variant hover:text-primary hover:bg-secondary-container/10 transition-colors duration-200 px-md py-sm rounded-lg active:scale-95 transition-transform" href="#">Lịch xem của tôi</a>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-md">
+<button class="hidden md:block font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high px-md py-sm rounded-lg transition-colors">Đăng nhập</button>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-full hover:opacity-90 transition-opacity flex items-center gap-xs">
+                    Đặt lịch xem nhà
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Content Container -->
+<main class="w-full max-w-7xl mx-auto px-container-margin py-xl md:py-xxl flex flex-col gap-xl">
+<!-- Image Gallery (Bento Grid) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-sm md:gap-md h-[400px] md:h-[500px] rounded-xl overflow-hidden">
+<div class="md:col-span-2 h-full w-full relative group cursor-pointer">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A highly detailed wide-angle architectural photograph of a luxurious modern apartment living room. The space features floor-to-ceiling windows letting in bright natural daylight, minimalist light-wood furniture, and neutral tones of white and light gray. The aesthetic is clean, premium PropTech, conveying a sense of spaciousness and high-end living in a bright, modern light-mode style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBJ6n2jdspkgepqwPAzGbfRa8YXPOV9cdkoy9rH3HISYEKe8meoMKow_txNoQajKG6hg-QyAQ3l-P1NGXVFB3P5Nbb0H3OhGMItGwDJpG2gArZspDwYtunkpeYjb-Q75Yh-RPeEf59QPv7Z16FJSYJ_NwVRiH2f1f5Q41nezx-T9ppeNKFPYlFMeTm4i_TnDSjBnI4kQ-WNERDFORsC8FCY-oxOyWJAXihsBNWWOrj3PlZnBvgasi0"/>
+</div>
+<div class="hidden md:flex flex-col gap-sm md:gap-md h-full">
+<div class="h-1/2 w-full relative group cursor-pointer overflow-hidden rounded-tr-xl">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A bright, modern bedroom in a high-end apartment. The room features a neatly made king-size bed with crisp white linens, contemporary minimalist lighting fixtures, and a serene ambiance. Soft natural light highlights the subtle textures of the walls and flooring. The overall style aligns with a premium, trustworthy real estate platform aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4pwzRcWFheHLqZdXrVWvfbWk0iERljTWvHjafAG0vLXu8dAxTaqnemWeTIsJV56vwFGgooWd6S05QpX6NR5A8R6Yt1Td-0LiUWVo6gQk2AaA69VdU4G3f-pG6r2n_cbhn411vrDRyZGBW_HtLh-hlCv_3FDadMTDsplSMZsUrQ9feHKiBg21mNwQaXKfDed31bpUbRw-C03buBYw5DGGKES_Xykhb3y47CH6BBnPFHW64mULnFsSI"/>
+</div>
+<div class="h-1/2 w-full relative group cursor-pointer overflow-hidden rounded-br-xl">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A sleek, modern apartment kitchen featuring high-gloss white cabinetry, marble countertops, and state-of-the-art stainless steel appliances. The lighting is bright and inviting, showcasing the clean lines and premium materials. The image evokes a sense of modern luxury and efficiency typical of top-tier property listings." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFeIXB1HI6dcG9066GkCr_rsQN8RFfcoSnlpM5BMkwqppc-2RdPMC-jHRGs5h76LuCeJo1Z7YelMgNZ2yEt55wbPacIKI8yQK0hcBJ7ZHmnxdi2Rz_xnG-4oTD7X5znUiNDlh1Wz_Sf8iWCk-b_V1HnyrO8VEe5aCKHQpnrpQN0o7zy0Br1CmLRh8FcCBmhcxMeEcQTxhwSjlVNO8EaD-ixWtGW7i5nIJtgbo-C14VFVrVhaM6_GZC"/>
+<div class="absolute inset-0 bg-primary/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="text-on-primary font-label-md text-label-md bg-surface/30 backdrop-blur-md px-md py-sm rounded-full border border-on-primary/20">Xem tất cả 12 ảnh</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Info and Sidebar Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-xl">
+<!-- Left Column: Content -->
+<div class="lg:col-span-8 flex flex-col gap-xl">
+<!-- Header Info -->
+<div class="flex flex-col gap-md">
+<div class="flex flex-wrap items-center gap-sm">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            Đang có sẵn
+                        </span>
+<span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-sm py-xs rounded-full flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+                            Đã xác minh
+                        </span>
+<span class="text-on-surface-variant font-label-sm text-label-sm ml-auto">Mã căn: #VH-CP-204</span>
+</div>
+<div>
+<h1 class="font-headline-xl text-headline-lg-mobile md:text-headline-xl text-on-surface mb-xs">Căn hộ cao cấp Vinhomes Central Park</h1>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+                            208 Nguyễn Hữu Cảnh, Phường 22, Bình Thạnh, TP.HCM
+                        </p>
+</div>
+<div class="text-secondary-container font-headline-xl text-headline-xl">
+                        4.5 Tỷ <span class="font-headline-md text-headline-md text-on-surface-variant">VNĐ</span>
+</div>
+<!-- Key Metrics Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-md pt-md border-t border-outline-variant/30">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">square_foot</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Diện tích</p>
+<p class="font-label-md text-label-md text-on-surface">75 m²</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">bed</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Phòng ngủ</p>
+<p class="font-label-md text-label-md text-on-surface">2 Phòng</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">shower</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Phòng tắm</p>
+<p class="font-label-md text-label-md text-on-surface">2 Phòng</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">compass_calibration</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Hướng</p>
+<p class="font-label-md text-label-md text-on-surface">Đông Nam</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Overview Section -->
+<section class="flex flex-col gap-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Tổng quan</h2>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                        Căn hộ tọa lạc tại tầng 15 của tòa tháp, mang đến tầm nhìn toàn cảnh ra sông Sài Gòn tuyệt đẹp. Thiết kế nội thất theo phong cách Minimalism hiện đại, tối ưu hóa không gian sống và đón ánh sáng tự nhiên. Trang bị đầy đủ nội thất cao cấp nhập khẩu, sẵn sàng để ở hoặc cho thuê sinh lời ngay. Hệ thống smarthome tích hợp giúp quản lý năng lượng và an ninh hiệu quả.
+                    </p>
+</section>
+<!-- Amenities Section -->
+<section class="flex flex-col gap-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Tiện ích nội khu</h2>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-md">
+<div class="flex items-center gap-sm p-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg">
+<span class="material-symbols-outlined text-secondary">pool</span>
+<span class="font-label-md text-label-md text-on-surface">Hồ bơi vô cực</span>
+</div>
+<div class="flex items-center gap-sm p-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg">
+<span class="material-symbols-outlined text-secondary">fitness_center</span>
+<span class="font-label-md text-label-md text-on-surface">Phòng Gym 24/7</span>
+</div>
+<div class="flex items-center gap-sm p-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg">
+<span class="material-symbols-outlined text-secondary">local_parking</span>
+<span class="font-label-md text-label-md text-on-surface">Bãi đỗ xe thông minh</span>
+</div>
+<div class="flex items-center gap-sm p-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg">
+<span class="material-symbols-outlined text-secondary">security</span>
+<span class="font-label-md text-label-md text-on-surface">An ninh đa lớp</span>
+</div>
+<div class="flex items-center gap-sm p-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg">
+<span class="material-symbols-outlined text-secondary">park</span>
+<span class="font-label-md text-label-md text-on-surface">Công viên cây xanh</span>
+</div>
+<div class="flex items-center gap-sm p-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg">
+<span class="material-symbols-outlined text-secondary">storefront</span>
+<span class="font-label-md text-label-md text-on-surface">Siêu thị tiện lợi</span>
+</div>
+</div>
+</section>
+<!-- Floor Plan Section -->
+<section class="flex flex-col gap-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Mặt bằng căn hộ</h2>
+<div class="w-full h-[300px] bg-surface-container rounded-xl overflow-hidden border border-outline-variant/30 flex items-center justify-center relative">
+<img class="w-full h-full object-contain p-lg opacity-80 mix-blend-multiply" data-alt="A clean, highly professional minimalist 2D architectural floor plan of a 2-bedroom apartment. The plan is drawn with fine precise lines on a crisp white background, featuring subtle gray fills for walls and light blue accents for windows. The style is strictly architectural and modern, suitable for a premium PropTech listing interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1MWaU9kyTQjjq21ogyejkfuOKQvAGFWR-dysPBZh3z3lSDs_n2NmwjhVU4Vcc-zVMYJqH5sEmvs2I5EXFJaUf2a12uumgMcw2Iz-03RHGXtdZyeHXtgzCfFqHyNd7OF5jhRQuxzuDJ-QvDwEuYkrto4aW5gZUWdJy6SP80hJB68F7NEi-REyngeXc6SXfP5lmZSjNQ139mC3qQ9oI9tBe2v0ESo6rxedw1yE5Yq8kW8m_NUNVn42v"/>
+</div>
+</section>
+<!-- Location Section -->
+<section class="flex flex-col gap-md pb-xxl">
+<h2 class="font-headline-md text-headline-md text-on-surface">Vị trí</h2>
+<div class="w-full h-[300px] rounded-xl overflow-hidden border border-outline-variant/30 relative bg-surface-container-high">
+<!-- Map placeholder using data-location -->
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist digital map interface centered on Ho Chi Minh City. The map style uses a light mode color palette with soft whites, pale grays, and subtle pastel blues for water bodies. Arterial roads are highlighted in a slightly darker gray. The aesthetic matches modern premium ride-hailing or proptech map designs, avoiding heavy clutter." data-location="Ho Chi Minh City" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCykA1GkFYEImMe5XBBsWCwswn75r8nwPU22cLHj6YU0rnYntra5rBY1aP9P0-U9tombZO1g8FWI-eKrks5UlQJF_nO1P21SmAH6BVK_RSHMQIUeXGwYIEQbz8Vh1j-uFoUOKvJkvNKHH_4HQXrUWxeolwrwlclsV6GfZOdryS0rcH2-6Wk2Q4epkoXoUfAzyXC0CRiPJcoX8FjbmwY9lls3ACUtQA_kGVlNl6xNq63ujcimnyqyyRQ"/>
+<!-- Map Pin Overlay -->
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="bg-primary text-on-primary font-label-sm text-label-sm px-sm py-xs rounded-full shadow-md mb-xs whitespace-nowrap">
+                                Vinhomes Central Park
+                            </div>
+<span class="material-symbols-outlined text-[32px] text-primary" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Sticky Sidebar -->
+<div class="lg:col-span-4">
+<div class="sticky top-28 bg-surface-container-lowest rounded-xl ambient-shadow border border-outline-variant/20 p-lg flex flex-col gap-lg">
+<!-- Status Header -->
+<div class="flex justify-between items-start border-b border-outline-variant/30 pb-md">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Trạng thái</p>
+<div class="flex items-center gap-xs">
+<div class="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></div>
+<span class="font-label-md text-label-md text-on-surface">Sẵn sàng để xem</span>
+</div>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-xs">Lịch xem sớm nhất</p>
+<span class="font-label-md text-label-md text-secondary-container">14:30 Hôm nay</span>
+</div>
+</div>
+<!-- AI Time Slot Picker (Visual representation) -->
+<div class="flex flex-col gap-sm">
+<p class="font-label-md text-label-md text-on-surface">Gợi ý từ trợ lý AI</p>
+<div class="grid grid-cols-2 gap-sm">
+<button class="bg-secondary-container/10 border border-secondary-container text-on-secondary-container font-label-md text-label-md py-sm rounded-lg hover:bg-secondary-container/20 transition-colors flex justify-center items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+                                14:30 T5
+                            </button>
+<button class="bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-md text-label-md py-sm rounded-lg hover:bg-surface-container-high transition-colors flex justify-center items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+                                09:00 T6
+                            </button>
+</div>
+</div>
+<!-- Hold Note -->
+<div class="bg-surface-container-highest/50 border border-outline-variant/50 rounded-lg p-sm flex gap-sm items-start">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">timer</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                            Hệ thống AI sẽ tự động giữ khung giờ trong <span class="font-bold">15 phút</span> sau khi bạn chọn để đảm bảo trải nghiệm tốt nhất.
+                        </p>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-md pt-sm">
+<button class="ai-gradient-btn text-on-primary w-full py-md rounded-lg font-label-md text-label-md flex justify-center items-center gap-sm shadow-md hover:opacity-90 transition-opacity transform active:scale-[0.98]">
+<span class="material-symbols-outlined">auto_awesome</span>
+                            Đặt lịch xem với AI
+                        </button>
+<button class="bg-surface-container-lowest border border-outline text-on-surface w-full py-md rounded-lg font-label-md text-label-md flex justify-center items-center gap-sm hover:bg-surface-container-low transition-colors transform active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-surface-variant">chat_bubble</span>
+                            Chat với trợ lý
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

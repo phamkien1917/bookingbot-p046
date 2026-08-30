@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Booking Bot AI - Đặt lịch xem nhà thông minh</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#002113",
+                      "on-primary-fixed-variant": "#314865",
+                      "surface-container-highest": "#e0e3e5",
+                      "surface-container-lowest": "#ffffff",
+                      "on-surface": "#191c1e",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "tertiary-fixed": "#6ffbbe",
+                      "tertiary-container": "#002a1a",
+                      "surface-container-low": "#f2f4f6",
+                      "background": "#f7f9fb",
+                      "on-surface-variant": "#43474d",
+                      "surface-bright": "#f7f9fb",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed": "#001f27",
+                      "inverse-surface": "#2d3133",
+                      "primary-container": "#0a2540",
+                      "on-secondary-container": "#005669",
+                      "error-container": "#ffdad6",
+                      "on-primary": "#ffffff",
+                      "surface-variant": "#e0e3e5",
+                      "inverse-on-surface": "#eff1f3",
+                      "on-error": "#ffffff",
+                      "surface-dim": "#d8dadc",
+                      "surface-container": "#eceef0",
+                      "error": "#ba1a1a",
+                      "surface": "#f7f9fb",
+                      "on-secondary-fixed-variant": "#004e5f",
+                      "inverse-primary": "#b0c8eb",
+                      "on-background": "#191c1e",
+                      "on-tertiary-container": "#009e6d",
+                      "primary-fixed": "#d2e4ff",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "secondary": "#00677e",
+                      "on-error-container": "#93000a",
+                      "outline": "#74777e",
+                      "on-primary-fixed": "#001c37",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#49607e",
+                      "on-primary-container": "#768dad",
+                      "secondary-container": "#00d2fd",
+                      "surface-container-high": "#e6e8ea",
+                      "primary": "#000f22",
+                      "tertiary": "#001209",
+                      "secondary-fixed-dim": "#3cd7ff",
+                      "secondary-fixed": "#b4ebff",
+                      "outline-variant": "#c4c6ce",
+                      "primary-fixed-dim": "#b0c8eb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-margin": "24px",
+                      "lg": "24px",
+                      "xl": "32px",
+                      "xs": "4px",
+                      "sm": "8px",
+                      "xxl": "48px",
+                      "md": "16px",
+                      "gutter": "16px",
+                      "base": "8px"
+              },
+              "fontFamily": {
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "headline-xl": [
+                              "Manrope"
+                      ],
+                      "headline-md": [
+                              "Manrope"
+                      ],
+                      "headline-lg": [
+                              "Manrope"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Manrope"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-xl": [
+                              "40px",
+                              {
+                                      "lineHeight": "52px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        .ai-gradient {
+            background: linear-gradient(135deg, #00d2fd 0%, #009e6d 100%);
+        }
+        .ai-gradient-text {
+            background: linear-gradient(135deg, #00d2fd 0%, #009e6d 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ambient-shadow {
+            box-shadow: 0 4px 24px rgba(10, 37, 64, 0.06);
+        }
+        .hover-ambient-shadow:hover {
+            box-shadow: 0 12px 32px rgba(10, 37, 64, 0.12);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface/80 dark:bg-surface/80 backdrop-blur-md border-b border-outline-variant/30 w-full top-0 sticky z-50">
+<div class="flex justify-between items-center px-container-margin h-20 w-full max-w-7xl mx-auto shadow-sm">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">robot_2</span>
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">Booking Bot AI</span>
+</div>
+<div class="hidden md:flex items-center gap-lg">
+<a class="text-secondary dark:text-secondary-fixed-dim font-bold border-b-2 border-secondary font-label-md text-label-md py-4 scale-95 transition-transform hover:bg-secondary-container/10 transition-colors duration-200" href="#">Trang chủ</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary font-label-md text-label-md py-4 hover:bg-secondary-container/10 transition-colors duration-200" href="#">Căn hộ</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary font-label-md text-label-md py-4 hover:bg-secondary-container/10 transition-colors duration-200" href="#">Cách hoạt động</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary font-label-md text-label-md py-4 hover:bg-secondary-container/10 transition-colors duration-200" href="#">Lịch xem của tôi</a>
+</div>
+<div class="flex items-center gap-md">
+<button class="hidden md:block px-4 py-2 text-primary font-label-md text-label-md hover:bg-surface-container-high rounded-full transition-colors">Đăng nhập</button>
+<button class="bg-primary text-on-primary px-6 py-3 rounded-full font-label-md text-label-md hover:opacity-90 transition-opacity flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">calendar_add_on</span>
+                    Đặt lịch xem nhà
+                </button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="relative pt-xxl pb-xxl md:pt-32 md:pb-32 overflow-hidden px-container-margin">
+<div class="absolute inset-0 bg-gradient-to-br from-surface-bright to-surface-container-low -z-10"></div>
+<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-xl items-center">
+<div class="flex flex-col gap-lg">
+<h1 class="font-headline-xl text-headline-lg-mobile md:text-headline-xl text-primary max-w-2xl">
+                        Đặt lịch xem nhà trong vài phút với <span class="ai-gradient-text">trợ lý AI</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl">
+                        Booking Bot AI giúp bạn kiểm tra căn hộ, chọn thời gian, giữ căn và kết nối với nhân viên tư vấn hoàn toàn tự động. Nhanh chóng, chính xác và bảo mật.
+                    </p>
+<div class="flex flex-wrap gap-md mt-sm">
+<button class="ai-gradient text-white px-8 py-4 rounded-full font-label-md text-label-md hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-secondary-container/30">
+<span class="material-symbols-outlined">auto_awesome</span>
+                            Bắt đầu đặt lịch
+                        </button>
+<button class="bg-surface-container text-primary px-8 py-4 rounded-full font-label-md text-label-md hover:bg-surface-container-high transition-colors border border-outline-variant/30 flex items-center gap-2">
+<span class="material-symbols-outlined">search</span>
+                            Khám phá căn hộ
+                        </button>
+</div>
+<div class="flex flex-wrap gap-4 mt-lg">
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/20">
+<span class="material-symbols-outlined text-secondary text-sm">bolt</span>
+                            Phản hồi 24/7
+                        </div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/20">
+<span class="material-symbols-outlined text-secondary text-sm">lock_clock</span>
+                            Giữ căn tự động
+                        </div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/20">
+<span class="material-symbols-outlined text-secondary text-sm">check_circle</span>
+                            Xác nhận nhanh
+                        </div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm bg-surface-container px-3 py-1.5 rounded-full border border-outline-variant/20">
+<span class="material-symbols-outlined text-secondary text-sm">shield_locked</span>
+                            Bảo mật
+                        </div>
+</div>
+</div>
+<!-- Chatbot Mockup -->
+<div class="relative w-full aspect-square md:aspect-auto md:h-[600px] flex items-center justify-center">
+<div class="absolute inset-0 bg-secondary-container/10 rounded-full blur-3xl -z-10"></div>
+<div class="bg-surface-container-lowest rounded-xl ambient-shadow border border-outline-variant/30 w-full max-w-md h-[500px] flex flex-col overflow-hidden relative z-10">
+<div class="bg-surface-container-low p-md border-b border-outline-variant/20 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full ai-gradient flex items-center justify-center text-white">
+<span class="material-symbols-outlined">robot_2</span>
+</div>
+<div>
+<div class="font-label-md text-label-md text-primary">Booking Bot AI</div>
+<div class="font-label-sm text-label-sm text-tertiary-container flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span> Trực tuyến
+                                </div>
+</div>
+</div>
+<div class="flex-grow p-md flex flex-col gap-md overflow-y-auto bg-surface-bright">
+<div class="flex gap-3">
+<div class="w-8 h-8 rounded-full ai-gradient flex-shrink-0 flex items-center justify-center text-white text-xs mt-1">
+<span class="material-symbols-outlined text-[16px]">robot_2</span>
+</div>
+<div class="bg-surface-container-low p-3 rounded-2xl rounded-tl-none font-body-sm text-body-sm text-on-surface max-w-[85%] border border-outline-variant/20">
+                                    Chào bạn! Tôi là trợ lý ảo của Booking Bot. Bạn đang tìm căn hộ khu vực nào ạ?
+                                </div>
+</div>
+<div class="flex gap-3 flex-row-reverse">
+<div class="bg-primary text-on-primary p-3 rounded-2xl rounded-tr-none font-body-sm text-body-sm max-w-[85%]">
+                                    Mình muốn tìm căn 2 phòng ngủ ở Quận 2, có ban công.
+                                </div>
+</div>
+<div class="flex gap-3">
+<div class="w-8 h-8 rounded-full ai-gradient flex-shrink-0 flex items-center justify-center text-white text-xs mt-1">
+<span class="material-symbols-outlined text-[16px]">robot_2</span>
+</div>
+<div class="bg-secondary-container/10 p-3 rounded-2xl rounded-tl-none font-body-sm text-body-sm text-on-surface max-w-[85%] border border-secondary-container/30">
+                                    Tuyệt vời! Hiện tại hệ thống đang có 3 căn hộ phù hợp với yêu cầu của bạn ở dự án The River Thủ Thiêm và Empire City. Bạn muốn xem thông tin chi tiết hay đặt lịch tham quan ngay?
+                                </div>
+</div>
+<!-- Interactive suggestion chips -->
+<div class="flex flex-wrap gap-2 pl-11">
+<button class="px-3 py-1.5 rounded-full border border-secondary text-secondary font-label-sm text-label-sm hover:bg-secondary-container/10 transition-colors">Xem chi tiết căn hộ</button>
+<button class="px-3 py-1.5 rounded-full bg-secondary text-on-secondary font-label-sm text-label-sm hover:opacity-90 transition-opacity">Đặt lịch tham quan</button>
+</div>
+</div>
+<div class="p-md border-t border-outline-variant/20 bg-surface-container-lowest">
+<div class="flex items-center gap-2 bg-surface-container rounded-full px-4 py-2 border border-outline-variant/30 focus-within:border-secondary focus-within:shadow-[0_0_0_2px_rgba(0,210,253,0.2)] transition-all">
+<input class="bg-transparent border-none focus:ring-0 text-body-sm w-full outline-none text-on-surface" placeholder="Nhập tin nhắn..." type="text"/>
+<button class="text-secondary hover:text-secondary-fixed transition-colors">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Cách hoạt động Section -->
+<section class="py-xxl md:py-32 bg-surface px-container-margin border-t border-outline-variant/20">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-xl">
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-sm">Trải nghiệm đặt lịch liền mạch</h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl mx-auto">Chỉ với 4 bước đơn giản, trợ lý AI sẽ giúp bạn hoàn tất quy trình tìm kiếm và đặt lịch xem nhà một cách nhanh chóng nhất.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-lg">
+<!-- Step 1 -->
+<div class="bg-surface-container-lowest p-lg rounded-xl ambient-shadow border border-outline-variant/20 hover-ambient-shadow transition-shadow relative">
+<div class="absolute -top-4 -left-4 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md font-bold shadow-md">1</div>
+<div class="w-12 h-12 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-2xl">search</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-sm text-lg">Chọn căn hộ</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Duyệt qua danh sách các căn hộ đang mở bán/cho thuê với thông tin đầy đủ, minh bạch.</p>
+</div>
+<!-- Step 2 -->
+<div class="bg-surface-container-lowest p-lg rounded-xl ambient-shadow border border-outline-variant/20 hover-ambient-shadow transition-shadow relative">
+<div class="absolute -top-4 -left-4 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md font-bold shadow-md">2</div>
+<div class="w-12 h-12 rounded-lg ai-gradient text-white flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-2xl">forum</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-sm text-lg">Trao đổi với AI</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Tương tác tự nhiên với Booking Bot để hỏi đáp chi tiết và lọc ra lựa chọn tối ưu nhất.</p>
+</div>
+<!-- Step 3 -->
+<div class="bg-surface-container-lowest p-lg rounded-xl ambient-shadow border border-outline-variant/20 hover-ambient-shadow transition-shadow relative">
+<div class="absolute -top-4 -left-4 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md font-bold shadow-md">3</div>
+<div class="w-12 h-12 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-2xl">calendar_month</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-sm text-lg">Chọn lịch &amp; giữ căn</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Xem lịch trống real-time, chọn khung giờ phù hợp và hệ thống sẽ tự động tạm giữ căn cho bạn.</p>
+</div>
+<!-- Step 4 -->
+<div class="bg-surface-container-lowest p-lg rounded-xl ambient-shadow border border-outline-variant/20 hover-ambient-shadow transition-shadow relative">
+<div class="absolute -top-4 -left-4 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md font-bold shadow-md">4</div>
+<div class="w-12 h-12 rounded-lg bg-tertiary-container text-on-tertiary-container flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-2xl">task_alt</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-primary mb-sm text-lg">Nhận xác nhận</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Nhận tin nhắn/email xác nhận ngay lập tức kèm thông tin liên hệ của chuyên viên tư vấn.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Căn hộ nổi bật Section -->
+<section class="py-xxl md:py-32 bg-surface-bright px-container-margin border-t border-outline-variant/20">
+<div class="max-w-7xl mx-auto">
+<div class="flex justify-between items-end mb-xl">
+<div>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-sm">Căn hộ nổi bật</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Gợi ý từ AI dựa trên xu hướng tìm kiếm</p>
+</div>
+<button class="hidden md:flex items-center gap-1 text-secondary font-label-md text-label-md hover:text-secondary-fixed transition-colors">
+                        Xem tất cả <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-lg">
+<!-- Property Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden ambient-shadow border border-outline-variant/20 group hover-ambient-shadow transition-all duration-300 flex flex-col">
+<div class="relative h-64 overflow-hidden">
+<div class="bg-cover bg-center w-full h-full group-hover:scale-105 transition-transform duration-500" data-alt="A modern, high-end apartment living room with floor-to-ceiling windows overlooking a vibrant city skyline during golden hour. The space is styled with minimalist, luxury furniture in neutral tones, accented by soft, warm lighting. The bright, light-mode aesthetic emphasizes clean lines, open space, and a premium real estate feel." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBPG-YhfCw54v2HfCMVJb6UcLT0w_ErQXdx13W11u7s4NPmi2KeEgLbyqEEy_-rHXcC9nogH3j4v_V_SAkuLYztXXj-1Fa8gt0WO6pzbr3nsRwhP7CWun3anb3_5wd6RNbyzxzc_RJpejoEfOSxrLx6cN9eYVyT9ffhzVH5nU6t7QHTL0JH8EFY1MXQEawEw4KoAGbKX20XrNXVb5rfy5YCkBiuw3poNVXBKekGZNBbAUk6llYqx8kX')"></div>
+<div class="absolute top-4 left-4 bg-tertiary-fixed-dim/20 text-tertiary-container backdrop-blur-md px-3 py-1 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1 border border-tertiary-fixed/50">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span> Có sẵn lịch xem
+                            </div>
+<div class="absolute bottom-4 right-4 bg-surface-container-lowest/90 backdrop-blur-md px-3 py-1.5 rounded-lg font-headline-md text-headline-md text-primary font-bold shadow-sm">
+                                4.5 Tỷ
+                            </div>
+</div>
+<div class="p-lg flex flex-col flex-grow">
+<h3 class="font-headline-md text-headline-md text-primary mb-2 text-lg line-clamp-1">The River Thủ Thiêm - Tháp Seine</h3>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm mb-4">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+<span class="truncate">Đại lộ Vòng Cung, Thủ Thiêm, Quận 2</span>
+</div>
+<div class="flex justify-between items-center py-3 border-y border-outline-variant/20 mb-4">
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">bed</span>
+<span class="font-label-sm text-label-sm">2 PN</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">bathtub</span>
+<span class="font-label-sm text-label-sm">2 WC</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">square_foot</span>
+<span class="font-label-sm text-label-sm">85 m²</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-2 gap-3">
+<button class="w-full border border-outline-variant/50 text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-high transition-colors">Chi tiết</button>
+<button class="w-full bg-primary text-on-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">calendar_month</span> Đặt lịch
+                                </button>
+</div>
+</div>
+</div>
+<!-- Property Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden ambient-shadow border border-outline-variant/20 group hover-ambient-shadow transition-all duration-300 flex flex-col">
+<div class="relative h-64 overflow-hidden">
+<div class="bg-cover bg-center w-full h-full group-hover:scale-105 transition-transform duration-500" data-alt="A sleek, contemporary open-concept kitchen and dining area in a luxury penthouse. The scene features white marble countertops, minimalist dark oak cabinets, and elegant pendant lighting. The bright, inviting atmosphere is enhanced by natural daylight streaming through large windows, creating a premium light-mode visual style." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB7U7bZJZ1aP8TVHnnHb1zMXQVUWYuV81cxGC76stqgN55haknFaxKcs14R3h9QkmJXNXXlgNknETBlCxeuTnTjnOWnt84YXZT8sxySAOay7H6FdGh76jxRH6E3SSIBrC-tvyzvcN0tEKFP7iwdhROIPgZ-3qdMeQlCaVsObtNsGT7U8o4Ij08PRu4tp3D3OUe6eJpmaL_o7cnDIa5gAT0U1Xnk8fYFtc7Xqipm_o2tXq7I2emkkqkV')"></div>
+<div class="absolute top-4 left-4 bg-tertiary-fixed-dim/20 text-tertiary-container backdrop-blur-md px-3 py-1 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1 border border-tertiary-fixed/50">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span> Có sẵn lịch xem
+                            </div>
+<div class="absolute bottom-4 right-4 bg-surface-container-lowest/90 backdrop-blur-md px-3 py-1.5 rounded-lg font-headline-md text-headline-md text-primary font-bold shadow-sm">
+                                6.2 Tỷ
+                            </div>
+</div>
+<div class="p-lg flex flex-col flex-grow">
+<h3 class="font-headline-md text-headline-md text-primary mb-2 text-lg line-clamp-1">Empire City - Linden Residences</h3>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm mb-4">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+<span class="truncate">Khu đô thị mới Thủ Thiêm, Quận 2</span>
+</div>
+<div class="flex justify-between items-center py-3 border-y border-outline-variant/20 mb-4">
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">bed</span>
+<span class="font-label-sm text-label-sm">3 PN</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">bathtub</span>
+<span class="font-label-sm text-label-sm">2 WC</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">square_foot</span>
+<span class="font-label-sm text-label-sm">110 m²</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-2 gap-3">
+<button class="w-full border border-outline-variant/50 text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-high transition-colors">Chi tiết</button>
+<button class="w-full bg-primary text-on-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">calendar_month</span> Đặt lịch
+                                </button>
+</div>
+</div>
+</div>
+<!-- Property Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden ambient-shadow border border-outline-variant/20 group hover-ambient-shadow transition-all duration-300 flex flex-col">
+<div class="relative h-64 overflow-hidden">
+<div class="bg-cover bg-center w-full h-full group-hover:scale-105 transition-transform duration-500" data-alt="A bright, airy bedroom in a modern high-rise apartment, featuring a minimalist aesthetic with neutral tones, a large comfortable bed, and expansive windows offering a clear view of a lush urban park. The soft, natural morning light highlights the clean lines and premium finishes, fitting a pristine light-mode design language." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAr3F9NgC6CpQErCxOeyMSwWUhh0qkbGz0s4qryVn9mWCfphr2_FvKyot0Eiidi0tR9-rcG3XXoT4jwgIRyZpyJmbb50jxjUyIvTpUur5lwzalLuf6OCqSyPOEiwatqZuIzzThUj5Z7RxPDIhMygvsZKBjv8ooM6cigRwcXkJGmyctiQsn7KxJxgZNBbseU14XQi_WhUgnJGzwC7KtjdGAWrwIPCsXW50wsKKEtqWnib-2c2Zjx_UT4')"></div>
+<div class="absolute top-4 left-4 bg-tertiary-fixed-dim/20 text-tertiary-container backdrop-blur-md px-3 py-1 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1 border border-tertiary-fixed/50">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span> Có sẵn lịch xem
+                            </div>
+<div class="absolute bottom-4 right-4 bg-surface-container-lowest/90 backdrop-blur-md px-3 py-1.5 rounded-lg font-headline-md text-headline-md text-primary font-bold shadow-sm">
+                                3.8 Tỷ
+                            </div>
+</div>
+<div class="p-lg flex flex-col flex-grow">
+<h3 class="font-headline-md text-headline-md text-primary mb-2 text-lg line-clamp-1">Masteri Thảo Điền - Tòa T1</h3>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm mb-4">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+<span class="truncate">Xa lộ Hà Nội, Thảo Điền, Quận 2</span>
+</div>
+<div class="flex justify-between items-center py-3 border-y border-outline-variant/20 mb-4">
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">bed</span>
+<span class="font-label-sm text-label-sm">2 PN</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">bathtub</span>
+<span class="font-label-sm text-label-sm">1 WC</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-secondary">square_foot</span>
+<span class="font-label-sm text-label-sm">70 m²</span>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-2 gap-3">
+<button class="w-full border border-outline-variant/50 text-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:bg-surface-container-high transition-colors">Chi tiết</button>
+<button class="w-full bg-primary text-on-primary px-4 py-2.5 rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">calendar_month</span> Đặt lịch
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<button class="md:hidden w-full mt-lg border border-outline-variant/50 text-primary px-4 py-3 rounded-lg font-label-md text-label-md hover:bg-surface-container-high transition-colors flex justify-center items-center gap-2">
+                    Xem tất cả căn hộ <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-primary dark:bg-primary-container full-width mt-xxl">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-xl px-container-margin py-xl w-full max-w-7xl mx-auto flat no shadows">
+<div class="col-span-1">
+<div class="font-headline-md text-headline-md font-bold text-on-primary mb-md flex items-center gap-2">
+<span class="material-symbols-outlined">robot_2</span> Booking Bot AI
+                </div>
+<p class="font-body-sm text-body-sm text-surface-variant max-w-xs">Giải pháp AI thông minh giúp tối ưu hóa quy trình tìm kiếm và đặt lịch xem bất động sản.</p>
+</div>
+<div class="col-span-1 md:col-span-3 flex justify-end">
+<div class="flex flex-col md:flex-row gap-lg md:gap-xxl">
+<a class="text-surface-variant hover:text-on-primary font-label-md text-label-md hover:underline transition-all" href="#">Về chúng tôi</a>
+<a class="text-surface-variant hover:text-on-primary font-label-md text-label-md hover:underline transition-all" href="#">Điều khoản dịch vụ</a>
+<a class="text-surface-variant hover:text-on-primary font-label-md text-label-md hover:underline transition-all" href="#">Chính sách bảo mật</a>
+<a class="text-surface-variant hover:text-on-primary font-label-md text-label-md hover:underline transition-all" href="#">Liên hệ</a>
+</div>
+</div>
+<div class="col-span-1 md:col-span-4 border-t border-surface-tint/30 pt-lg mt-sm">
+<p class="font-body-sm text-body-sm text-surface-variant text-center md:text-left">© 2024 Booking Bot AI Agent. Tất cả quyền được bảo lưu.</p>
+</div>
+</div>
+</footer>
+</body></html>
