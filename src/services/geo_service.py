@@ -340,7 +340,19 @@ class GeoService:
                 pass
         return result
 
-    async def enrich_and_filter(
+    async def enrich_and_filter(self, *args: Any, **kwargs: Any) -> GeoSearchResult:
+        """Time the Goong round-trip so it can be told apart from the LLM cost.
+
+        The graph's per-node timing lumps this external call in with the
+        inventory LLM call; this line reports the geo portion on its own.
+        """
+        started = time.perf_counter()
+        try:
+            return await self._enrich_and_filter(*args, **kwargs)
+        finally:
+            logger.info("geo.enrich_and_filter took %d ms", round((time.perf_counter() - started) * 1000))
+
+    async def _enrich_and_filter(
         self,
         properties: list[dict[str, Any]],
         *,

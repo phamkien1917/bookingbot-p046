@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import Callable
+from functools import lru_cache
 from typing import Any
 
 from langgraph.graph import END, StateGraph
@@ -108,6 +110,30 @@ def get_agent_graph():
     return _compiled_agent
 
 
+@lru_cache
+def _trace_callbacks() -> tuple:
+    """Langfuse callback for the graph run, built once.
+
+    Returns an empty tuple unless both Langfuse keys are set and the package is
+    installed, so tracing stays opt-in and a missing dependency never breaks a
+    chat turn.
+    """
+    from src.config import get_settings
+
+    settings = get_settings()
+    if not (settings.langfuse_public_key and settings.langfuse_secret_key):
+        return ()
+    os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
+    os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
+    os.environ["LANGFUSE_HOST"] = settings.langfuse_host
+    try:
+        from langfuse.langchain import CallbackHandler
+    except ImportError:
+        logger.warning("Langfuse keys are set but the langfuse package is not installed.")
+        return ()
+    return (CallbackHandler(),)
+
+
 async def run_agent(
     state: AgentState,
     on_stage: Callable[[str], None] | None = None,
@@ -121,25 +147,17 @@ async def run_agent(
     produces what ainvoke would have returned.
     """
     graph = get_agent_graph()
-    
-    from src.config import get_settings
-    settings = get_settings()
-    callbacks = []
-    
-    if getattr(settings, "langfuse_public_key", None) and getattr(settings, "langfuse_secret_key", None):
-        try:
-            import os
-            os.environ["LANGFUSE_PUBLIC_KEY"] = settings.langfuse_public_key
-            os.environ["LANGFUSE_SECRET_KEY"] = settings.langfuse_secret_key
-            os.environ["LANGFUSE_HOST"] = getattr(settings, "langfuse_host", "https://cloud.langfuse.com")
-            
-            from langfuse.langchain import CallbackHandler
-            langfuse_handler = CallbackHandler()
-            callbacks.append(langfuse_handler)
-        except ImportError:
-            logger.warning("langfuse package is not installed.")
-            
-    config = {"callbacks": callbacks} if callbacks else {}
+    callbacks = _trace_callbacks()
+    config: dict[str, Any] = {}
+    if callbacks:
+        # Group every turn of one conversation under the same Langfuse session, and
+        # tie it to the customer when signed in, so the dashboard can show a whole
+        # chat on one timeline instead of loose per-turn traces.
+        config["callbacks"] = list(callbacks)
+        config["metadata"] = {
+            "langfuse_session_id": state.get("session_id"),
+            "langfuse_user_id": state.get("customer_id") or "anonymous",
+        }
 
     try:
         if on_stage is None:
