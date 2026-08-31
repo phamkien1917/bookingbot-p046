@@ -690,7 +690,12 @@ async def _reassign_waiting_request(db: AsyncSession, row: TourRequest, trigger:
     candidates = (await db.execute(
         select(SaleProfile)
         .join(User, User.id == SaleProfile.user_id)
+        .join(
+            PropertySaleAssignment,
+            PropertySaleAssignment.sale_user_id == SaleProfile.user_id,
+        )
         .where(
+            PropertySaleAssignment.property_id == row.property_id,
             SaleProfile.is_accepting_tours.is_(True),
             User.status == UserStatus.ACTIVE,
             SaleProfile.user_id.not_in(tried_sale_ids),
