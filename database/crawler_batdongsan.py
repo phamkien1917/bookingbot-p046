@@ -26,19 +26,19 @@ import time
 import unicodedata
 import uuid
 from collections import Counter
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse, urlunparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 from urllib.robotparser import RobotFileParser
-
 
 BASE_URL = "https://batdongsan.com.vn"
 DEFAULT_START_URL = (
@@ -112,8 +112,11 @@ class CrawlError(RuntimeError):
     """Raised when a crawl cannot safely produce a trustworthy output."""
 
 
-class AccessBlocked(CrawlError):
+class AccessBlockedError(CrawlError):
     """Raised when the source asks for CAPTCHA/browser verification."""
+
+
+AccessBlocked = AccessBlockedError
 
 
 @dataclass
@@ -1986,7 +1989,7 @@ def crawl_report(
     by_kind = Counter(str(record["property_kind"]) for record in records)
     by_province = Counter(str(record["province"]) for record in records)
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "source": "BATDONGSAN_COM_VN",
         "start_urls": start_urls,
         "accepted_count": len(records),
@@ -2087,7 +2090,7 @@ def crawl(
     if not candidates:
         raise CrawlError("No listing links were discovered")
 
-    crawled_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    crawled_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     rejected: Counter[str] = Counter()
     known_listing_ids = {
         str(record["source_listing_id"]) for record in accepted

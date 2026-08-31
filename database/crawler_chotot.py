@@ -16,14 +16,13 @@ import statistics
 import sys
 import time
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-
 
 API_ROOT = "https://gateway.chotot.com/v1/public/ad-listing"
 DEFAULT_REGION_ID = 12000  # Ha Noi
@@ -148,7 +147,7 @@ def epoch_millis_to_iso(value: Any) -> str:
     if milliseconds is None or milliseconds <= 0:
         return ""
     try:
-        timestamp = datetime.fromtimestamp(milliseconds / 1000, timezone.utc)
+        timestamp = datetime.fromtimestamp(milliseconds / 1000, UTC)
     except (OverflowError, OSError, ValueError):
         return ""
     return timestamp.isoformat().replace("+00:00", "Z")
@@ -395,9 +394,9 @@ def semantic_keys(property_data: dict[str, Any]) -> tuple[str, ...]:
     title = normalized_text_fingerprint(property_data.get("title"))
     description = normalized_text_fingerprint(property_data.get("description"))
     seller_id = str(property_data.get("seller_account_id", ""))
-    digest = hashlib.sha256(f"{title}|{description}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{title}|{description}".encode()).hexdigest()
     seller_description_digest = hashlib.sha256(
-        f"{seller_id}|{description}".encode("utf-8")
+        f"{seller_id}|{description}".encode()
     ).hexdigest()
     seller_location_specs = "|".join(
         (
@@ -476,7 +475,7 @@ def crawl_complete_properties(
     detail_requests = 0
     duplicate_listings = 0
     total_available: int | None = None
-    crawled_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    crawled_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
     for page_index in range(max_pages):
         offset = page_index * batch_size

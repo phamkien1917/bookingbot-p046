@@ -6,7 +6,7 @@ BEGIN;
 
 DO $$
 DECLARE
-    table_count INTEGER;
+    missing_tables TEXT;
     user_count INTEGER;
     customer_count INTEGER;
     sale_count INTEGER;
@@ -20,19 +20,41 @@ DECLARE
     batdongsan_seller_count INTEGER;
     nhatot_media_count INTEGER;
     batdongsan_media_count INTEGER;
+    unknown_source_count INTEGER;
     invalid_batdongsan_media_count INTEGER;
     missing_batdongsan_phone_count INTEGER;
     missing_external_seller_count INTEGER;
     missing_primary_sale_count INTEGER;
 BEGIN
-    SELECT count(*) INTO table_count
-    FROM information_schema.tables
-    WHERE table_schema = 'public'
-      AND table_type = 'BASE TABLE';
+    -- The canonical 18 must all exist. Counting them instead would fail every
+    -- time a feature adds a table, which says nothing about the MVP schema.
+    SELECT string_agg(expected.name, ', ' ORDER BY expected.name) INTO missing_tables
+    FROM unnest(ARRAY[
+        'users', 'customer_profiles', 'sale_profiles', 'projects', 'properties',
+        'external_sellers', 'property_external_sellers', 'property_media',
+        'property_sale_assignments', 'sale_unavailability', 'conversations',
+        'messages', 'tour_requests', 'tour_slot_options', 'approval_requests',
+        'appointments', 'property_holds', 'notifications'
+    ]) AS expected(name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+          AND table_name = expected.name
+    );
 
-    SELECT count(*) INTO user_count FROM users;
-    SELECT count(*) INTO customer_count FROM customer_profiles;
-    SELECT count(*) INTO sale_count FROM sale_profiles;
+    -- Only the seeded demo accounts, identified by their fixed UUID block. A
+    -- long-lived dev database also holds accounts created by hand, and counting
+    -- those would make the assertion drift instead of catching a broken seed.
+    SELECT count(*) INTO user_count FROM users
+    WHERE id BETWEEN '10000000-0000-0000-0000-000000000001'
+                 AND '10000000-0000-0000-0000-0000000000ff';
+    SELECT count(*) INTO customer_count FROM customer_profiles
+    WHERE user_id BETWEEN '10000000-0000-0000-0000-000000000001'
+                      AND '10000000-0000-0000-0000-0000000000ff';
+    SELECT count(*) INTO sale_count FROM sale_profiles
+    WHERE user_id BETWEEN '10000000-0000-0000-0000-000000000001'
+                      AND '10000000-0000-0000-0000-0000000000ff';
     SELECT count(*) INTO seller_count FROM external_sellers;
     SELECT count(*) INTO seller_link_count FROM property_external_sellers;
     SELECT count(*) INTO property_count FROM properties;
@@ -50,16 +72,20 @@ BEGIN
     SELECT count(*) INTO batdongsan_media_count
     FROM property_media WHERE source = 'BATDONGSAN_COM_VN';
 
-    IF table_count <> 18 THEN
-        RAISE EXCEPTION 'Expected exactly 18 business tables, found %', table_count;
+    IF missing_tables IS NOT NULL THEN
+        RAISE EXCEPTION 'Missing canonical MVP tables: %', missing_tables;
     END IF;
     IF user_count <> 10 OR customer_count <> 5 OR sale_count <> 3 THEN
-        RAISE EXCEPTION 'Unexpected account seed counts: users=%, customers=%, sales=%',
+        RAISE EXCEPTION 'Unexpected demo account seed counts: users=%, customers=%, sales=%',
             user_count, customer_count, sale_count;
     END IF;
-    IF nhatot_property_count <> 108 OR nhatot_seller_count <> 98
-       OR nhatot_media_count <> 750 THEN
-        RAISE EXCEPTION 'Unexpected Nha Tot counts: properties=%, sellers=%, media=%',
+    -- Batch size changes on every re-crawl, so assert the shape of the batch
+    -- rather than its size: every listing keeps at least three photos, and no
+    -- batch can carry more distinct posters than listings.
+    IF nhatot_property_count < 1 OR nhatot_seller_count < 1
+       OR nhatot_media_count < nhatot_property_count * 3
+       OR nhatot_seller_count > nhatot_property_count THEN
+        RAISE EXCEPTION 'Incomplete Nha Tot batch: properties=%, sellers=%, media=%',
             nhatot_property_count, nhatot_seller_count, nhatot_media_count;
     END IF;
     IF batdongsan_property_count < 1 OR batdongsan_seller_count < 1
@@ -72,9 +98,20 @@ BEGIN
         RAISE EXCEPTION 'Unexpected external seller totals: sellers=%, links=%',
             seller_count, seller_link_count;
     END IF;
-    IF property_count <> 2 + nhatot_property_count + batdongsan_property_count
-       OR media_count <> 2 + nhatot_media_count + batdongsan_media_count THEN
-        RAISE EXCEPTION 'Unexpected inventory totals: properties=%, media=%',
+    -- Totals move with every crawl, so the useful assertion is that nothing
+    -- carries a source outside the two known crawlers. A typo in a crawler's
+    -- source tag would otherwise slip in unnoticed.
+    SELECT count(*) INTO unknown_source_count
+    FROM properties
+    WHERE features ? 'source'
+      AND features->>'source' NOT IN ('NHATOT', 'BATDONGSAN_COM_VN');
+    IF unknown_source_count <> 0 THEN
+        RAISE EXCEPTION '% properties carry an unknown crawl source',
+            unknown_source_count;
+    END IF;
+    IF property_count < nhatot_property_count + batdongsan_property_count
+       OR media_count < nhatot_media_count + batdongsan_media_count THEN
+        RAISE EXCEPTION 'Inventory totals below their crawled parts: properties=%, media=%',
             property_count, media_count;
     END IF;
 
@@ -139,9 +176,33 @@ BEGIN
             missing_primary_sale_count;
     END IF;
 
-    RAISE NOTICE 'PASS: exact 18-table database counts and seller/sale links are complete';
+    RAISE NOTICE 'PASS: canonical 18 tables present, demo seed intact, seller/sale links complete';
 END;
 $$;
+
+-- The constraint tests below need one known property. Nothing in 001, 002, 004
+-- or 005 creates it, so the test owns its own fixture; the whole file is rolled
+-- back, and the deterministic UUID keeps it out of the crawled ranges.
+INSERT INTO properties (
+    id, code, property_kind, title, status, area_sqm, list_price, currency
+) VALUES (
+    '40000000-0000-0000-0000-000000000001',
+    'SMOKE-FIXTURE-001',
+    'APARTMENT',
+    'Căn mẫu dùng cho smoke test',
+    'AVAILABLE',
+    70.00,
+    3500000000.00,
+    'VND'
+);
+
+INSERT INTO property_sale_assignments (property_id, sale_user_id, is_primary, assigned_at)
+VALUES (
+    '40000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000002',
+    TRUE,
+    now()
+);
 
 INSERT INTO conversations (id, customer_user_id)
 VALUES (

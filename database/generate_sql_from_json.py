@@ -14,7 +14,6 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-
 PROPERTY_NAMESPACE = uuid.UUID("6bf8c137-62d3-47b0-82d9-1d77cb62e8cc")
 MEDIA_NAMESPACE = uuid.UUID("d42d0bb4-f3e7-4b82-8480-1e97ac225c5e")
 EXTERNAL_SELLER_NAMESPACE = uuid.UUID("cd491257-c249-4f2e-92cc-a5a55c4fe773")
