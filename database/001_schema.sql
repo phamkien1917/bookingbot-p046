@@ -216,6 +216,9 @@ CREATE TABLE properties (
     road_width_m NUMERIC(10, 2),
     features JSONB NOT NULL DEFAULT '{}'::JSONB,
     published_at TIMESTAMPTZ,
+    -- Last time the listing was confirmed still live, tracked apart from
+    -- updated_at because any edit touches updated_at.
+    last_verified_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT property_area_positive CHECK (area_sqm > 0),

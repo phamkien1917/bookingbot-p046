@@ -9,8 +9,9 @@ thành tài khoản đăng nhập.
 - `001_schema.sql`: 18 bảng MVP, constraint, index, trigger, view và hàm hết hạn.
 - `002_seed.sql`: 10 user demo, 5 customer, 3 sale, dự án và bất động sản mẫu.
 - `003_smoke_test.sql`: kiểm tra số lượng dữ liệu, seller, sale, HITL và chống đặt trùng sale/căn.
-- `004_crawled_data.sql`: 108 căn Nhà Tốt, 98 seller nguồn và 750 ảnh.
+- `004_crawled_data.sql`: 3.662 căn Nhà Tốt trên 22 tỉnh/thành, 1.745 seller nguồn và 25.027 ảnh.
 - `005_batdongsan_data.sql`: 60 tin Batdongsan đạt chuẩn, 58 seller và 612 ảnh.
+- `merge_crawls.py`: gộp nhiều lượt crawl thành một JSON, khử trùng theo `property_id`.
 - `batdongsan_records.json`: checkpoint các bản ghi đã chuẩn hóa để crawl tiếp.
 - `batdongsan_crawl_report.json`: thống kê chất lượng và lý do loại tin.
 
@@ -77,12 +78,20 @@ Pipeline chuẩn hóa bất động sản, ảnh, seller nguồn và quan hệ s
 Nhà Tốt không bị biến thành tài khoản đăng nhập. Mỗi căn mới chỉ được gán một trong ba
 sale demo nội bộ khi căn đó chưa có sale chính; crawler không sinh customer hay lịch hẹn.
 
+`--region-id 0` bỏ tham số `region_v2` nên API trả tin của mọi tỉnh; truyền
+`12000` hoặc `13000` để quét sâu riêng Hà Nội hoặc TPHCM. Danh sách toàn quốc sắp
+theo tin mới nhất nên bị TPHCM áp đảo, vì vậy nên chạy thêm một lượt riêng cho
+thành phố cần nhiều dữ liệu rồi gộp lại:
+
 ```bash
-python database/crawler_chotot.py \
-  --listing-type SALE \
-  --target 200 \
-  --output database/properties.json \
-  --report database/crawl_report.json
+python database/crawler_chotot.py --region-id 0 --target 2000 --max-pages 200 \
+  --output database/properties_vn.json --report database/crawl_report_vn.json
+
+python database/crawler_chotot.py --region-id 12000 --target 0 --max-pages 30 \
+  --output database/properties_hn.json --report database/crawl_report_hn.json
+
+python database/merge_crawls.py database/properties.json \
+  database/properties_vn.json database/properties_hn.json
 
 python database/generate_sql_from_json.py \
   --input database/properties.json \
@@ -94,18 +103,28 @@ theo VND và `size` theo m². Tin chỉ được giữ khi còn active/accepted 
 
 - tiêu đề, mô tả, loại giao dịch, giá và diện tích;
 - địa chỉ đủ phường/quận/tỉnh, tọa độ;
-- phòng ngủ, phòng vệ sinh, tầng, hướng, pháp lý và nội thất;
-- loại căn, người đăng nguồn, thời gian đăng;
+- phòng ngủ, loại căn, người đăng nguồn, thời gian đăng;
 - ít nhất ba URL ảnh HTTPS duy nhất.
 
-Thiếu bất kỳ trường nào thì tin bị bỏ qua và lý do được thống kê trong
-`crawl_report.json`. Mặc định chỉ lấy tin bán vì schema hiện dùng `list_price`
-như tổng giá bán; có thể chủ động chọn `RENT` hoặc `ALL`, nhưng ứng dụng phải đọc
-`features.listing_type` và `features.price_period` để không trộn giá.
+Tầng, hướng nhà, nội thất, phòng vệ sinh và pháp lý là tùy chọn: cả năm cột đều
+`NULL`-able, không filter tìm kiếm nào bắt buộc chúng, và giao diện đã hiển thị
+"Đang cập nhật" khi thiếu. Bắt buộc chúng từng loại khoảng ba phần tư thị trường —
+riêng số tầng loại 3.698/4.814 tin trong một lượt quét — để đổi lấy trường không ai
+lọc. Tin có giá bán ngoài khoảng 100 triệu – 200 tỷ, hoặc đơn giá ngoài khoảng
+3 – 500 triệu/m², bị loại vì người đăng gõ nhầm giá bán thành giá thuê hoặc thừa
+số 0; một tin 816 tỷ đủ để phá dải màu giá mà bản đồ kết quả tự tính.
+
+Thiếu trường bắt buộc thì tin bị bỏ qua và lý do được thống kê trong file report.
+Mặc định chỉ lấy tin bán vì schema hiện dùng `list_price` như tổng giá bán; có thể
+chủ động chọn `RENT` hoặc `ALL`, nhưng ứng dụng phải đọc `features.listing_type`
+và `features.price_period` để không trộn giá.
 
 `004_crawled_data.sql` dùng UUID ổn định, upsert có conflict target và transaction
-toàn khối. File tạo 98 `external_sellers`, 108 `property_external_sellers`, đồng thời
-phân công sale nội bộ cho 108 căn. Có thể nhập bằng:
+toàn khối. File tạo 1.745 `external_sellers`, 3.662 `property_external_sellers`, đồng
+thời phân công sale nội bộ cho 3.662 căn. Mỗi căn được đóng dấu
+`last_verified_at = crawled_at`: lấy được endpoint chi tiết và thấy tin còn active
+chính là lần xác minh cuối cùng có thể khẳng định trung thực. Khi upsert, mốc này đi
+qua `GREATEST` nên lần Sale tự xác minh sau đó không bị lùi. Có thể nhập bằng:
 
 ```bash
 docker compose exec -T db \
@@ -114,6 +133,11 @@ docker compose exec -T db \
 ```
 
 ## Crawl riêng Batdongsan.com.vn
+
+> **Trạng thái 31/08/2026: nguồn này đang chặn.** Mọi request tự động nhận HTTP 403,
+> kể cả `robots.txt`. Crawler dừng sạch và không ghi dữ liệu thay vì lách 403/CAPTCHA,
+> nên `005_batdongsan_data.sql` giữ nguyên batch cũ. Các lệnh dưới đây chỉ chạy lại
+> được khi nguồn mở lại truy cập.
 
 `crawler_batdongsan.py` nhận cả URL tin chi tiết và URL danh sách. Script tự sinh
 SQL PostgreSQL riêng, không dùng chung JSON hoặc generator của Nhà Tốt.

@@ -47,11 +47,6 @@ REQUIRED_FIELDS = (
     "latitude",
     "longitude",
     "bedrooms",
-    "bathrooms",
-    "floor_number",
-    "orientation",
-    "legal_status",
-    "furniture_status",
     "apartment_type",
     "seller_account_id",
     "seller_name",
@@ -75,6 +70,10 @@ def sql_string(value: Any) -> str:
     if value is None:
         return "NULL"
     return "'" + str(value).replace("'", "''") + "'"
+
+
+def sql_int(value: Any) -> str:
+    return "NULL" if value is None else str(int(value))
 
 
 def sql_number(value: Any, *, decimals: int | None = None) -> str:
@@ -142,8 +141,6 @@ def property_issues(item: dict[str, Any]) -> list[str]:
         ("latitude", -90, 90),
         ("longitude", -180, 180),
         ("bedrooms", 1, 32_767),
-        ("bathrooms", 1, 32_767),
-        ("floor_number", -32_768, 32_767),
     )
     for field, lower, upper in numeric_rules:
         try:
@@ -155,7 +152,21 @@ def property_issues(item: dict[str, Any]) -> list[str]:
             issues.append(f"invalid_{field}")
         if field in {"price", "area_sqm"} and value <= 0:
             issues.append(f"invalid_{field}")
-        if field in {"bedrooms", "bathrooms", "floor_number"} and not value.is_integer():
+        if field == "bedrooms" and not value.is_integer():
+            issues.append(f"invalid_{field}")
+
+    # Sellers routinely leave these blank. A present value is still checked; an
+    # absent one becomes NULL rather than throwing the whole listing away.
+    for field, lower, upper in (
+        ("bathrooms", 1, 32_767),
+        ("floor_number", -32_768, 32_767),
+    ):
+        value = item.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, int) or isinstance(value, bool):
+            issues.append(f"invalid_{field}")
+        elif not lower <= value <= upper:
             issues.append(f"invalid_{field}")
 
     images = item.get("images")
@@ -193,7 +204,7 @@ def property_features(item: dict[str, Any]) -> dict[str, Any]:
         "listing_type": item["listing_type"],
         "price_period": item["price_period"],
         "apartment_type": item["apartment_type"],
-        "furniture_status": item["furniture_status"],
+        "furniture_status": item.get("furniture_status"),
         "balcony_direction": item.get("balcony_direction"),
         "unit_number": item.get("unit_number"),
         "project_name": item.get("project_name"),
@@ -349,7 +360,7 @@ def property_upsert(item: dict[str, Any]) -> str:
         "id, code, property_kind, title, description, status, address_line, "
         "ward, district, province, latitude, longitude, area_sqm, bedrooms, "
         "bathrooms, floor_number, orientation, legal_status, list_price, "
-        "currency, features, published_at"
+        "currency, features, published_at, last_verified_at"
     )
     values = (
         f"'{property_id}', "
@@ -365,14 +376,19 @@ def property_upsert(item: dict[str, Any]) -> str:
         f"{sql_number(item['latitude'], decimals=6)}, "
         f"{sql_number(item['longitude'], decimals=6)}, "
         f"{sql_number(item['area_sqm'], decimals=2)}, "
-        f"{int(item['bedrooms'])}, {int(item['bathrooms'])}, "
-        f"{int(item['floor_number'])}, "
-        f"{sql_string(item['orientation'])}, "
-        f"{sql_string(item['legal_status'])}, "
+        f"{int(item['bedrooms'])}, "
+        f"{sql_int(item.get('bathrooms'))}, "
+        f"{sql_int(item.get('floor_number'))}, "
+        f"{sql_string(item.get('orientation'))}, "
+        f"{sql_string(item.get('legal_status'))}, "
         f"{sql_number(item['price'], decimals=2)}, "
         f"{sql_string(item['currency'])}, "
         f"{sql_string(features_json)}::jsonb, "
-        f"{sql_string(item['published_at'])}::timestamptz"
+        f"{sql_string(item['published_at'])}::timestamptz, "
+        # Fetching the detail endpoint and finding the ad still active is itself
+        # a check that the listing is live, so the crawl time is the last
+        # verification we can honestly claim.
+        f"{sql_string(item['crawled_at'])}::timestamptz"
     )
     updates = (
         "property_kind = EXCLUDED.property_kind, "
@@ -396,6 +412,10 @@ def property_upsert(item: dict[str, Any]) -> str:
         "currency = EXCLUDED.currency, "
         "features = EXCLUDED.features, "
         "published_at = EXCLUDED.published_at, "
+        # GREATEST ignores NULLs, so a sale who verified after this crawl keeps
+        # their newer mark and a never-verified row still gets one.
+        "last_verified_at = GREATEST("
+        "properties.last_verified_at, EXCLUDED.last_verified_at), "
         "updated_at = now()"
     )
     return (

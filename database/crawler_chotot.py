@@ -40,6 +40,9 @@ USER_AGENT = (
     "Chrome/124.0 Safari/537.36 XHomeVisitOpsDataCollector/2.0"
 )
 
+SALE_PRICE_VND_RANGE = (100_000_000, 200_000_000_000)
+SALE_PRICE_PER_SQM_RANGE = (3_000_000, 500_000_000)
+
 LIST_REQUIRED_FIELDS = (
     "list_id",
     "subject",
@@ -54,14 +57,23 @@ LIST_REQUIRED_FIELDS = (
     "latitude",
     "longitude",
     "rooms",
-    "toilets",
-    "floornumber",
-    "direction",
-    "property_legal_document",
-    "furnishing_sell",
     "apartment_type",
     "account_id",
     "account_name",
+)
+
+# Every one of these is nullable in the schema and every search filter that
+# reads them simply skips rows where they are absent.  Sellers leave them blank
+# on most listings, so requiring them threw away the bulk of the market: floor
+# and direction alone rejected roughly three quarters of everything scanned.
+# A missing value renders as "Đang cập nhật", which is honest; a listing the
+# crawler never collected cannot be shown at all.
+OPTIONAL_DETAIL_FIELDS = (
+    "floornumber",
+    "direction",
+    "furnishing_sell",
+    "toilets",
+    "property_legal_document",
 )
 
 NORMALIZED_REQUIRED_FIELDS = (
@@ -81,11 +93,6 @@ NORMALIZED_REQUIRED_FIELDS = (
     "latitude",
     "longitude",
     "bedrooms",
-    "bathrooms",
-    "floor_number",
-    "orientation",
-    "legal_status",
-    "furniture_status",
     "apartment_type",
     "seller_account_id",
     "seller_name",
@@ -217,16 +224,25 @@ def list_prefilter_issues(ad: dict[str, Any]) -> list[str]:
     if area is None or area <= 0 or area > 10_000:
         issues.append("invalid_area")
 
+    # Sellers mistype sale prices as monthly rents ("3.75" meaning 3.75 tỷ) and
+    # occasionally add a few zeroes. One 816 tỷ listing is enough to collapse the
+    # price bands the results map draws from the set it is showing.
+    if ad.get("type") == "s" and price and area and area > 0:
+        if not SALE_PRICE_VND_RANGE[0] <= price <= SALE_PRICE_VND_RANGE[1]:
+            issues.append("implausible_sale_price")
+        elif not SALE_PRICE_PER_SQM_RANGE[0] <= price / area <= SALE_PRICE_PER_SQM_RANGE[1]:
+            issues.append("implausible_sale_price_per_sqm")
+
     rooms = as_int(ad.get("rooms"))
     if rooms is None or not 1 <= rooms <= 100:
         issues.append("invalid_bedrooms")
 
     toilets = as_int(ad.get("toilets"))
-    if toilets is None or not 1 <= toilets <= 100:
+    if toilets is not None and not 1 <= toilets <= 100:
         issues.append("invalid_bathrooms")
 
     floor_number = as_int(ad.get("floornumber"))
-    if floor_number is None or not -20 <= floor_number <= 300:
+    if floor_number is not None and not -20 <= floor_number <= 300:
         issues.append("invalid_floor_number")
 
     latitude = as_float(ad.get("latitude"))
@@ -271,9 +287,6 @@ def normalize_detail(
     for field_name, value in (
         ("address", address),
         ("apartment_type_label", apartment_type),
-        ("legal_status_label", legal_status),
-        ("orientation_label", orientation),
-        ("furniture_status_label", furniture_status),
     ):
         if not value:
             issues.append(f"missing_{field_name}")
@@ -326,11 +339,11 @@ def normalize_detail(
         "latitude": as_float(ad["latitude"]),
         "longitude": as_float(ad["longitude"]),
         "bedrooms": as_int(ad["rooms"]),
-        "bathrooms": as_int(ad["toilets"]),
-        "floor_number": as_int(ad["floornumber"]),
-        "orientation": orientation,
-        "legal_status": legal_status,
-        "furniture_status": furniture_status,
+        "bathrooms": as_int(ad.get("toilets")),
+        "floor_number": as_int(ad.get("floornumber")),
+        "orientation": orientation or None,
+        "legal_status": legal_status or None,
+        "furniture_status": furniture_status or None,
         "balcony_direction": api_parameter(ad_params, "balconydirection") or None,
         "apartment_type": apartment_type,
         "unit_number": api_parameter(ad_params, "unitnumber") or None,
@@ -467,12 +480,15 @@ def crawl_complete_properties(
 
     for page_index in range(max_pages):
         offset = page_index * batch_size
-        query_parameters = {
-            "region_v2": region_id,
+        query_parameters: dict[str, Any] = {
             "cg": category_id,
             "limit": batch_size,
             "o": offset,
         }
+        # Region 0 means nationwide: the API returns every province when
+        # region_v2 is absent, so a whole-country crawl needs no province loop.
+        if region_id:
+            query_parameters["region_v2"] = region_id
         if listing_type != "ALL":
             query_parameters["st"] = "s" if listing_type == "SALE" else "u"
         query = urlencode(query_parameters)
@@ -589,7 +605,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", type=int, default=DEFAULT_TARGET)
     parser.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
-    parser.add_argument("--region-id", type=int, default=DEFAULT_REGION_ID)
+    parser.add_argument(
+        "--region-id",
+        type=int,
+        default=DEFAULT_REGION_ID,
+        help="Chotot region_v2 id; 0 crawls every province.",
+    )
     parser.add_argument("--category-id", type=int, default=DEFAULT_CATEGORY_ID)
     parser.add_argument(
         "--listing-type",
@@ -613,6 +634,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.target < 0:
         parser.error("--target must be >= 0; use 0 to scan every available page")
+    if args.region_id < 0:
+        parser.error("--region-id must be >= 0; use 0 for every province")
     if args.max_pages <= 0 or not 1 <= args.batch_size <= 50:
         parser.error("--max-pages must be > 0 and --batch-size must be 1..50")
     if args.timeout <= 0 or args.retries < 0 or args.delay < 0:
