@@ -26,6 +26,7 @@ from src.services.geo_service import (
 )
 from src.services.llm import get_llm
 from src.services.search_criteria_service import REGION_PROVINCES, extract_search_criteria
+from src.utils.freshness import verification_age, verification_text
 from src.utils.property_text import (
     clean_property_description,
     clean_property_title,
@@ -102,6 +103,7 @@ def serialize_property_item(prop: Property) -> dict[str, Any]:
         }
         for item in media
     ]
+    verified_days_ago, is_stale = verification_age(prop.last_verified_at, prop.published_at)
     return {
         "id": str(prop.id),
         "code": prop.code,
@@ -124,6 +126,10 @@ def serialize_property_item(prop: Property) -> dict[str, Any]:
         "list_price": _num(prop.list_price),
         "currency": prop.currency,
         "features": prop.features or {},
+        "last_verified_at": prop.last_verified_at.isoformat() if prop.last_verified_at else None,
+        "verified_days_ago": verified_days_ago,
+        "is_stale": is_stale,
+        "verification_label": verification_text(verified_days_ago, is_stale),
         "media": media_payload,
         "image": media_payload[0]["url"] if media_payload else None,
     }
@@ -268,7 +274,11 @@ async def query_properties_from_db(
         elif criteria.get("min_price") is not None:
             order_clauses.append(Property.list_price.asc())
 
-        order_clauses.append(Property.published_at.desc().nullslast())
+        # Freshest-known-good first: a listing verified last week beats one merely
+        # published last week. Falls back to published_at when nobody has verified.
+        order_clauses.append(
+            func.coalesce(Property.last_verified_at, Property.published_at).desc().nullslast()
+        )
 
         stmt = (
             select(Property)
@@ -514,6 +524,8 @@ async def format_intelligent_search_results(
             "  [Giá] · [Diện tích] m² · [Số PN] PN · [Địa chỉ/Quận, Tỉnh/TP]\n"
             "  *(Gợi ý/Điểm cộng: 1 câu nhận xét ngắn gọn vì sao căn này đáng chú ý đối với tiêu chí của khách)*\n"
             "- Tuyệt đối GIỮ NGUYÊN các thông số thực tế (giá niêm yết, diện tích, số phòng ngủ, vị trí) từ dữ liệu cung cấp, KHÔNG được bịa đặt số liệu khác.\n"
+            "- Độ tươi tin: nếu một căn có `is_stale` = true, phải nói thẳng một câu ngắn rằng tin đã lâu chưa được xác minh "
+            "và Nera sẽ nhờ Sale xác nhận căn còn trống trước khi chốt lịch. Không thổi phồng, không giấu.\n"
             "- Lời kết: Thân thiện, tự nhiên mời khách bấm chọn căn để xem chi tiết, so sánh hoặc đặt lịch xem nhà."
         )
 
@@ -528,6 +540,8 @@ async def format_intelligent_search_results(
                 "location": ", ".join(filter(None, [p.get("district"), p.get("province")])),
                 "features": p.get("features") or {},
                 "description": str(p.get("description") or "")[:200],
+                "is_stale": bool(p.get("is_stale")),
+                "verification": p.get("verification_label"),
             }
             for p in items[:display_limit]
         ]
@@ -630,6 +644,7 @@ def format_property_details_markdown(
         f"• **Diện tích:** {item.get('area_sqm') or 'Chưa cập nhật'} m² ({item.get('bedrooms') or '—'} PN · {item.get('bathrooms') or '—'} WC)",
         f"• **Vị trí:** {location or 'Chưa cập nhật'}",
         f"• **Mã căn:** `{item.get('code') or item.get('id')}`",
+        f"• **Độ tươi tin:** {item.get('verification_label') or verification_text(None, True)}",
     ]
     if desc and include_description:
         lines.append(f"\n**Mô tả nổi bật:**\n{desc}")

@@ -40,10 +40,16 @@ export interface Property {
   list_price?: number | null;
   currency: string;
   features?: Record<string, unknown>;
+  last_verified_at?: string | null;
+  verified_days_ago?: number | null;
+  is_stale?: boolean;
+  verification_label?: string | null;
   distance_evidence?: {
     distance_km: number;
     duration_minutes: number;
     destination: string;
+    destination_lat?: number | null;
+    destination_lng?: number | null;
     travel_mode: string;
     provider: string;
     attribution?: string;

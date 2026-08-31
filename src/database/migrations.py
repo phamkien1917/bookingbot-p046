@@ -16,6 +16,10 @@ POSTGRES_MIGRATIONS = (
     "ALTER TYPE notification_channel_t ADD VALUE IF NOT EXISTS 'ZALO'",
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_property_holds_one_active_property "
     "ON property_holds(property_id) WHERE status = 'ACTIVE'",
+    "ALTER TABLE properties ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMPTZ",
+    # Backfill once: a crawled listing was last known good when it was published.
+    "UPDATE properties SET last_verified_at = published_at "
+    "WHERE last_verified_at IS NULL AND published_at IS NOT NULL",
 )
 
 

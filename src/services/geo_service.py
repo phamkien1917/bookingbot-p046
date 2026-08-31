@@ -396,6 +396,10 @@ class GeoService:
                         item["distance_evidence"] = {
                             **evidence,
                             "destination": destination or "Vị trí của bạn",
+                            # Coordinates let the map draw the search radius around
+                            # the place the customer actually named.
+                            "destination_lat": target[0],
+                            "destination_lng": target[1],
                             "travel_mode": travel_mode,
                             "provider": "Goong Distance Matrix",
                             "attribution": "Powered by Goong",

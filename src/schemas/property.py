@@ -2,8 +2,9 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 
+from src.utils.freshness import verification_age
 from src.utils.property_text import clean_property_description, clean_property_title
 
 
@@ -42,10 +43,21 @@ class PropertySchema(BaseModel):
     currency: str
     features: Any
     published_at: datetime | None = None
+    last_verified_at: datetime | None = None
 
     media: list[PropertyMediaSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def verified_days_ago(self) -> int | None:
+        return verification_age(self.last_verified_at, self.published_at)[0]
+
+    @computed_field
+    @property
+    def is_stale(self) -> bool:
+        return verification_age(self.last_verified_at, self.published_at)[1]
 
     @field_validator("title", mode="before")
     @classmethod

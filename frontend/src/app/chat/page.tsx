@@ -12,6 +12,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
 import PropertyImage from "@/components/PropertyImage";
+import PropertiesMap from "@/components/PropertiesMap";
+import RoutePanel from "@/components/chat/RoutePanel";
 import { apiFetch, ApiError, apiStream } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
@@ -631,9 +633,10 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
             </button>
           </div>
 
-          {/* Iframe bản đồ lộ trình */}
+          {/* Lộ trình: bảng số liệu Goong trước, bản đồ sau */}
+          {showMap && <RoutePanel property={property} />}
           {showMap && property.latitude && property.longitude && (
-            <div className="mt-4 overflow-hidden rounded-xl border border-black/10 bg-stone-100 shadow-inner">
+            <div className="mt-3 overflow-hidden rounded-xl border border-black/10 bg-stone-100 shadow-inner">
               <iframe
                 title={`Bản đồ ${property.title}`}
                 width="100%"
@@ -854,6 +857,7 @@ function ChatContent() {
   const [memorySummary, setMemorySummary] = useState("");
   const [insights, setInsights] = useState<Record<string, unknown>>({});
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
+  const [closedMaps, setClosedMaps] = useState<Record<number, boolean>>({});
   // Which turns have had their results opened. Keyed by message index, so an
   // older answer stays open once the customer has looked at it.
   const [revealedCards, setRevealedCards] = useState<Record<number, boolean>>({});
@@ -1368,8 +1372,33 @@ function ChatContent() {
                             );
                           }
 
+                          // The map answers "where are these, and how near is the
+                          // place I named" in one glance, so it opens by default on
+                          // a location-driven search and stays shut otherwise.
+                          const mappable = message.properties.filter(p => p.latitude && p.longitude);
+                          const hasRoute = mappable.some(p => p.distance_evidence);
+                          const showMapPanel = mappable.length > 0 && hasRoute && !closedMaps[index];
+
                           return (
                             <div className="space-y-3 pt-1">
+                              {mappable.length > 0 && hasRoute && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setClosedMaps(prev => ({ ...prev, [index]: !prev[index] }))}
+                                    className="mb-2 flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[var(--forest)] hover:underline"
+                                  >
+                                    <FaCompass />
+                                    {showMapPanel ? "Ẩn bản đồ kết quả" : `Xem ${mappable.length} căn trên bản đồ`}
+                                    <FaChevronDown className={`text-[8px] transition-transform ${showMapPanel ? "" : "-rotate-90"}`} />
+                                  </button>
+                                  {showMapPanel && (
+                                    <div className="h-[320px] w-full animate-message-in">
+                                      <PropertiesMap properties={mappable} />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                               {displayed.map((property, pi) => (
                                 <PropertyCard
                                   key={property.id}

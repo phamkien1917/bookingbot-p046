@@ -41,7 +41,7 @@ interface SaleBooking {
   expires_at?: string;
   customer_note?: string;
   customer?: { full_name: string; phone: string; email: string };
-  property: { id: string; title: string; address: string };
+  property: { id: string; title: string; address: string; is_stale?: boolean; verification_label?: string | null };
 }
 interface CalendarAppointment {
   id: string;
@@ -218,6 +218,7 @@ function SaleDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [reject, setReject] = useState<{ id: string; reason: string } | null>(null);
   const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [verified, setVerified] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async (quiet = false) => {
@@ -275,6 +276,7 @@ function SaleDashboardContent() {
     if (action === "reject") { setReject({ id, reason: "" }); return; }
     try { await apiFetch(`/sale/appointments/${id}/${action}`, { method: "POST" }); await load(true); } catch (reason) { setError(reason instanceof Error ? reason.message : "Lỗi"); }
   }
+  async function handleVerifyProperty(propertyId: string) { try { await apiFetch(`/sale/properties/${propertyId}/verify`, { method: "POST" }); setVerified((prev) => new Set(prev).add(propertyId)); } catch (reason) { setError(reason instanceof Error ? reason.message : "Lỗi"); } }
   async function handleLogout() { await logout(); router.replace("/login"); }
 
   function remaining(expiresAt: string) { const ms = new Date(expiresAt).getTime() - new Date().getTime(); if (ms <= 0) return "Hết hạn"; const m = Math.floor(ms / 60000); return `còn ${m} phút`; }
@@ -371,7 +373,19 @@ function SaleDashboardContent() {
                     <p className={`font-semibold text-[15px] leading-relaxed text-[var(--ink)] line-clamp-2 ${isReschedule ? 'mt-1' : 'mt-4'}`}>{item.property.title}</p>
                     <p className="mt-1 text-xs font-medium text-[var(--muted)] line-clamp-1">{item.property.address}</p>
                     <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]"><FaCalendarAlt className="text-[var(--forest)]" />{new Date(item.preferred_start).toLocaleString("vi-VN")}</p>
-                    <div className="mt-5 flex gap-2">
+                    {(item.property.is_stale || verified.has(item.property.id)) && (
+                      <button
+                        onClick={() => void handleVerifyProperty(item.property.id)}
+                        disabled={verified.has(item.property.id)}
+                        title={item.property.verification_label ?? undefined}
+                        className="mt-3 w-full rounded-xl border border-amber-300 bg-amber-50 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-[var(--forest)]"
+                      >
+                        {verified.has(item.property.id)
+                          ? "✓ Đã xác nhận còn trống"
+                          : `⚠ ${item.property.verification_label ?? "Tin cũ"} — bấm để xác nhận`}
+                      </button>
+                    )}
+                    <div className="mt-3 flex gap-2">
                       <button onClick={() => void handleAccept(item.id)} className="flex-1 rounded-xl bg-[var(--forest)] py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1a4035]">✓ {isReschedule ? "Đồng ý dời" : "Nhận"}</button>
                       <button onClick={() => setReject({ id: item.id, reason: "" })} className="flex-1 rounded-xl border border-[var(--coral)]/50 py-2.5 text-sm font-semibold text-[var(--coral)] transition hover:bg-[var(--coral)]/5">✗ {isReschedule ? "Từ chối dời" : "Từ chối"}</button>
                     </div>

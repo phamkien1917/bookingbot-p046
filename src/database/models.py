@@ -418,6 +418,13 @@ class Property(Base, TimestampMixin):
         DateTime(timezone=True),
         nullable=True,
     )
+    # Last time a human confirmed the listing is still live. Crawled listings go
+    # stale silently, so freshness is tracked separately from updated_at, which
+    # any edit touches.
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     # Relationships
     project: Mapped[Optional["Project"]] = relationship(

@@ -12,7 +12,9 @@ from src.database import get_session
 from src.database.models import (
     Appointment,
     AppointmentStatus,
+    Property,
     PropertyHold,
+    PropertySaleAssignment,
     SaleProfile,
     User,
     UserRole,
@@ -268,4 +270,39 @@ async def complete_appointment(
     return await _update_appointment_status(
         db, appointment_id, user.id, AppointmentStatus.COMPLETED, complete=True
     )
+
+
+@router.post("/properties/{property_id}/verify")
+async def verify_property_listing(
+    property_id: UUID,
+    user: User = Depends(require_roles(UserRole.SALE)),
+    db: AsyncSession = Depends(get_session),
+):
+    """Sale confirms the listing is still live, resetting its freshness clock."""
+    assigned = await db.scalar(
+        select(PropertySaleAssignment.property_id).where(
+            PropertySaleAssignment.property_id == property_id,
+            PropertySaleAssignment.sale_user_id == user.id,
+            PropertySaleAssignment.unassigned_at.is_(None),
+        )
+    )
+    if not assigned:
+        raise HTTPException(status_code=403, detail="Bạn không phụ trách căn này")
+
+    prop = await db.get(Property, property_id)
+    if prop is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy căn")
+
+    prop.last_verified_at = utcnow()
+    record_event(
+        db,
+        "property_verified",
+        properties={"property_id": str(property_id), "sale_user_id": str(user.id)},
+    )
+    await db.commit()
+    return {
+        "id": str(prop.id),
+        "code": prop.code,
+        "last_verified_at": prop.last_verified_at.isoformat(),
+    }
 

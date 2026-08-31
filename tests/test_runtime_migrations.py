@@ -11,6 +11,13 @@ def test_calendar_columns_have_idempotent_runtime_migrations() -> None:
         assert f"ADD COLUMN IF NOT EXISTS {column}" in migration_sql
 
 
+def test_listing_freshness_column_has_idempotent_runtime_migration() -> None:
+    migration_sql = "\n".join(POSTGRES_MIGRATIONS)
+    assert "ADD COLUMN IF NOT EXISTS last_verified_at" in migration_sql
+    # The backfill must never overwrite a verification a sale already recorded.
+    assert "WHERE last_verified_at IS NULL AND published_at IS NOT NULL" in migration_sql
+
+
 def test_runtime_migrations_never_delete_or_seed_business_data() -> None:
     migration_sql = "\n".join(POSTGRES_MIGRATIONS).upper()
     assert "DELETE FROM" not in migration_sql

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { FaCalendarAlt, FaMapMarkerAlt, FaRobot, FaSpinner } from "react-icons/fa";
 import Header from "@/components/Header";
@@ -9,6 +9,7 @@ import ProtectedPage from "@/components/ProtectedPage";
 import PropertyImage from "@/components/PropertyImage";
 import { apiFetch } from "@/lib/api";
 import type { Booking } from "@/lib/types";
+import { toast } from "sonner";
 
 const CUSTOMER_ROLES = ["CUSTOMER"] as const;
 const TABS = [
@@ -31,15 +32,33 @@ export default function MyBookingsPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
 
-  const load = useCallback(async () => {
-    try { setBookings(await apiFetch<Booking[]>("/bookings/my")); setError(""); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Không tải được lịch xem"); }
+  // Status is decided on the sale's screen, so this page has to notice on its own
+  // when a request turns into a confirmed appointment.
+  const knownStatuses = useRef<Map<string, string>>(new Map());
+
+  const load = useCallback(async (quiet = false) => {
+    try {
+      const next = await apiFetch<Booking[]>("/bookings/my");
+      if (quiet) {
+        for (const booking of next) {
+          const previous = knownStatuses.current.get(booking.id);
+          if (previous && previous !== booking.status && booking.status === "BOOKED") {
+            toast.success("Sale đã xác nhận lịch xem nhà của bạn");
+          }
+        }
+      }
+      knownStatuses.current = new Map(next.map((booking) => [booking.id, booking.status]));
+      setBookings(next);
+      setError("");
+    }
+    catch (reason) { if (!quiet) setError(reason instanceof Error ? reason.message : "Không tải được lịch xem"); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    const initial = window.setTimeout(() => void load(), 0);
+    const interval = window.setInterval(() => void load(true), 15_000);
+    return () => { window.clearTimeout(initial); window.clearInterval(interval); };
   }, [load]);
   const tab = TABS.find((item) => item.key === activeTab) ?? TABS[0];
   const filtered = useMemo(() => bookings.filter((booking) => (tab.statuses as readonly string[]).includes(booking.status)), [bookings, tab.statuses]);

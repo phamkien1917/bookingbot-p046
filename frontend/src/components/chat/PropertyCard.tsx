@@ -19,6 +19,7 @@ import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
 import { formatPropertyAddress, formatPropertyTitle } from "@/lib/propertyAddress";
 import PropertyImage from "@/components/PropertyImage";
+import RoutePanel from "@/components/chat/RoutePanel";
 
 // Helper: match property features vs insights for "Vì sao?"
 function buildMatchReasons(
@@ -45,6 +46,24 @@ function buildMatchReasons(
     ok.push(`Diện tích rộng rãi (${property.area_sqm} m²)`);
   }
   return { ok, caution };
+}
+
+// Freshness pill: a crawled listing can be let while the post stays up, so the
+// card says when a human last confirmed it. Wording comes from the backend so
+// chat replies and cards never drift apart.
+function VerificationBadge({ property }: { property: Property }) {
+  if (!property.verification_label) return null;
+
+  const tone = property.is_stale
+    ? "text-amber-700 bg-amber-50 border-amber-200"
+    : "text-[var(--forest)] bg-emerald-50 border-emerald-100";
+
+  return (
+    <p className={`mt-2 flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${tone}`}>
+      {property.is_stale ? <FaExclamationCircle /> : <FaCheckCircle />}
+      {property.verification_label}
+    </p>
+  );
 }
 
 // ────────────────────────────────────────────────────────────
@@ -113,6 +132,7 @@ export default function PropertyCard({
             <FaBed className="mr-1 inline text-[var(--forest)]" />
             {property.bedrooms ?? 0} phòng ngủ · {property.area_sqm} m²
           </p>
+          <VerificationBadge property={property} />
 
           {/* "Vì sao phù hợp?" expandable section */}
           {hasInsights && (
@@ -189,9 +209,10 @@ export default function PropertyCard({
             </button>
           </div>
 
-          {/* Iframe bản đồ lộ trình */}
+          {/* Lộ trình: bảng số liệu Goong trước, bản đồ sau */}
+          {showMap && <RoutePanel property={property} />}
           {showMap && property.latitude && property.longitude && (
-            <div className="mt-4 overflow-hidden rounded-xl border border-black/10 bg-stone-100 shadow-inner">
+            <div className="mt-3 overflow-hidden rounded-xl border border-black/10 bg-stone-100 shadow-inner">
               <iframe
                 title={`Bản đồ ${property.title}`}
                 width="100%"

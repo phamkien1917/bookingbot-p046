@@ -39,6 +39,9 @@ class PropertyResponse(BaseModel):
     address: str
     district: str | None = None
     province: str | None = None
+    verified_days_ago: int | None = None
+    is_stale: bool = True
+    verification_label: str | None = None
     media: list[MediaResponse] = Field(default_factory=list)
 
 

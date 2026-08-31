@@ -34,6 +34,7 @@ from src.schemas.booking import BookingResponse, TourRequestCreate
 from src.services.analytics_service import record_event
 from src.services.notification_service import cancel_appointment_notifications, schedule_booking_reminders
 from src.services.property_hold_service import create_hold_for_appointment, release_appointment_hold
+from src.utils.freshness import verification_age, verification_text
 from src.utils.property_text import build_full_address, clean_property_title
 from src.utils.time import utcnow
 
@@ -62,6 +63,9 @@ def serialize_booking(row: TourRequest) -> BookingResponse:
             {"url": item.url, "is_cover": item.is_cover, "caption": item.caption}
             for item in prop.media
         ]
+    prop_verified_days, prop_is_stale = (
+        verification_age(prop.last_verified_at, prop.published_at) if prop else (None, True)
+    )
 
     data = {
         "id": row.id,
@@ -80,6 +84,9 @@ def serialize_booking(row: TourRequest) -> BookingResponse:
             "address": build_full_address(prop.address_line, prop.ward, prop.district, prop.province),
             "district": prop.district,
             "province": prop.province,
+            "verified_days_ago": prop_verified_days,
+            "is_stale": prop_is_stale,
+            "verification_label": verification_text(prop_verified_days, prop_is_stale),
             "media": media,
         } if prop else None,
         "sale": {
