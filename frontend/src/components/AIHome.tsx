@@ -71,7 +71,7 @@ const districts = [
 ];
 
 const locationShowcase = [
-  { name: "Hà Nội", count: "167 BĐS đang mở xem", query: "Hà Nội", tone: "from-[#183d4e] via-[#477887] to-[#d5aa7b]", mark: "HN" },
+  { name: "Hà Nội", count: "hơn 3.700 BĐS đang mở xem", query: "Hà Nội", tone: "from-[#183d4e] via-[#477887] to-[#d5aa7b]", mark: "HN" },
   { name: "Hồ Chí Minh", count: "Kho nhà đang mở", query: "Hồ Chí Minh", tone: "from-[#172f42] via-[#436879] to-[#b97f61]", mark: "SG" },
   { name: "Đà Nẵng", count: "Kho nhà đang mở", query: "Đà Nẵng", tone: "from-[#17264e] via-[#3a5c9c] to-[#d89a68]", mark: "DN" },
   { name: "Bình Dương", count: "Kho nhà đang mở", query: "Bình Dương", tone: "from-[#183148] via-[#447393] to-[#8caa89]", mark: "BD" },
@@ -209,7 +209,7 @@ function HomepageExplore({
             href="/properties"
             className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--forest)] hover:underline"
           >
-            Xem thêm trong kho 167 nhà thật <FaArrowRight />
+            Xem thêm trong kho hơn 3.700 nhà thật <FaArrowRight />
           </Link>
         </div>
       </section>
@@ -404,7 +404,7 @@ export default function AIHome() {
                   <FaBrain className="text-[var(--forest)]" /> Nhớ sở thích đa lượt
                 </span>
                 <span className="flex items-center gap-2">
-                  <FaShieldAlt className="text-[var(--forest)]" /> SQL Grounding 167 BĐS
+                  <FaShieldAlt className="text-[var(--forest)]" /> SQL Grounding hơn 3.700 BĐS
                 </span>
                 <span className="flex items-center gap-2">
                   <FaCalendarCheck className="text-[var(--forest)]" /> Sale duyệt giữ chỗ 15p
@@ -540,7 +540,7 @@ export default function AIHome() {
                         </button>
                       </div>
                       <p className="mt-3 text-center text-[11px] text-stone-400">
-                        Nhấn <strong>Enter</strong> để gửi · Nera sẽ tự động phân tích và tìm trong 167 BĐS có sẵn
+                        Nhấn <strong>Enter</strong> để gửi · Nera sẽ tự động phân tích và tìm trong hơn 3.700 BĐS có sẵn
                       </p>
                     </form>
                   </>
@@ -642,7 +642,7 @@ export default function AIHome() {
               href="/properties"
               className="hidden shrink-0 items-center gap-2 rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-[var(--forest)] shadow-xs transition hover:bg-stone-50 sm:flex"
             >
-              Xem toàn bộ 167 BĐS <FaArrowRight />
+              Xem toàn bộ hơn 3.700 BĐS <FaArrowRight />
             </Link>
           </div>
           {propertiesLoading ? (
@@ -672,7 +672,7 @@ export default function AIHome() {
             href="/properties"
             className="mt-7 flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-[var(--forest)] shadow-xs sm:hidden"
           >
-            Xem toàn bộ 167 BĐS <FaArrowRight />
+            Xem toàn bộ hơn 3.700 BĐS <FaArrowRight />
           </Link>
         </section>
 
@@ -694,13 +694,13 @@ export default function AIHome() {
                 AI giải thích. Dữ liệu kiểm chứng. Con người xác nhận.
               </h2>
               <p className="mt-5 max-w-xl leading-7 text-white/70">
-                Nera không thay Sale quyết định lịch và không bịa căn ngoài hệ thống. Mỗi gợi ý đều dẫn về 167 BĐS thật có thể đi xem thực tế.
+                Nera không thay Sale quyết định lịch và không bịa căn ngoài hệ thống. Mỗi gợi ý đều dẫn về hơn 3.700 BĐS thật có thể đi xem thực tế.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
                 [FaCompass, "Gợi ý có lý do", "Biết căn nào hợp ngân sách và điểm nào cần cân nhắc."],
-                [FaCheckCircle, "Dữ liệu kiểm chứng", "Giá, diện tích và trạng thái lấy từ kho 167 BĐS thật."],
+                [FaCheckCircle, "Dữ liệu kiểm chứng", "Giá, diện tích và trạng thái lấy từ kho hơn 3.700 BĐS thật."],
                 [FaCalendarCheck, "Luồng đặt lịch O2O", "Khóa giữ chỗ 15 phút, Sale nhận và xác nhận lịch."],
                 [FaRegBookmark, "Hành trình xuyên suốt", "Chat, nhà đã lưu và sở thích lưu cùng một tài khoản."],
               ].map(([Icon, title, text]) => {
