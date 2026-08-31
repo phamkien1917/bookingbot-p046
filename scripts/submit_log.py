@@ -37,15 +37,21 @@ ARCHIVE_DIR = LOG_DIR / "archive"
 BATCH_LIMIT = 500
 
 
-def _archive(pending: Path) -> None:
-    """Append pending file to today's archive. Never overwrites existing data."""
-    if not pending.exists() or pending.stat().st_size == 0:
+def _archive(lines: list[str]) -> None:
+    """Append the lines that were actually submitted to today's archive.
+
+    Only the submitted slice belongs here. Archiving the whole pending file
+    would re-archive every deferred line on the next push, so a batch of 1300
+    landed three times locally while the server correctly received it once.
+    """
+    if not lines:
         return
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     archive_file = ARCHIVE_DIR / f"{today}.jsonl"
-    with open(pending, "rb") as src, open(archive_file, "ab") as dst:
-        shutil.copyfileobj(src, dst)
+    with open(archive_file, "a", encoding="utf-8") as dst:
+        for line in lines:
+            dst.write(line if line.endswith("\n") else line + "\n")
 
 
 def _restore_pending(pending: Path) -> None:
@@ -86,6 +92,7 @@ def main():
         sys.exit(0)
 
     entries = []
+    submitted_lines = []
     leftover_lines = []
     with open(pending, encoding="utf-8") as f:
         for line in f:
@@ -98,11 +105,10 @@ def main():
             try:
                 entries.append(json.loads(stripped))
             except json.JSONDecodeError:
-                pass  # drop unparseable line
+                continue  # drop unparseable line
+            submitted_lines.append(line)
 
     if not entries:
-        # Nothing to send; archive whatever was there (probably junk) and bail.
-        _archive(pending)
         pending.unlink()
         print("[ai-log] No valid entries to submit.", file=sys.stderr)
         sys.exit(0)
@@ -128,7 +134,7 @@ def main():
         sys.exit(0)  # Don't block push on server error
 
     # Success: archive the submitted batch, then handle any leftover.
-    _archive(pending)
+    _archive(submitted_lines)
     pending.unlink()
 
     if leftover_lines:
