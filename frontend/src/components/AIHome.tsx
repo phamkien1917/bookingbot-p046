@@ -252,9 +252,8 @@ function HomepageExplore({
               <Link
                 key={location.name}
                 href={`/properties?keyword=${encodeURIComponent(location.query)}`}
-                className={`group relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br ${location.tone} shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg ${
-                  large ? "sm:col-span-2 sm:row-span-2 min-h-[330px]" : "min-h-[158px]"
-                }`}
+                className={`group relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br ${location.tone} shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-lg ${large ? "sm:col-span-2 sm:row-span-2 min-h-[330px]" : "min-h-[158px]"
+                  }`}
               >
                 {image && (
                   <PropertyImage
@@ -392,6 +391,10 @@ export default function AIHome() {
                 </span>
                 <FaMagic className="text-[var(--coral)]" /> Trợ lý AI BĐS • Đặt lịch xem O2O
               </div>
+              <h1 className="max-w-xl text-4xl font-semibold leading-[1.08] tracking-[-.045em] sm:text-5xl lg:text-6xl text-stone-900">
+                Không cần biết mình muốn gì.<br />
+                <span className="text-[var(--forest)]">Chỉ cần kể, Nera sẽ hiểu.</span>
+              </h1>
               <p className="mt-6 max-w-lg text-base sm:text-lg leading-8 text-[var(--muted)]">
                 Nera lắng nghe, ghi nhớ điều bạn thích, giải thích lý do từng căn phù hợp và kết nối trực tiếp lịch làm việc của Sale.
               </p>
