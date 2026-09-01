@@ -521,7 +521,7 @@ async def delete_session(
     try:
         await memory.delete_session(session_id)
     except Exception:
-        pass
+        logger.debug("Cache eviction failed for session %s", session_id, exc_info=True)
     return {"success": True, "session_id": session_id}
 
 
@@ -547,5 +547,5 @@ async def rename_session(
             cache_metadata = {**session_data.get("metadata", {}), "title": title}
             await memory.save_session(session_id, session_data.get("messages", []), cache_metadata)
     except Exception:
-        pass
+        logger.debug("Cache rename failed for session %s", session_id, exc_info=True)
     return {"success": True, "session_id": session_id, "title": title}

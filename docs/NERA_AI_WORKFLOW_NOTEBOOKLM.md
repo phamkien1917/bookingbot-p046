@@ -39,7 +39,7 @@ Hệ thống AI của Nera được xây dựng theo mô hình **Supervisor-Work
 ┌───────────────────────┐  ┌───────────────────────┐  ┌───────────────────────┐
 │    INVENTORY AGENT    │  │     BOOKING AGENT     │  │   AFFORDABILITY NODE  │
 │ - Lọc ràng buộc cứng  │  │ - Kiểm tra slot trống │  │ - Tính toán dòng tiền │
-│ - Truy vấn 167 BĐS DB │  │ - Khóa giữ chỗ 15p    │  │ - Ước tính khoản vay  │
+│ - Truy vấn 3.796 BĐS  │  │ - Khóa giữ chỗ 15p    │  │ - Ước tính khoản vay  │
 │ - Gọi Goong Maps API  │  │ - Gán Sale phụ trách  │  │ - Bảng trả nợ gốc/lãi │
 └───────────┬───────────┘  └───────────┬───────────┘  └───────────┬───────────┘
             │                          │                          │
@@ -78,7 +78,7 @@ Hệ thống AI của Nera được xây dựng theo mô hình **Supervisor-Work
 
 ### 🔹 Bước 3: Inventory Agent & Cơ chế SQL Grounding (Chống ảo giác)
 - **Tuyệt đối không để LLM tự sinh BĐS:** LLM không có quyền "vẽ" ra nhà.
-- Inventory Agent chuyển đổi các tiêu chí đã bóc tách thành câu lệnh SQL thuần và truy vấn trực tiếp vào bảng `properties` trong PostgreSQL (chứa **167 bất động sản có thật tại Hà Nội** đã được làm sạch).
+- Inventory Agent chuyển đổi các tiêu chí đã bóc tách thành câu lệnh SQL thuần và truy vấn trực tiếp vào bảng `properties` trong PostgreSQL (chứa **3.796 bất động sản có thật trên 27 tỉnh/thành** đã được làm sạch).
 - Nếu tìm thấy BĐS: Trả về danh sách kèm hình ảnh, giá thật, diện tích thật và địa chỉ.
 - Nếu không có BĐS thỏa mãn: AI thẳng thắn thông báo *"Không tìm thấy căn phù hợp"* và gợi ý mở rộng tiêu chí, **không bao giờ bịa đặt dữ liệu (Zero Hallucination)**.
 
@@ -140,7 +140,7 @@ Nera được thiết kế với triết lý **không bao giờ để một lỗ
 ## 6. NHỮNG CÂU HỎI VÀNG ĐỂ NOTEBOOKLM SINH AUDIO PODCAST / Q&A
 
 ### 🎙️ Câu hỏi 1: *"Điểm khác biệt cốt lõi nhất giữa Nera và một Chatbot AI thông thường là gì?"*
-> **Đáp án tóm tắt:** Chatbot thông thường chỉ trả lời chữ và dễ bị ảo giác (hallucination). Nera là một **Hệ thống AI O2O khép kín**: áp dụng **SQL Grounding** trên 167 BĐS thật, có bộ nhớ sở thích đa lượt, và sở hữu **công cụ khóa giữ chỗ 15 phút (`PropertyHold`)** để chuyển giao cho nhân viên Sale duyệt lịch hẹn thật ngoài đời.
+> **Đáp án tóm tắt:** Chatbot thông thường chỉ trả lời chữ và dễ bị ảo giác (hallucination). Nera là một **Hệ thống AI O2O khép kín**: áp dụng **SQL Grounding** trên 3.796 BĐS thật, có bộ nhớ sở thích đa lượt, và sở hữu **công cụ khóa giữ chỗ 15 phút (`PropertyHold`)** để chuyển giao cho nhân viên Sale duyệt lịch hẹn thật ngoài đời.
 
 ### 🎙️ Câu hỏi 2: *"Tại sao Nera không để AI tự động chốt luôn lịch hẹn mà phải cần Sale phê duyệt (HITL)?"*
 > **Đáp án tóm tắt:** Vì trong BĐS, việc dẫn khách đi xem nhà làm phát sinh chi phí thực tế (thời gian di chuyển của Sale, mở cửa căn hộ). Cơ chế **giữ chỗ 15 phút + Sale duyệt (Human-in-the-loop)** vừa giúp giải phóng 80% thời gian tư vấn ban đầu cho Sale, vừa giữ quyền kiểm soát và trách nhiệm thực tế thuộc về con người, loại trừ 100% rủi ro lịch ảo.

@@ -24,9 +24,14 @@ env/
 *.swo
 *~
 
-# OS
+# OS & Media
 .DS_Store
 Thumbs.db
+*.mp4
+*.mov
+*.avi
+*.mkv
+
 
 # Data (never commit large data)
 data/

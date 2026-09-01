@@ -14,7 +14,7 @@
 [ 0:45 - 1:30 ]  Slide 2: Nỗi đau 2 chiều & Số liệu kiểm chứng (Lực) ➔ [ĐÃ BỔ SUNG SỐ LIỆU]
 [ 1:30 - 2:15 ]  Slide 3: Giải pháp Nera & 3 Chỉ số chuyển đổi (Lực)
 [ 2:15 - 3:30 ]  Slide 4: Bằng chứng Live Demo 2 màn hình (Kiên demo & thuyết minh)
-[ 3:30 - 4:00 ]  Slide 5: Kiến trúc Multi-Agent & 167 BĐS thật (Kiên)
+[ 3:30 - 4:00 ]  Slide 5: Kiến trúc Multi-Agent & 3.796 BĐS thật (Kiên)
 [ 4:00 - 4:30 ]  Slide 6: Nguyên tắc hệ thống: Chốt chặn 15p & Moat (Lực)
 [ 4:30 - 4:50 ]  Slide 7: Đo lường thực địa 157 tests & Tốc độ 0.33s (Lực)
 [ 4:50 - 5:00 ]  Slide 8: Tầm nhìn Phase 2 & Thông điệp kết thúc (Lực)
@@ -72,13 +72,13 @@
 ### 🟢 SLIDE 4: BẰNG CHỨNG HOẠT ĐỘNG THẬT — LIVE DEMO (2:15 - 3:30)
 - **Tiêu đề:** Bằng chứng hoạt động thật (Live Demo 2 Màn hình)
 - **Kịch bản Demo thực nghiệm:**
-  - *Màn hình 1 (Khách):* Chat *"Tìm căn 2PN Cầu Giấy dưới 5 tỷ"* ➔ AI trích xuất tiêu chí, truy vấn CSDL 167 BĐS thật, gọi Goong Maps tính khoảng cách ĐH Quốc Gia ➔ Khách chọn *"Đặt lịch xem sáng mai lúc 9h"* ➔ Tạo giữ chỗ 15 phút.
+  - *Màn hình 1 (Khách):* Chat *"Tìm căn 2PN Cầu Giấy dưới 5 tỷ"* ➔ AI trích xuất tiêu chí, truy vấn CSDL 3.796 BĐS thật, gọi Goong Maps tính khoảng cách ĐH Quốc Gia ➔ Khách chọn *"Đặt lịch xem sáng mai lúc 9h"* ➔ Tạo giữ chỗ 15 phút.
   - *Màn hình 2 (Sale):* Dashboard `/sale` nhận thông báo tức thời ➔ Sale bấm **Chấp nhận** ➔ Khách nhận mã booking chính thức.
 
 > 🎙️ **Kịch bản nói (Phạm Trung Kiên - Tech Lead):**  
 > *(Thực hiện thao tác trực tiếp trên `nerahome.space`):*  
 > *"Em xin demo trực tiếp luồng O2O đang chạy thật:  
-> Em gõ: 'Tìm căn hộ 2PN Cầu Giấy dưới 5 tỷ'. Nera tóm tắt tiêu chí và trả về căn hộ có thật từ kho 167 BĐS kèm bản đồ Goong Maps.  
+> Em gõ: 'Tìm căn hộ 2PN Cầu Giấy dưới 5 tỷ'. Nera tóm tắt tiêu chí và trả về căn hộ có thật từ kho 3.796 BĐS kèm bản đồ Goong Maps.  
 > Em đổi tiêu chí: 'Lọc căn diện tích > 50m2'. Nera tự nhớ Cầu Giấy + 2PN + 5 tỷ.  
 > Em chọn 'Đặt lịch xem sáng mai 9h'. Hệ thống kích hoạt giữ chỗ 15 phút.  
 > Ngay lập tức, màn hình `/sale` của nhân viên nhận yêu cầu. Sale bấm 'Duyệt', mã booking được xác nhận thành công."*
@@ -89,12 +89,12 @@
 - **Tiêu đề:** Kiến trúc Multi-Agent & Dữ liệu Thực tế
 - **Cấu phần kỹ thuật:**
   - **LangGraph Multi-Agent:** Supervisor (phân loại intent), Inventory Agent (truy vấn SQL cứng), Booking Agent (quản lý slot), Respond Node (grounded NLG).
-  - **Data Layer:** PostgreSQL 18 bảng, **167 BĐS thật** tại Hà Nội (crawl từ Batdongsan & Chotot), Redis Cache & InMemoryFallback.
+  - **Data Layer:** PostgreSQL 18 bảng, **3.796 BĐS thật** trên 27 tỉnh/thành (crawl từ Nhà Tốt/Chợ Tốt và Batdongsan), Redis Cache & InMemoryFallback.
   - **Security:** Phân quyền RBAC 4 vai trò qua HttpOnly Cookie, mã hóa Fernet cho Google Calendar tokens.
 
 > 🎙️ **Kịch bản nói (Phạm Trung Kiên - Tech Lead):**  
 > *"Về kiến trúc, Nera sử dụng **LangGraph Multi-Agent** phân tách rõ ràng nhiệm vụ giữa 4 nodes.  
-> Điểm then chốt là cơ chế **SQL Grounding**: LLM chỉ làm nhiệm vụ trích xuất thực thể, sau đó Backend query trực tiếp vào **167 BĐS thật trong PostgreSQL** chứ không để LLM tự vẽ dữ liệu.  
+> Điểm then chốt là cơ chế **SQL Grounding**: LLM chỉ làm nhiệm vụ trích xuất thực thể, sau đó Backend query trực tiếp vào **3.796 BĐS thật trong PostgreSQL** chứ không để LLM tự vẽ dữ liệu.  
 > Toàn bộ token lịch của Sale được mã hóa Fernet at-rest, và phân quyền 4 vai trò được kiểm soát chặt chẽ ở tầng API."*
 
 ---

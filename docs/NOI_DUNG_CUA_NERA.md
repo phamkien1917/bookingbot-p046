@@ -52,7 +52,7 @@ Khi khách chọn được căn muốn xem, Nera đối chiếu khung giờ rả
         ▼
 [ Multi-Agent Orchestration: LangGraph StateGraph ]
   ├── Supervisor Node      phân loại intent, giữ ngữ cảnh đa lượt
-  ├── Inventory Agent      truy vấn 167 BĐS thật, lọc ràng buộc cứng
+  ├── Inventory Agent      truy vấn 3.796 BĐS thật, lọc ràng buộc cứng
   ├── Booking Tools        đối chiếu slot, tạo yêu cầu đặt lịch
   └── Respond Node         sinh câu trả lời, gắn nhãn ai_mode
         │
@@ -113,7 +113,7 @@ Bảo mật và giao diện: chốt chặn mật khẩu demo theo môi trường
 
 ### 4.1. Quy mô dữ liệu
 
-167 bất động sản thật trong cơ sở dữ liệu production: 108 bản ghi từ `database/004_crawled_data.sql` và 59 bản ghi từ `database/005_batdongsan_data.sql`.
+3.796 bất động sản thật trên 27 tỉnh/thành trong cơ sở dữ liệu production, thu thập từ Nhà Tốt qua `database/crawler_chotot.py` và nạp bằng `database/004_crawled_data.sql`. Bốn thị trường lớn nhất: TP Hồ Chí Minh 2.449, Hà Nội 687, Bình Dương 330, Đà Nẵng 152.
 
 Kiểm chứng: `GET https://bookingbot-api-q0t9.onrender.com/api/v1/properties?page_size=1` trả về trường `total`.
 
@@ -191,7 +191,7 @@ Phần này liệt kê những gì chưa xong, để người đọc không ph�
 
 Người tìm nhà hôm nay gặp hai chuyện. Thứ nhất, họ bị ép vào bộ lọc cứng và mất ngữ cảnh mỗi lần tìm lại. Thứ hai, việc điều phối lịch xem nhà chạy thủ công qua tin nhắn nên trùng lịch xảy ra thường xuyên.
 
-Nera giải quyết bằng multi-agent, grounding trên 167 bất động sản thật, và cơ chế người duyệt cuối."
+Nera giải quyết bằng multi-agent, grounding trên 3.796 bất động sản thật, và cơ chế người duyệt cuối."
 
 ### Phút 2 đến 3 — Kiến trúc và demo (Kiên)
 
