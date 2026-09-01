@@ -43,6 +43,10 @@ class ChatResponse(BaseModel):
     ai_model: str | None = Field(default=None, description="Model used for this turn, when available")
     ai_latency_ms: int = Field(default=0, ge=0, description="Total provider latency for this turn")
     stage_timings: dict[str, int] = Field(default_factory=dict, description="Wall time in ms per graph node")
+    input_tokens: int = Field(default=0, ge=0, description="Prompt tokens across every LLM call this turn")
+    output_tokens: int = Field(default=0, ge=0, description="Completion tokens across every LLM call this turn")
+    cached_input_tokens: int = Field(default=0, ge=0, description="Prompt tokens served from cache, billed at a lower rate")
+    llm_calls: int = Field(default=0, ge=0, description="How many model calls this turn made")
     ai_fallback_reason: str | None = Field(default=None, description="Sanitized fallback category")
 
 

@@ -11,6 +11,7 @@ from langchain_core.outputs import ChatResult
 from langchain_core.tools import BaseTool
 
 from src.config import get_settings
+from src.services import token_usage
 from src.services.models import (
     MODEL_DISPLAY_NAMES,
     MODEL_PRIORITY,
@@ -160,7 +161,10 @@ class OpenRouterLLM:
                     chat_model = chat_model.bind_tools(tools)
 
                 # Invoke
-                result = await chat_model.ainvoke(messages)
+                result = await chat_model.ainvoke(
+                    messages,
+                    config={"callbacks": [token_usage.UsageCallback(self.current_model)]},
+                )
 
                 # In dòng log ra Terminal để phục vụ việc quay Video Demo cho Mentor
                 base_url = self._get_base_url() or "https://api.openai.com/v1"
@@ -212,7 +216,10 @@ class OpenRouterLLM:
                 structured = self._create_chat_model().with_structured_output(
                     schema, method="json_schema", strict=True
                 )
-                return await structured.ainvoke(messages)
+                return await structured.ainvoke(
+                    messages,
+                    config={"callbacks": [token_usage.UsageCallback(self.current_model)]},
+                )
             except Exception as e:
                 last_error = e
                 logger.warning(f"Structured call failed on {self.current_model}: {e}")

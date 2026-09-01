@@ -85,7 +85,7 @@ async def test_respond_node_reports_the_model_that_answered() -> None:
     class FakeLLM:
         model_name = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, **kwargs):
             return SimpleNamespace(content="Chào bạn!")
 
     with patch("src.agents.nodes.respond_node.get_llm", return_value=FakeLLM()):

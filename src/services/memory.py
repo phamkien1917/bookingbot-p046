@@ -410,7 +410,7 @@ class IntentCache:
             if data:
                 return json.loads(data)
         except Exception:
-            pass
+            logger.debug("Redis read failed for %s, using in-memory", key, exc_info=True)
         # Fallback in-memory
         return self._mem.get(key)
 
@@ -423,7 +423,7 @@ class IntentCache:
             await client.set(key, payload, ex=self.TTL_SECONDS)
             return
         except Exception:
-            pass
+            logger.debug("Redis write failed for %s, using in-memory", key, exc_info=True)
         # Fallback in-memory (không TTL thật, nhưng đủ cho phiên test)
         self._mem[key] = result
 

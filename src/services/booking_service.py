@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import date, datetime, time, timedelta
 from uuid import UUID
@@ -37,6 +38,9 @@ from src.services.property_hold_service import create_hold_for_appointment, rele
 from src.utils.freshness import verification_age, verification_text
 from src.utils.property_text import build_full_address, clean_property_title
 from src.utils.time import utcnow
+
+logger = logging.getLogger(__name__)
+
 
 LOCAL_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 SLOT_HOURS = (9, 10, 14, 16)
@@ -599,7 +603,7 @@ async def accept_sale_request(db: AsyncSession, booking_id: UUID, sale_user_id: 
                 content=chat_msg,
             )
         except Exception:
-            pass
+            logger.debug("Could not mirror the booking message into chat", exc_info=True)
     reminder_specs = [
         (sale_user_id, timedelta(hours=2), "sale_departure_reminder"),
         (row.customer_user_id, timedelta(minutes=30), "tour_reminder_30m"),
