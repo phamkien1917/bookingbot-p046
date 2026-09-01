@@ -163,6 +163,28 @@ Input Tokens: 4,294 | Output Tokens: 210 | Cached Input Tokens: 4,096 | LLM Call
 
 ---
 
+## 6b. Truy vết Test → Yêu cầu → Mã nguồn (Code Traceability)
+
+Bảng dưới nối mỗi hành vi nghiệp vụ với bài test giữ nó và đoạn mã thực thi nó.
+Một dòng ở đây nghĩa là: nếu ai đó phá hành vi này, build sẽ đỏ.
+
+| Yêu cầu nghiệp vụ | Test giữ nó | Mã nguồn |
+|:---|:---|:---|
+| AI không bao giờ tự nhận đã được sale duyệt | `test_hitl_no_false_confirmation.py` | `src/agents/nodes/booking_agent.py` |
+| Worker cần người duyệt phải đi qua node `hitl` | `test_routing.py`, `test_agent_graph.py` | `src/agents/graph.py::_route_after_worker` |
+| Goong lỗi thì nói chưa xác minh, không bịa khoảng cách | `test_geo_tool_failure.py` | `src/services/geo_service.py` |
+| Hai khách không giữ chỗ cùng một căn | `test_property_hold_concurrency.py` | `src/services/property_hold_service.py` |
+| Tiêu chí tìm kiếm trích xuất đúng đáp án chuẩn | `test_golden_set.py` (222 kịch bản) | `src/services/search_criteria_service.py` |
+| Thu nhập khách nêu không bị đọc thành giá mua | `test_agent_nodes.py`, `test_supervisor_finance_extract.py` | `src/agents/nodes/supervisor.py::_extract_finance` |
+| Ngày quá khứ không âm thầm nhảy sang năm sau | `test_booking_slot_phase.py` | `src/services/chat_state_service.py` |
+| Tin đăng cũ bị đánh dấu stale, không trình bày như tin mới | `test_property_serialization.py` | `src/utils/freshness.py` |
+| Mỗi lượt chat trả về số token đã tiêu | `test_token_usage.py`, `test_api_chat.py` | `src/services/token_usage.py` |
+| Endpoint từ chối input rỗng trước khi gọi agent | `test_api_chat.py` | `src/models/schemas.py` |
+| Redis chết thì rơi về bộ nhớ tiến trình, phiên không đứt | `test_redis_service.py` | `src/services/memory.py` |
+| Sale/Admin API chặn đúng vai trò | `test_role_authorization.py` | `src/api/routes/auth.py` |
+
+---
+
 ## 7. Khảo sát Người dùng & Môi giới Thực tế
 
 - **Quy mô khảo sát:** n=20 nhà môi giới / quản lý sàn (CenLand, Đất Xanh Miền Bắc, OneHousing, tự do) và n=30 người tìm nhà tại Hà Nội.

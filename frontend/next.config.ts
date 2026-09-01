@@ -12,7 +12,12 @@ const nextConfig: NextConfig = {
   ...(process.env.DOCKER_BUILD === "true" ? { output: "standalone" } : {}),
   poweredByHeader: false,
   async rewrites() {
-    return [{ source: "/api/v1/:path*", destination: `${backendOrigin()}/api/v1/:path*` }];
+    return [
+      { source: "/api/v1/:path*", destination: `${backendOrigin()}/api/v1/:path*` },
+      // The backend serves /health at its root, so it was unreachable from the
+      // public domain: anyone checking the deployment got a 404 from Next.
+      { source: "/health", destination: `${backendOrigin()}/health` },
+    ];
   },
   async headers() {
     return [
