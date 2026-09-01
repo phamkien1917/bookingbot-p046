@@ -844,8 +844,10 @@ function ChatContent() {
   const [streamingIndex, setStreamingIndex] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  // Label of the graph node currently running, streamed from the backend.
-  const [stage, setStage] = useState("");
+  // Every graph node that has run this turn, in order, streamed from the
+  // backend. Kept as a trail rather than one replaced label: the customer sees
+  // the work accumulate instead of a single line flickering.
+  const [stages, setStages] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Property | null>(null);
   const [feedbackProperty, setFeedbackProperty] = useState<Property | null>(null);
@@ -917,7 +919,7 @@ function ChatContent() {
 
     const activeSessionId = targetSessionId || sessionId;
 
-    setInput(""); setError(""); setLoading(true); setStreamingIndex(null); setStage("");
+    setInput(""); setError(""); setLoading(true); setStreamingIndex(null); setStages([]);
     setMessages(cur => [...cur, { role: "user", content: text }]);
     try {
       const coordinates = await requestedCoordinates(text);
@@ -934,7 +936,10 @@ function ChatContent() {
           onEvent: (event, data) => {
             if (event === "stage") {
               streamed.sawStage = true;
-              setStage((data as { label?: string }).label ?? "");
+              const label = (data as { label?: string }).label ?? "";
+              if (label) {
+                setStages((prev) => (prev[prev.length - 1] === label ? prev : [...prev, label]));
+              }
             } else if (event === "result") {
               streamed.result = data as ChatResponse;
             } else if (event === "error") {
@@ -961,7 +966,7 @@ function ChatContent() {
         signal: controller.signal
       });
 
-      setStage("");
+      setStages([]);
       setSessionId(res.session_id || activeSessionId);
 
       const chips = res.suggested_actions?.length
@@ -985,7 +990,7 @@ function ChatContent() {
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
         setLoading(false);
-        setStage("");
+        setStages([]);
       }
     }
   }
@@ -1444,17 +1449,44 @@ function ChatContent() {
                 <span className="grid h-9 w-9 place-items-center rounded-2xl bg-gradient-to-br from-[var(--forest)] to-[#1e4a3e] text-white shadow-md animate-pulse shrink-0">
                   <img src="/brand/logo/nera-symbol-light.svg" alt="Nera" className="h-4.5 w-4.5 drop-shadow-sm" />
                 </span>
-                <div className="w-[280px] space-y-3 rounded-[1.35rem] rounded-tl-xs bg-white px-5 py-4 shadow-sm border border-stone-100 overflow-hidden relative">
+                <div className="w-[300px] space-y-3 rounded-[1.35rem] rounded-tl-xs bg-white px-5 py-4 shadow-sm border border-stone-100 overflow-hidden relative">
                   {/* Shimmer overlay */}
                   <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent animate-[shimmer_1.5s_infinite] z-10" />
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-[var(--forest)] animate-pulse" />
-                    <span aria-live="polite" className="text-xs font-semibold text-[var(--forest)]">
-                      {stage || "Nera đang xử lý..."}
-                    </span>
-                  </div>
-                  
+
+                  {/* One row per graph node that has run. The finished ones stay
+                      on screen so the wait reads as work done, not a hang. */}
+                  <ol aria-live="polite" className="relative space-y-2">
+                    {(stages.length ? stages : ["Nera đang xử lý..."]).map((label, index, all) => {
+                      const done = index < all.length - 1;
+                      return (
+                        <li key={`${label}-${index}`} className="flex items-center gap-2">
+                          {done ? (
+                            <FaCheckCircle className="shrink-0 text-[11px] text-[var(--forest)]" />
+                          ) : (
+                            <span className="grid h-3 w-3 shrink-0 place-items-center">
+                              <span className="h-2 w-2 rounded-full bg-[var(--forest)] animate-pulse" />
+                            </span>
+                          )}
+                          <span
+                            className={`text-xs ${
+                              done
+                                ? "font-medium text-[var(--muted)]"
+                                : "font-semibold text-[var(--forest)]"
+                            }`}
+                          >
+                            {label}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+
+                  {stages.length > 1 && (
+                    <p className="text-[11px] font-medium text-[var(--muted)]">
+                      {stages.length - 1} bước đã xong
+                    </p>
+                  )}
+
                   <div className="space-y-2">
                     <div className="h-2.5 w-full rounded-full bg-stone-100" />
                     <div className="h-2.5 w-4/5 rounded-full bg-stone-100" />
