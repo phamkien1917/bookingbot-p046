@@ -56,10 +56,10 @@
 
 | Họ và tên | Vai trò chính | Trách nhiệm đảm nhiệm |
 |:---|:---|:---|
-| **Vũ Thế Lực** | **Product Manager & AI Product Lead** | Định vị sản phẩm O2O, Multi-Agent LangGraph, Data Pipeline (3.796 căn), Eval Suite (844 tests), Token/Cost Tracker, Monetization. Xem chi tiết: [`docs/PM_AI_PRODUCT_PORTFOLIO.md`](docs/PM_AI_PRODUCT_PORTFOLIO.md) |
-| **Phạm Trung Kiên** | **Tech Lead & AI Core Engineer** | Lõi AI Multi-Agent LangGraph, Reasoning đa lượt, Tích hợp Goong Maps & Batch Matrix, CSDL PostgreSQL 18 bảng, Redis Fallback, Backend FastAPI & Frontend Next.js. Xem chi tiết: [`docs/TECH_LEAD_AI_CORE_PORTFOLIO.md`](docs/TECH_LEAD_AI_CORE_PORTFOLIO.md) |
-| **Nguyễn Thế Anh** | **QA & Memory Engineer** | Test API và routing, đánh giá RAGAS, tích hợp Mem0 service (`src/services/mem0_service.py`). Xem chi tiết: [`docs/QA_MEMORY_PORTFOLIO.md`](docs/QA_MEMORY_PORTFOLIO.md) |
-| **Lê Tiến Đạt** | **Prototype & Docs Engineer** | MOCKUI prototype, tài liệu PRD/brief, cấu hình Redis, thiết lập AI logs hooks. Xem chi tiết: [`docs/PROTOTYPE_DOCS_PORTFOLIO.md`](docs/PROTOTYPE_DOCS_PORTFOLIO.md) |
+| **Vũ Thế Lực** | **Product Manager & AI Product Lead** | Định vị sản phẩm O2O, Multi-Agent LangGraph, Data Pipeline (3.796 căn), Eval Suite (844 tests), Token/Cost Tracker, Monetization. 📄 [Xem Portfolio PM & AI Lead](docs/PM_AI_PRODUCT_PORTFOLIO.md) |
+| **Phạm Trung Kiên** | **Tech Lead & AI Core Engineer** | Lõi AI Multi-Agent LangGraph, Reasoning đa lượt, Tích hợp Goong Maps & Batch Matrix, CSDL PostgreSQL 18 bảng, Redis Fallback, Backend FastAPI & Frontend Next.js. 📄 [Xem Portfolio Tech Lead](docs/TECH_LEAD_AI_CORE_PORTFOLIO.md) |
+| **Nguyễn Thế Anh** | **QA & Memory Engineer** | Test API và routing, đánh giá RAGAS, tích hợp Mem0 service (`src/services/mem0_service.py`). 📄 [Xem Portfolio QA & Memory](docs/QA_MEMORY_PORTFOLIO.md) |
+| **Lê Tiến Đạt** | **Prototype & Docs Engineer** | MOCKUI prototype, tài liệu PRD/brief, cấu hình Redis, thiết lập AI logs hooks. 📄 [Xem Portfolio Prototype & Docs](docs/PROTOTYPE_DOCS_PORTFOLIO.md) |
 
 ---
 
@@ -67,7 +67,7 @@
 
 GitHub render Mermaid ngay trong README. Sơ đồ đầy đủ bốn tầng, luồng dữ liệu và
 các quyết định thiết kế nằm ở [`docs/architecture.md`](docs/architecture.md);
-riêng đồ thị tác tử ở [`docs/architecture_diagram.md`](docs/architecture_diagram.md).
+riêng đồ thị tác tử ở [`docs/guide/architecture_diagram.md`](docs/guide/architecture_diagram.md).
 
 ```mermaid
 graph LR

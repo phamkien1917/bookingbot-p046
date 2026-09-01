@@ -67,9 +67,9 @@
 
 | Tài liệu | Trạng thái |
 |-----------|------------|
-| `docs/RUN_P045.md` | ✅ Hoàn thành |
-| `docs/INTEGRATION_NOTE.md` | ✅ Hoàn thành |
-| `docs/MEMORY_INTEGRATION.md` | ✅ Mới tạo |
+| `docs/RUN_P045.md` | ⚠️ Đã gỡ khỏi repo; hướng dẫn chạy nằm trong README |
+| `docs/INTEGRATION_NOTE.md` | ⚠️ Đã gỡ khỏi repo |
+| `docs/guide/MEMORY_INTEGRATION.md` | ✅ Hoàn thành |
 | Swagger UI | ✅ Có sẵn (`/docs`) |
 
 ---
@@ -191,6 +191,5 @@ python -m uvicorn src.main:app --reload --port 8000
 
 ## 📎 Attachments
 
-- [RUN_P045.md](RUN_P045.md) - Hướng dẫn chạy
-- [INTEGRATION_NOTE.md](INTEGRATION_NOTE.md) - Note tích hợp UI
-- [MEMORY_INTEGRATION.md](MEMORY_INTEGRATION.md) - Memory integration guide
+- [MEMORY_INTEGRATION.md](../guide/MEMORY_INTEGRATION.md) — Memory integration guide
+- [README.md](../../README.md) — Hướng dẫn cài đặt và chạy

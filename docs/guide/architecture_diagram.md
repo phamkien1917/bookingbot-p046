@@ -7,7 +7,7 @@ là phần dễ lệch với mã nguồn nhất.
 ## Đồ thị LangGraph
 
 Dựng đúng theo `build_agent_graph()` trong
-[`src/agents/graph.py`](../src/agents/graph.py). Sáu node, entry point là
+[`src/agents/graph.py`](../../src/agents/graph.py). Sáu node, entry point là
 `supervisor`, mọi nhánh đều kết thúc ở `respond`.
 
 ```mermaid
@@ -37,7 +37,7 @@ quyết định, không phải LLM. Đây là chốt chặn để một lịch h
 
 Mỗi node được bọc bởi `_timed()`, ghi thời gian từng chặng vào
 `state["stage_timings"]`; đây là nguồn số cho các báo cáo độ trễ trong
-[`eval/results/`](../eval/results/).
+[`eval/results/`](../../eval/results/).
 
 ## Tech stack
 

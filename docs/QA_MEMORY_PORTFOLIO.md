@@ -41,7 +41,7 @@ Trong dự án Nera, **Nguyễn Thế Anh** đảm nhiệm vai trò **QA & Memor
 ## 🧠 KHỐI 2: TÍCH HỢP & KIỂM THỬ BỘ NHỚ MEM0 (MEMORY SERVICE)
 
 1. **Tích hợp Mem0 Service:**
-   - Xây dựng và hoàn thiện lớp kết nối bộ nhớ `Mem0` trong [`src/services/mem0_service.py`](file:///d:/AITHUCCHIEN/P-046/src/services/mem0_service.py) (`commit 2dbfe48`).
+   - Xây dựng và hoàn thiện lớp kết nối bộ nhớ `Mem0` trong [`src/services/mem0_service.py`](../src/services/mem0_service.py) (`commit 2dbfe48`).
    - Hỗ trợ trích xuất thực thể (Entities extraction), lưu trữ thông tin cá nhân hóa của khách hàng qua nhiều phiên làm việc.
 2. **Bộ Kiểm thử Bộ nhớ (`tests/test_mem0_service.py`):**
    - Viết các test cases kiểm tra khả năng thêm, tìm kiếm và xóa bộ nhớ người dùng (`test_search_memories`, `test_add_memories`).
@@ -51,7 +51,7 @@ Trong dự án Nera, **Nguyễn Thế Anh** đảm nhiệm vai trò **QA & Memor
 
 ## 📑 KHỐI 3: QUẢN LÝ TÀI LIỆU DỰ ÁN & ĐẦU VÀO KỸ THUẬT
 
-- Quản trị và đồng bộ tài liệu yêu cầu tổng thể: [`PROJECT BRIEF.pdf`](file:///d:/AITHUCCHIEN/P-046/PROJECT%20BRIEF.pdf) (`commit 964f428`, `7628bab`).
+- Quản trị và đồng bộ tài liệu yêu cầu tổng thể: [`PROJECT BRIEF.pdf`](../PROJECT%20BRIEF.pdf) (`commit 964f428`, `7628bab`).
 - Phối hợp cùng Tech Lead trong việc chuẩn hóa cấu trúc dự án từ template ban đầu (`commit a2936d7`).
 
 ---
