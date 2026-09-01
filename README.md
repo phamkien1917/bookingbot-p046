@@ -56,7 +56,7 @@
 
 | Họ và tên | Vai trò chính | Trách nhiệm đảm nhiệm |
 |:---|:---|:---|
-| **Vũ Thế Lực** | **Product Manager & AI Engineer** | Định vị sản phẩm, thiết kế Multi-Agent LangGraph, Eval Suite, Token/Cost Tracker, Monetization Strategy. |
+| **Vũ Thế Lực** | **Product Manager & AI Engineer** | Định vị sản phẩm, thiết kế Multi-Agent LangGraph, Data Pipeline (3.796 căn), Eval Suite (720 tests), Token Tracker, Monetization. Xem chi tiết: [`docs/PM_AI_PRODUCT_PORTFOLIO.md`](docs/PM_AI_PRODUCT_PORTFOLIO.md) |
 | **Phạm Trung Kiên** | **Tech Lead & Fullstack Engineer** | Kiến trúc hệ thống FastAPI, Frontend Next.js 14, Tích hợp Goong Maps, CSDL PostgreSQL & Redis Fallback. |
 | **Nguyễn Thế Anh** | **QA & Memory** | Test API và routing, đánh giá RAGAS, tích hợp Mem0. |
 | **Thạch Đạt** | **Prototype & Docs** | MOCKUI, tài liệu PRD/brief, cấu hình Redis. |

@@ -65,14 +65,31 @@ def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
                 continue
 
 
-def logged_session_ids(log_dir: Path) -> set[str]:
-    seen: set[str] = set()
+def logged_watermarks(log_dir: Path) -> dict[str, datetime]:
+    """Newest already-logged timestamp per session.
+
+    Skipping a whole session was right while a session lasted one sitting. A
+    session that stays open for days is only logged up to the point the hook
+    last fired, so session-level skipping silently drops everything after it —
+    one long session lost an entire day of work that way.
+    """
+    watermarks: dict[str, datetime] = {}
     for path in list(log_dir.glob("*.jsonl")) + list((log_dir / "archive").glob("*.jsonl")):
         for record in read_jsonl(path):
             session_id = record.get("session_id")
-            if session_id:
-                seen.add(session_id)
-    return seen
+            stamp = parse_ts(record.get("ts", ""))
+            if not session_id or stamp is None:
+                continue
+            if session_id not in watermarks or stamp > watermarks[session_id]:
+                watermarks[session_id] = stamp
+    return watermarks
+
+
+def parse_ts(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def message_text(message: dict[str, Any]) -> str:
@@ -200,7 +217,7 @@ def main() -> None:
         "student": git("git config user.email", repo_root),
     }
 
-    already = logged_session_ids(args.log_dir)
+    watermarks = logged_watermarks(args.log_dir)
     by_date: dict[str, list[dict[str, Any]]] = {}
     skipped: list[str] = []
 
@@ -209,14 +226,21 @@ def main() -> None:
         if not records:
             continue
         session_id = next((r.get("sessionId") for r in records if r.get("sessionId")), "")
-        if session_id in already:
-            skipped.append(f"{transcript.name[:8]} already logged")
-            continue
         if not touches_repo(records, args.repo):
             skipped.append(f"{transcript.name[:8]} never touched {args.repo}")
             continue
+        watermark = watermarks.get(session_id)
+        fresh = 0
         for entry in build_entries(records, transcript.name, base):
+            stamp = parse_ts(entry["ts"])
+            if watermark and stamp is not None and stamp <= watermark:
+                continue
             by_date.setdefault(entry["ts"][:10], []).append(entry)
+            fresh += 1
+        if watermark and not fresh:
+            skipped.append(f"{transcript.name[:8]} already logged through {watermark:%Y-%m-%d %H:%M}")
+        elif watermark:
+            print(f"resume: {transcript.name[:8]} after {watermark:%Y-%m-%d %H:%M} -> {fresh} new")
 
     for note in skipped:
         print(f"skip: {note}")
