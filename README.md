@@ -54,12 +54,66 @@
 
 ## 👥 Đội ngũ Phát triển (Team P-046 / 046LTD)
 
-| Họ và tên | Vai trò chính | Trách nhiệm đảm nhiệm |
+Bốn thành viên, 244 commit trên 28 ngày làm việc trong 30 ngày. Con số ở mỗi ô
+dưới đây đều đọc được từ `git log`; bấm vào portfolio để xem minh chứng từng
+đầu việc.
+
+### Hai người dựng sản phẩm
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Vũ Thế Lực** — *Product Manager & AI Product Lead*<br>
+`102 commit`
+
+Trả lời câu hỏi **“làm sao biết con AI này đúng?”**
+
+- **Dữ liệu thật:** viết lại crawler Nhà Tốt cho toàn quốc, đưa kho từ **168 lên
+  3.796 căn / 27 tỉnh thành** — kiểm chứng được bằng một lệnh `curl` vào
+  production
+- **Đo được chi phí:** `src/services/token_usage.py` — trước đó chi phí mỗi lượt
+  chỉ là mô hình trên giấy, giờ là **13,9 đ/lượt đo thật**
+- **Eval Suite:** đưa 222 kịch bản golden vào CI, thêm 3 bộ test SEV-0 cho các
+  hành vi không được phép sai, kéo bộ test từ 253 lên **844**
+- **Observability:** tích hợp Langfuse, tách thời gian từng node khỏi thời gian
+  gọi bản đồ
+- **Kinh doanh:** khảo sát 20 môi giới, dựng Cost/Job và mức giá 300k/seat từ hai
+  hướng tính độc lập
+
+📄 [Portfolio đầy đủ](docs/PM_AI_PRODUCT_PORTFOLIO.md)
+
+</td>
+<td width="50%" valign="top">
+
+**Phạm Trung Kiên** — *Tech Lead & AI Core Engineer*<br>
+`126 commit`
+
+Trả lời câu hỏi **“làm sao nó chạy được thật?”**
+
+- **Multi-agent:** dựng `build_agent_graph()` — 6 node LangGraph với cổng duyệt
+  của con người nằm trên đường đi, không phải bọc ngoài
+- **Chống trùng lịch:** `PropertyHold` khoá bằng `pg_advisory_xact_lock` cộng
+  unique partial index — hai khách không thể giữ cùng một căn
+- **Bản đồ:** Goong Geocode + DistanceMatrix, gom lô 10 origin mỗi lần gọi, có
+  đường lui khi API lỗi
+- **Nền tảng:** FastAPI async, PostgreSQL 18 bảng, Redis có fallback bộ nhớ,
+  RBAC 4 vai trò trên cookie HttpOnly
+- **Giao diện:** Next.js 14 App Router, 25 route, deploy Vercel + Render đang
+  chạy thật
+
+📄 [Portfolio đầy đủ](docs/TECH_LEAD_AI_CORE_PORTFOLIO.md)
+
+</td>
+</tr>
+</table>
+
+### Cùng đóng góp
+
+| Thành viên | Vai trò | Đóng góp có trong git history |
 |:---|:---|:---|
-| **Vũ Thế Lực** | **Product Manager & AI Product Lead** | Định vị sản phẩm O2O, Multi-Agent LangGraph, Data Pipeline (3.796 căn), Eval Suite (844 tests), Token/Cost Tracker, Monetization. 📄 [Xem Portfolio PM & AI Lead](docs/PM_AI_PRODUCT_PORTFOLIO.md) |
-| **Phạm Trung Kiên** | **Tech Lead & AI Core Engineer** | Lõi AI Multi-Agent LangGraph, Reasoning đa lượt, Tích hợp Goong Maps & Batch Matrix, CSDL PostgreSQL 18 bảng, Redis Fallback, Backend FastAPI & Frontend Next.js. 📄 [Xem Portfolio Tech Lead](docs/TECH_LEAD_AI_CORE_PORTFOLIO.md) |
-| **Nguyễn Thế Anh** | **QA & Memory Engineer** | Test API và routing, đánh giá RAGAS, tích hợp Mem0 service (`src/services/mem0_service.py`). 📄 [Xem Portfolio QA & Memory](docs/QA_MEMORY_PORTFOLIO.md) |
-| **Lê Tiến Đạt** | **Prototype & Docs Engineer** | MOCKUI prototype, tài liệu PRD/brief, cấu hình Redis, thiết lập AI logs hooks. 📄 [Xem Portfolio Prototype & Docs](docs/PROTOTYPE_DOCS_PORTFOLIO.md) |
+| **Nguyễn Thế Anh** | QA & Memory Engineer | Bộ test API/routing và cấu hình coverage (nhánh `TheAnhTest`, đã được đưa về `develop`); tích hợp Mem0 tại `src/services/mem0_service.py`. 📄 [Portfolio](docs/QA_MEMORY_PORTFOLIO.md) |
+| **Lê Tiến Đạt** | Prototype & Docs Engineer | MOCKUI prototype, tài liệu PRD/brief giai đoạn đầu, cấu hình Redis, thiết lập AI log hooks. 📄 [Portfolio](docs/PROTOTYPE_DOCS_PORTFOLIO.md) |
 
 ---
 
