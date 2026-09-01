@@ -191,37 +191,42 @@ class GeoService:
         # ponytail: swap in a walking-capable provider if pedestrian ETAs start to matter.
         mode_mapping = {"DRIVE": "car", "TWO_WHEELER": "bike", "WALK": "bike", "BICYCLE": "bike", "TRANSIT": "car"}
         vehicle = mode_mapping.get(mode, "car")
-        origins_str = "|".join(f"{lat},{lon}" for lat, lon in origins)
         dest_str = f"{destination[0]},{destination[1]}"
-
-        async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
-            response = await client.get(
-                "https://rsapi.goong.io/DistanceMatrix",
-                params={
-                    "origins": origins_str,
-                    "destinations": dest_str,
-                    "vehicle": vehicle,
-                    "api_key": self.settings.goong_api_key,
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
-
         result: dict[int, dict[str, float]] = {}
-        rows = payload.get("rows", [])
-        for i, row in enumerate(rows):
-            elements = row.get("elements", [])
-            if not elements:
-                continue
-            element = elements[0]
-            if element.get("status") == "OK":
-                distance_m = element.get("distance", {}).get("value")
-                duration_s = element.get("duration", {}).get("value")
-                if distance_m is not None and duration_s is not None:
-                    result[i] = {
-                        "distance_km": round(float(distance_m) / 1000, 2),
-                        "duration_minutes": round(float(duration_s) / 60, 1),
-                    }
+
+        CHUNK_SIZE = 10
+        async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
+            for offset in range(0, len(origins), CHUNK_SIZE):
+                chunk = origins[offset:offset + CHUNK_SIZE]
+                origins_str = "|".join(f"{lat},{lon}" for lat, lon in chunk)
+                try:
+                    response = await client.get(
+                        "https://rsapi.goong.io/DistanceMatrix",
+                        params={
+                            "origins": origins_str,
+                            "destinations": dest_str,
+                            "vehicle": vehicle,
+                            "api_key": self.settings.goong_api_key,
+                        },
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    rows = payload.get("rows", [])
+                    for i, row in enumerate(rows):
+                        elements = row.get("elements", [])
+                        if not elements:
+                            continue
+                        element = elements[0]
+                        if element.get("status") == "OK":
+                            distance_m = element.get("distance", {}).get("value")
+                            duration_s = element.get("duration", {}).get("value")
+                            if distance_m is not None and duration_s is not None:
+                                result[offset + i] = {
+                                    "distance_km": round(float(distance_m) / 1000, 2),
+                                    "duration_minutes": round(float(duration_s) / 60, 1),
+                                }
+                except Exception as exc:
+                    logger.warning(f"Goong DistanceMatrix chunk {offset} failed: {exc}")
         await self._cache_set(
             cache_key,
             {str(index): evidence for index, evidence in result.items()},

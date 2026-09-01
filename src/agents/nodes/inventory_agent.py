@@ -157,6 +157,7 @@ async def query_properties_from_db(
     criteria: dict[str, Any],
     limit: int = 20,
     exclude_ids: list[str] | None = None,
+    near_coordinates: tuple[float, float] | None = None,
 ) -> list[dict[str, Any]]:
     """Execute dynamic criteria search against PostgreSQL with relationship eager-loading."""
     effective_limit = criteria.get("limit") or limit
@@ -266,7 +267,14 @@ async def query_properties_from_db(
         query_limit = 100 if is_broad_region_search else effective_limit
 
         order_clauses = []
-        if criteria.get("max_price") is not None and criteria.get("min_price") is None:
+        if near_coordinates:
+            target_lat, target_lng = near_coordinates
+            filters.append(Property.latitude.isnot(None))
+            filters.append(Property.longitude.isnot(None))
+            # Distance squared in coordinates for fast indexed SQL ordering
+            dist_expr = (Property.latitude - target_lat) * (Property.latitude - target_lat) + (Property.longitude - target_lng) * (Property.longitude - target_lng)
+            order_clauses.append(dist_expr.asc())
+        elif criteria.get("max_price") is not None and criteria.get("min_price") is None:
             order_clauses.append(func.abs(Property.list_price - criteria["max_price"]).asc())
         elif criteria.get("min_price") is not None and criteria.get("max_price") is not None:
             mid_price = (criteria["min_price"] + criteria["max_price"]) / 2
@@ -1273,19 +1281,29 @@ async def inventory_agent(state: AgentState) -> dict[str, Any]:
         if not exclude_ids and search_pool:
             exclude_ids = [p["id"] for p in search_pool if p.get("id")]
 
-    search_limit = criteria.get("limit") or 20
-    properties = await query_properties_from_db(
-        criteria,
-        limit=search_limit,
-        exclude_ids=exclude_ids if is_asking_other else None,
-    )
-
     geo_requested = bool(
         state.get("commute_landmark")
         or state.get("nearby_categories")
         or state.get("max_commute_km") is not None
         or state.get("max_commute_minutes") is not None
     )
+    near_coords = None
+    if geo_requested:
+        if state.get("user_location"):
+            near_coords = (state["user_location"]["latitude"], state["user_location"]["longitude"])
+        elif state.get("commute_landmark"):
+            geo_service = get_geo_service()
+            if geo_service.configured:
+                near_coords = await geo_service.geocode(str(state["commute_landmark"]))
+
+    search_limit = criteria.get("limit") or (30 if geo_requested else 20)
+    properties = await query_properties_from_db(
+        criteria,
+        limit=search_limit,
+        exclude_ids=exclude_ids if is_asking_other else None,
+        near_coordinates=near_coords,
+    )
+
     geo_note = None
     if geo_requested:
         geo_service = get_geo_service()
