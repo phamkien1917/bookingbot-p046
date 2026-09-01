@@ -7,6 +7,7 @@ cancellation with confirmation, and atomic rescheduling.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -26,7 +27,7 @@ from src.services.booking_service import (
     list_available_slots,
     reschedule_customer_booking,
 )
-from src.services.chat_state_service import LOCAL_TZ
+from src.services.chat_state_service import LOCAL_TZ, normalize_text, parse_requested_hour
 from src.services.reschedule_service import confirm_reschedule_proposal, propose_alternative_slots
 from src.utils.property_text import clean_property_title, match_property_by_title
 
@@ -89,6 +90,20 @@ async def _find_tour_request_id(
             )
             return await session.scalar(stmt)
     return None
+
+
+# The intent classifier reads short refusals ("không", "thôi") but misses a
+# sentence like "tôi không muốn đặt nữa, không có thời gian ưng ý". An exit path
+# must not depend on the model getting that right, and inside slot picking such
+# a sentence cannot mean anything else, so match it here rather than widening
+# is_negative, which also decides yes/no answers elsewhere.
+_GIVING_UP = re.compile(
+    r"\bkhong\b.{0,40}\bnua\b|\bthoi khong\b|\bbo qua\b|\bde (sau|hom khac|khi khac)\b|\bdung lai\b"
+)
+
+
+def _is_giving_up(query: str) -> bool:
+    return bool(_GIVING_UP.search(normalize_text(query or "")))
 
 
 async def booking_agent(state: AgentState) -> dict[str, Any]:
@@ -300,8 +315,18 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
 
         async with get_session_context() as session:
             booking = await get_customer_booking(session, request_id, customer_id)
-            property_id = booking.property_id
-            prop_title = clean_property_title(booking.property.title) if booking.property else "căn nhà"
+            # BookingResponse carries the nested property, not a flat id.
+            if booking.property is None:
+                return {
+                    "response": (
+                        "Mình chưa tra được căn nhà của lịch hẹn này nên không dời lịch được. "
+                        "Bạn thử lại với mã `TR-XXXXX` hoặc nhắn 'kiểm tra lịch của tôi' nhé."
+                    ),
+                    "current_agent": AgentType.RESPOND,
+                    "suggested_actions": ["Kiểm tra lịch của tôi"],
+                }
+            property_id = booking.property.id
+            prop_title = clean_property_title(booking.property.title)
 
         target_date_str = state.get("requested_date")
         if not target_date_str:
@@ -353,15 +378,85 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
     # ==========================================
     # 4. SELECT SLOT -> COMPLETE BOOKING / RESCHEDULE
     # ==========================================
-    if intent == Intent.SELECT_SLOT or state.get("phase") == "AWAITING_SLOT":
+    # Waiting for a slot number is a prompt, not a cage. The customer may name a
+    # different day, or give up, and answering either with "chọn từ 1 đến N"
+    # dead-ends the conversation with no way out.
+    _slots_on_screen = state.get("selected_slots", [])
+    _shown_date = (_slots_on_screen[0].get("starts_at") or "")[:10] if _slots_on_screen else ""
+    _asked_date = state.get("requested_date") or ""
+    _no_pick_yet = state.get("selected_slot_index") is None
+    _in_slot_pick = intent == Intent.SELECT_SLOT or state.get("phase") == "AWAITING_SLOT"
+
+    # Giving up has to end the flow, not fall through to another slot list.
+    if _in_slot_pick and _no_pick_yet and (
+        intent in (Intent.DENY, Intent.GOODBYE) or _is_giving_up(state.get("query", ""))
+    ):
+        return {
+            "phase": None,
+            "selected_slots": [],
+            "pending_action": None,
+            "response": (
+                "Mình đã dừng việc đặt lịch cho căn này. Khi nào bạn muốn xem lại "
+                "hoặc tìm căn khác thì cứ nhắn mình nhé."
+            ),
+            "current_agent": AgentType.RESPOND,
+            "suggested_actions": ["Tìm căn khác", "Xem lại danh sách đã lưu"],
+        }
+
+    # A different day means re-listing that day, which the tail of this function
+    # already does. Escape the slot branch and let it run.
+    _leaving_slot_pick = _no_pick_yet and (
+        bool(_asked_date) and bool(_shown_date) and _asked_date != _shown_date
+    )
+
+    if (
+        intent == Intent.SELECT_SLOT or state.get("phase") == "AWAITING_SLOT"
+    ) and not _leaving_slot_pick:
         slots = state.get("selected_slots", [])
         slot_idx = state.get("selected_slot_index")
 
         if slot_idx is None or slot_idx < 0 or slot_idx >= len(slots):
+            # Name the times that exist. The customer usually asked for an hour
+            # that is simply not free, and repeating the range tells them nothing.
+            times = ", ".join(slot.get("label", "") for slot in slots if slot.get("label"))
+            asked_hour = state.get("requested_hour")
+            lead = ""
+            if asked_hour is not None:
+                lead = (
+                    f"Khung {asked_hour:02d}:00 không còn trống cho căn này trong ngày đã chọn. "
+                )
             return {
-                "response": f"Danh sách hiện có {len(slots)} khung giờ. Bạn vui lòng chọn từ 1 đến {len(slots)} nhé.",
+                "response": (
+                    f"{lead}Hiện chỉ còn {len(slots)} khung: {times}. "
+                    "Bạn chọn số thứ tự, hoặc nhắn một ngày khác, hoặc nói \"thôi\" để dừng nhé."
+                    if times
+                    else f"Danh sách hiện có {len(slots)} khung giờ. Bạn vui lòng chọn từ 1 đến {len(slots)} nhé."
+                ),
                 "current_agent": AgentType.RESPOND,
-                "suggested_actions": [f"Chọn khung giờ {i}" for i in range(1, min(len(slots) + 1, 5))],
+                "suggested_actions": (
+                    [f"Chọn khung giờ {i}" for i in range(1, min(len(slots) + 1, 4))]
+                    + ["Chọn ngày khác", "Thôi, không đặt nữa"]
+                ),
+            }
+
+        # The classifier reads "3 giờ chiều nay" as picking the only slot on
+        # screen, even when that slot is 16:00. Booking someone into an hour
+        # they did not ask for is worse than asking again, so confirm first.
+        asked_hour = parse_requested_hour(state.get("query", ""))
+        chosen = slots[slot_idx]
+        chosen_hour = datetime.fromisoformat(chosen["starts_at"]).hour
+        if asked_hour is not None and asked_hour != chosen_hour:
+            return {
+                "phase": "AWAITING_SLOT",
+                "selected_slots": slots,
+                "selected_slot_index": None,
+                "response": (
+                    f"Khung {asked_hour:02d}:00 không còn trống. Gần nhất là "
+                    f"**{chosen['label']}** với sale {chosen['sale_name']}. "
+                    "Bạn lấy khung này chứ, hay muốn đổi sang ngày khác?"
+                ),
+                "current_agent": AgentType.RESPOND,
+                "suggested_actions": [f"Lấy khung {chosen['label']}", "Chọn ngày khác", "Thôi, không đặt nữa"],
             }
 
         # Auth Gate for guests
