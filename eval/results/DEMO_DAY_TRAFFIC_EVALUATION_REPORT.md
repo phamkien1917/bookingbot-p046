@@ -1,7 +1,7 @@
 # BÁO CÁO ĐÁNH GIÁ TRAFFIC & CHẤT LƯỢNG NERA AI (PHASE 2)
 
 **Ngày thực hiện:** 2026-08-28 23:16:07  
-**Endpoint kiểm thử:** `https://bookingbot-api-q0t9.onrender.com/api/v1/chat`  
+**Endpoint kiểm thử:** `https://bookingbot-api-q0t9.onrender.com/api/v1/chat` (host này đã bị treo sau khi báo cáo chạy; endpoint tương đương hiện tại là `https://www.nerahome.space/api/v1/chat`)  
 **Tổng số kịch bản:** 15 kịch bản (23 lượt hội thoại)  
 
 ---

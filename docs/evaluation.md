@@ -2,7 +2,7 @@
 
 > **Deliverable #10 — Ban Tổ Chức AI20K Build Phase (Cohort 3)**  
 > **Dự án:** Nera — Trợ lý AI Bất Động Sản & Đặt Lịch Xem Nhà O2O  
-> **Đội ngũ:** Vũ Thế Lực (PM & AI Product Lead) · Phạm Trung Kiên (Tech Lead)  
+> **Đội ngũ:** Vũ Thế Lực (PM & AI Product Lead) · Phạm Trung Kiên (Tech Lead & AI Core Engineer)  
 > **Môi trường đo lường:** Python 3.13 (`.venv`) · `pytest 9.1.1` · `pytest-cov 7.1.0` · FastAPI / LangGraph  
 > **Bản chạy thực tế:** [https://www.nerahome.space/](https://www.nerahome.space/)  
 
@@ -28,7 +28,7 @@ Hệ thống kiểm thử tự động của Nera gồm **792 test cases** chạ
 | **Observability & Token Tracker**| `test_token_usage.py`, `test_stage_timings.py` | **11** | 🟢 100% PASS | Trích xuất token usage từ API provider, đo mili-giây từng node |
 | **Các Unit & Flow khác** | `test_geo_service.py`, `test_route_optimizer.py`, ... | **356** | 🟢 100% PASS | Haversine distance, time utilities, JWT encryption, Pydantic validation |
 | **API & Endpoint Contract** | `test_api_health.py`, `test_api_chat.py` | **9** | 🟢 100% PASS | `/health`, `/`, `POST /chat`: shape phản hồi, 4 trường token, chặn input rỗng/quá dài, không lộ key khi provider lỗi |
-| **Conditional Routing** | `test_routing.py` | **13** | 🟢 100% PASS | `route_from_supervisor` và `_route_after_worker`; mọi đích đến phải tồn tại như một node |
+| **Conditional Routing** | `test_routing.py` | **17** | 🟢 100% PASS | `route_from_supervisor` và `_route_after_worker`; mọi đích đến phải tồn tại như một node |
 | **Graph Flow (end-to-end)** | `test_agent_graph.py` | **5** | 🟢 100% PASS | Một lượt đi hết graph, nhánh HITL, `stage_timings` ghi đủ node |
 | **Supervisor Node** | `test_agent_nodes.py` | **21** | 🟢 100% PASS | Intent nào giao cho worker nào, thu nhập không thành giá mua, provider chết vẫn có đường đi |
 | **Property Serialization** | `test_property_serialization.py` | **20** | 🟢 100% PASS | Decimal sang JSON, giá thiếu hiện "Liên hệ", tin cũ bị đánh dấu stale, ảnh bìa lên đầu |

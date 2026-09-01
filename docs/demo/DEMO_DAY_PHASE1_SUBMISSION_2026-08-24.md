@@ -86,7 +86,7 @@ Không dùng deck Mentor Duty hiện tại. Deck Phase 1 nên có 8 slide:
 
 ### Chuẩn bị trước khi quay/demo
 
-1. Mở `https://bookingbot-api-q0t9.onrender.com/health` trước ít nhất 10 phút để đánh thức Render.
+1. Mở `https://www.nerahome.space/` trước ít nhất 10 phút để đánh thức backend.
 2. Mở `https://www.nerahome.space/` và kiểm tra `/chat`.
 3. Chuẩn bị một customer account và một sale account đã đăng nhập ở hai cửa sổ riêng.
 4. Tạo chat mới để tránh lịch sử cũ ảnh hưởng kết quả.

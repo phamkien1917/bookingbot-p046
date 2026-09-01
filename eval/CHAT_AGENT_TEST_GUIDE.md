@@ -22,7 +22,7 @@ Test production hoặc staging:
 
 ```powershell
 python scripts/run_chat_agent_eval.py `
-  --base-url https://bookingbot-api-q0t9.onrender.com/api/v1 `
+  --base-url https://www.nerahome.space/api/v1 `
   --report eval/results/staging_agent_report.json
 ```
 

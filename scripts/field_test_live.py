@@ -5,7 +5,7 @@ import uuid
 
 
 def test_api():
-    base_url = 'https://bookingbot-api-q0t9.onrender.com'
+    base_url = 'https://www.nerahome.space'
     print("=" * 65)
     print("🔍 KIỂM THỬ THỰC ĐỊA PRODUCTION CLOUD (RENDER LIVE)")
     print(f"⏰ Thời điểm kiểm thử: {time.strftime('%Y-%m-%d %H:%M:%S')}")

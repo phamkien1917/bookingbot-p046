@@ -115,7 +115,7 @@ Bảo mật và giao diện: chốt chặn mật khẩu demo theo môi trường
 
 3.796 bất động sản thật trên 27 tỉnh/thành trong cơ sở dữ liệu production, thu thập từ Nhà Tốt qua `database/crawler_chotot.py` và nạp bằng `database/004_crawled_data.sql`. Bốn thị trường lớn nhất: TP Hồ Chí Minh 2.449, Hà Nội 687, Bình Dương 330, Đà Nẵng 152.
 
-Kiểm chứng: `GET https://bookingbot-api-q0t9.onrender.com/api/v1/properties?page_size=1` trả về trường `total`.
+Kiểm chứng: `GET https://www.nerahome.space/api/v1/properties?page_size=1` trả về trường `total`.
 
 ### 4.2. Độ trễ thật
 

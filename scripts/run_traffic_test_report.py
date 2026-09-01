@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime
 
 # Target API URL (Defaults to Render Live Backend)
-API_URL = os.environ.get("NERA_API_URL", "https://bookingbot-api-q0t9.onrender.com/api/v1/chat")
+API_URL = os.environ.get("NERA_API_URL", "https://www.nerahome.space/api/v1/chat")
 REPORT_PATH = "eval/results/DEMO_DAY_TRAFFIC_EVALUATION_REPORT.md"
 
 TEST_SUITES = [
