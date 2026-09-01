@@ -13,7 +13,6 @@ import remarkGfm from "remark-gfm";
 import { useAuth } from "@/components/AuthProvider";
 import PropertyImage from "@/components/PropertyImage";
 import PropertiesMap from "@/components/PropertiesMap";
-import RoutePanel from "@/components/chat/RoutePanel";
 import { apiFetch, ApiError, apiStream } from "@/lib/api";
 import { formatPropertyPrice } from "@/components/PropertyTile";
 import type { Property } from "@/lib/types";
@@ -633,8 +632,6 @@ function PropertyCard({ property, insights, savedIds, onDetail, onSave, onBook, 
             </button>
           </div>
 
-          {/* Lộ trình: bảng số liệu Goong trước, bản đồ sau */}
-          {showMap && <RoutePanel property={property} />}
           {showMap && property.latitude && property.longitude && (
             <div className="mt-3 overflow-hidden rounded-xl border border-black/10 bg-stone-100 shadow-inner">
               <iframe

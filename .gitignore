@@ -63,6 +63,7 @@ scratch/
 
 # Demo & presentation notes
 DEMO_SCRIPT*
+docs/demo/KICH_BAN_QUAY_VIDEO_DEMO_FULL_LUONG.md
 
 # AI traces (local only)
 .ai-traces/
