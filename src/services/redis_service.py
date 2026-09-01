@@ -199,6 +199,13 @@ class InMemoryFallback:
                 return self._store[key].pop()
         return None
 
+    async def lrange(self, key: str, start: int, end: int) -> list[str]:
+        """Read a slice of a list without consuming it, like Redis LRANGE."""
+        data = self._store.get(key, [])
+        if not isinstance(data, list):
+            return []
+        return data[start:] if end == -1 else data[start:end + 1]
+
     async def llen(self, key: str) -> int:
         """Get list length."""
         data = self._store.get(key, [])
@@ -486,7 +493,8 @@ class RateLimiter:
                 count = limit  # Already at limit
 
         allowed = count < limit
-        remaining = max(0, limit - count - (0 if allowed else 1))
+        # count is the tally *before* this request; this one has been recorded too.
+        remaining = max(0, limit - count - 1)
         reset_at = int(now + window)
 
         return {
@@ -938,14 +946,11 @@ class MessageQueue:
         client = await self._get_client()
         key = self._queue_key(queue_name)
 
-        messages = []
-        for _ in range(count):
-            data = await client.rpop(key)
-            if not data:
-                break
-            messages.append(json.loads(data))
-            # Re-push for peek
-            await client.lpush(key, data)
+        # LRANGE reads without consuming. The previous rpop/lpush pair took each
+        # message off the tail and pushed it back onto the head, so looking at a
+        # queue reordered it.
+        raw = await client.lrange(key, 0, count - 1)
+        messages = [json.loads(item) for item in reversed(raw or [])]
 
         return messages
 
@@ -964,12 +969,24 @@ class EventPubSub:
     def __init__(self, redis_client: redis.Redis | None = None):
         self._redis = redis_client
         self._pubsub: redis.client.PubSub | None = None
+        self._is_fallback = False
 
-    async def _ensure_redis(self) -> redis.Redis:
-        """Ensure Redis client is available."""
-        if self._redis is None:
-            self._redis = await get_redis()
-        return self._redis
+    async def _ensure_redis(self) -> redis.Redis | None:
+        """The client, or None once Redis has proved unreachable.
+
+        Pub/sub has no in-process equivalent — there is nobody to deliver to —
+        so the fallback here is to stop trying rather than to substitute a store.
+        """
+        if self._is_fallback:
+            return None
+        try:
+            if self._redis is None:
+                self._redis = await get_redis()
+            return self._redis
+        except Exception:
+            logger.warning("Redis unavailable for pub/sub, events will be dropped")
+            self._is_fallback = True
+            return None
 
     async def publish(self, channel: str, event: dict[str, Any]) -> int:
         """Publish event to channel.
@@ -982,6 +999,8 @@ class EventPubSub:
             Number of subscribers that received the message
         """
         client = await self._ensure_redis()
+        if client is None:
+            return 0  # nobody is listening; a dropped notification is not a failed booking
         payload = json.dumps(event, ensure_ascii=False)
         return await client.publish(channel, payload)
 
