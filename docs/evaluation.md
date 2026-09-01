@@ -10,10 +10,10 @@
 
 ## 1. Bảng Tổng hợp Kết quả Kiểm thử (Test Results)
 
-Hệ thống kiểm thử tự động của Nera gồm **792 test cases** chạy tự động qua `pytest`:
+Hệ thống kiểm thử tự động của Nera gồm **844 test cases** chạy tự động qua `pytest`:
 
 ```
-====================== 792 passed, 2 warnings in 7.69s ========================
+====================== 844 passed, 2 warnings in 7.96s ========================
 ```
 
 | Nhóm kiểm thử | File đại diện | Số lượng | Kết quả | Trọng tâm kiểm tra |
@@ -32,7 +32,7 @@ Hệ thống kiểm thử tự động của Nera gồm **792 test cases** chạ
 | **Graph Flow (end-to-end)** | `test_agent_graph.py` | **5** | 🟢 100% PASS | Một lượt đi hết graph, nhánh HITL, `stage_timings` ghi đủ node |
 | **Supervisor Node** | `test_agent_nodes.py` | **21** | 🟢 100% PASS | Intent nào giao cho worker nào, thu nhập không thành giá mua, provider chết vẫn có đường đi |
 | **Property Serialization** | `test_property_serialization.py` | **20** | 🟢 100% PASS | Decimal sang JSON, giá thiếu hiện "Liên hệ", tin cũ bị đánh dấu stale, ảnh bìa lên đầu |
-| **TỔNG CỘNG** | **49 file kiểm thử chuyên biệt** | **792** | 🟢 **100% PASS** | **Thời gian thực thi: 7,69 giây** |
+| **TỔNG CỘNG** | **51 file kiểm thử chuyên biệt** | **844** | 🟢 **100% PASS** | **Thời gian thực thi: 7,61 giây** |
 
 ---
 
@@ -53,17 +53,17 @@ Chạy đo lường toàn diện qua `pytest tests/ --cov=src --cov-report=term-
 | **Đo lường Token & Chi phí (`src/services/token_usage.py`)** | 88 | **72%** | Tốt |
 | **Xác thực & Kết nối DB (`src/services/auth_service.py`, `connection.py`)** | 196 | **67%** | Đạt chuẩn |
 | **Router Chat & Gateway (`src/api/routes/__init__.py`, `chat.py`)** | 259 | **65%** | Đạt chuẩn |
-| **Toàn bộ Codebase (`src/`)** | **7.655** | **51%** | *(Chưa đạt mốc 60% BTC nêu — xem ghi chú bên dưới)* |
+| **Toàn bộ Codebase (`src/`)** | **7.665** | **52,79%** | *(Chưa đạt mốc 60% BTC nêu — xem ghi chú bên dưới)* |
 
-**Khoảng cách tới mốc 60%.** Độ bao phủ tổng thể là 51%, dưới mốc tối thiểu 60%
+**Khoảng cách tới mốc 60%.** Độ bao phủ tổng thể là 52,79%, dưới mốc tối thiểu 60%
 mà tài liệu BTC nêu. Phần thiếu tập trung ở ba module truy vấn PostgreSQL trực
 tiếp: `inventory_agent.py` (472 dòng chưa chạm), `booking_agent.py` (192) và
-`redis_service.py` (333). Chúng nhận `AsyncSession` và dựng câu lệnh SQLAlchemy
+`mem0_service.py` (199). Chúng nhận `AsyncSession` và dựng câu lệnh SQLAlchemy
 ngay trong hàm, nên muốn test đúng thì cần một database test thật, không phải
 thêm một lớp mock nữa — mock `session.execute()` chỉ kiểm tra được rằng mock đã
 được gọi, không kiểm tra được câu truy vấn có đúng không.
 
-Cổng `--cov-fail-under` trong `pyproject.toml` đang đặt ở **50%**, thấp hơn mức
+Cổng `--cov-fail-under` trong `pyproject.toml` đang đặt ở **52%**, thấp hơn mức
 đo được một điểm. Đây là chốt chặn chống tụt, không phải mục tiêu: một thay đổi
 làm giảm độ bao phủ sẽ làm hỏng build. Đặt thẳng 60% lúc này chỉ tạo ra build đỏ
 chứ không tạo ra sản phẩm được test tốt hơn.

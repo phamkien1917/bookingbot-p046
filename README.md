@@ -3,7 +3,7 @@
 <div align="center">
 
 [![CI Pipeline](https://img.shields.io/badge/CI-Passing-brightgreen?style=flat-square&logo=githubactions)](.github/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/Tests-792%20Passed-success?style=flat-square&logo=pytest)](docs/evaluation.md)
+[![Tests Passing](https://img.shields.io/badge/Tests-844%20Passed-success?style=flat-square&logo=pytest)](docs/evaluation.md)
 [![Live Production](https://img.shields.io/badge/Live-nerahome.space-blue?style=flat-square&logo=vercel)](https://www.nerahome.space/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14%20App%20Router-black?style=flat-square&logo=next.js)](https://nextjs.org/)
@@ -39,7 +39,7 @@
 
 | # | Deliverable | Vị trí tài liệu trong Repository | Mô tả & Trạng thái |
 |:---:|:---|:---|:---|
-| **1** | **Source Code** | `src/`, `frontend/`, `database/` | Mã nguồn phân tầng rõ ràng, 792 tests pass |
+| **1** | **Source Code** | `src/`, `frontend/`, `database/` | Mã nguồn phân tầng rõ ràng, 844 tests pass |
 | **2** | **README.md** | [`README.md`](README.md) | Tài liệu hướng dẫn đầy đủ, có ảnh giao diện, bảng biến, bảng API |
 | **3** | **Architecture Diagram** | [`docs/architecture.md`](docs/architecture.md) | Sơ đồ Mermaid 4 tầng, luồng dữ liệu và quyết định thiết kế |
 | **4** | **AI Logs & Tracing** | [`docs/demo/LANGFUSE_OBSERVABILITY_DEMO.md`](docs/demo/LANGFUSE_OBSERVABILITY_DEMO.md) | Tích hợp Langfuse Tracing, đo lường token và ms từng node |
@@ -48,7 +48,7 @@
 | **7** | **Pitch Deck** | [`docs/pitch-deck.pdf`](docs/pitch-deck.pdf) | Slide Demo Day; kịch bản nói ở [`docs/SLIDE_THUYET_TRINH_NERA_DEMO_DAY.md`](docs/SLIDE_THUYET_TRINH_NERA_DEMO_DAY.md) |
 | **8** | **Development Journal** | [`docs/journal.md`](docs/journal.md) | Nhật ký phát triển 4 tuần, bài học kinh nghiệm và giải pháp |
 | **9** | **Worklog** | [`docs/worklog.md`](docs/worklog.md) | Lịch sử công việc chi tiết theo ngày của các thành viên |
-| **10**| **Evaluation Evidence**| [`docs/evaluation.md`](docs/evaluation.md) | 792 tests pass, coverage, bảng Grounding RAG, Cost/Job 5k |
+| **10**| **Evaluation Evidence**| [`docs/evaluation.md`](docs/evaluation.md) | 844 tests pass, coverage, bảng Grounding RAG, Cost/Job 5k |
 
 ---
 
@@ -56,7 +56,7 @@
 
 | Họ và tên | Vai trò chính | Trách nhiệm đảm nhiệm |
 |:---|:---|:---|
-| **Vũ Thế Lực** | **Product Manager & AI Product Lead** | Định vị sản phẩm O2O, Multi-Agent LangGraph, Data Pipeline (3.796 căn), Eval Suite (720 tests), Token/Cost Tracker, Monetization. Xem chi tiết: [`docs/PM_AI_PRODUCT_PORTFOLIO.md`](docs/PM_AI_PRODUCT_PORTFOLIO.md) |
+| **Vũ Thế Lực** | **Product Manager & AI Product Lead** | Định vị sản phẩm O2O, Multi-Agent LangGraph, Data Pipeline (3.796 căn), Eval Suite (844 tests), Token/Cost Tracker, Monetization. Xem chi tiết: [`docs/PM_AI_PRODUCT_PORTFOLIO.md`](docs/PM_AI_PRODUCT_PORTFOLIO.md) |
 | **Phạm Trung Kiên** | **Tech Lead & AI Core Engineer** | Lõi AI Multi-Agent LangGraph, Reasoning đa lượt, Tích hợp Goong Maps & Batch Matrix, CSDL PostgreSQL 18 bảng, Redis Fallback, Backend FastAPI & Frontend Next.js. Xem chi tiết: [`docs/TECH_LEAD_AI_CORE_PORTFOLIO.md`](docs/TECH_LEAD_AI_CORE_PORTFOLIO.md) |
 | **Nguyễn Thế Anh** | **QA & Memory Engineer** | Test API và routing, đánh giá RAGAS, tích hợp Mem0 service (`src/services/mem0_service.py`). Xem chi tiết: [`docs/QA_MEMORY_PORTFOLIO.md`](docs/QA_MEMORY_PORTFOLIO.md) |
 | **Lê Tiến Đạt** | **Prototype & Docs Engineer** | MOCKUI prototype, tài liệu PRD/brief, cấu hình Redis, thiết lập AI logs hooks. Xem chi tiết: [`docs/PROTOTYPE_DOCS_PORTFOLIO.md`](docs/PROTOTYPE_DOCS_PORTFOLIO.md) |
@@ -263,7 +263,7 @@ P-046/
 │   ├── src/app/                   # App routes (chat, properties, sale, admin, bookings)
 │   ├── src/components/            # UI components (PropertyCard, MapIframe, Typewriter)
 │   └── public/                    # Logo, Favicon, OG Image
-├── tests/                         # Bộ 720 Automated Tests
+├── tests/                         # Bộ 844 Automated Tests
 │   ├── test_golden_set.py         # Replay 222 kịch bản Golden Scenarios
 │   ├── test_geo_tool_failure.py   # Kiểm thử khi Goong Maps lỗi (SEV-0)
 │   ├── test_hitl_no_false_conf.py # Kiểm thử chống xác nhận giả HITL (SEV-0)
@@ -275,10 +275,10 @@ P-046/
 
 ---
 
-## 🧪 Chạy Bộ Kiểm Thử Tự Động (792 Tests)
+## 🧪 Chạy Bộ Kiểm Thử Tự Động (844 Tests)
 
 ```powershell
-# Chạy toàn bộ 792 tests
+# Chạy toàn bộ 844 tests
 .\.venv\Scripts\python.exe -m pytest tests/ -v
 
 # Chạy kiểm thử kèm đo lường Code Coverage

@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-# The gate is a ratchet, not the target. Coverage is 51% today and the standard
+# The gate is a ratchet, not the target. Coverage is 52.79% today and the standard
 # we are working to is 60%; the number here sits just under the current measure
 # so a change that drops coverage fails the build, and it moves up as tests land.
 # Raising it to 60 before the tests exist would only mean a red build, not a
