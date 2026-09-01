@@ -84,7 +84,7 @@ Một trong những rủi ro lớn nhất của hệ thống đàm thoại AI l�
 - **Sliding Window Rate Limiter:** Thiết lập bộ giới hạn 120 request/phút bảo vệ API backend trước các đợt spam request.
 
 📄 [`src/services/redis_service.py`](../src/services/redis_service.py) ·
-[`tests/test_oauth_redis_fallback.py`](../tests/test_oauth_redis_fallback.py)
+[`tests/test_redis_fallback.py`](../tests/test_redis_fallback.py) · [`tests/test_google_oauth.py`](../tests/test_google_oauth.py)
 
 ---
 
