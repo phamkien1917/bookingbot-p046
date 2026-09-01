@@ -110,3 +110,31 @@ def test_match_property_by_title() -> None:
     idx7, prop7 = match_property_by_title("mã giả ATX-1019", pool)
     assert idx7 is None
     assert prop7 is None
+
+
+def test_bare_date_just_past_is_not_rolled_a_year_forward():
+    """"26/8" typed on 31/8 is a slip, not a viewing booked twelve months out."""
+    today = datetime(2026, 8, 31, 10, 0, tzinfo=LOCAL_TZ)
+
+    parsed = parse_requested_date("26/8 lúc 14h", now=today)
+
+    assert parsed == date(2026, 8, 26), "keep the past date so the caller can reject it"
+
+
+def test_bare_date_long_past_still_rolls_to_next_year():
+    """In December, "5/1" plainly means next January."""
+    december = datetime(2026, 12, 20, 10, 0, tzinfo=LOCAL_TZ)
+
+    assert parse_requested_date("5/1", now=december) == date(2027, 1, 5)
+
+
+def test_bare_future_date_keeps_the_current_year():
+    today = datetime(2026, 8, 31, 10, 0, tzinfo=LOCAL_TZ)
+
+    assert parse_requested_date("26/9", now=today) == date(2026, 9, 26)
+
+
+def test_explicit_year_is_always_honoured():
+    today = datetime(2026, 8, 31, 10, 0, tzinfo=LOCAL_TZ)
+
+    assert parse_requested_date("26/8/2027", now=today) == date(2027, 8, 26)

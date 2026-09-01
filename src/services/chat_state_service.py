@@ -15,6 +15,9 @@ from zoneinfo import ZoneInfo
 
 LOCAL_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 STATE_VERSION = 1
+# How far ahead a house viewing is plausibly booked. Bounds the year
+# rollover for dates typed without one.
+BOOKING_HORIZON_DAYS = 180
 
 
 def normalize_text(value: str) -> str:
@@ -116,7 +119,13 @@ def parse_requested_date(message: str, *, now: datetime | None = None) -> date |
         try:
             candidate = date(int(year or current.year), int(month), int(day))
             if not year and candidate < current.date():
-                candidate = candidate.replace(year=candidate.year + 1)
+                # A bare "26/8" typed on 31/8 is a slip, not a viewing booked
+                # twelve months out. Roll to next year only when that lands
+                # inside the horizon people actually book in; otherwise keep the
+                # past date so the caller rejects it and asks again.
+                rolled = candidate.replace(year=candidate.year + 1)
+                if (rolled - current.date()).days <= BOOKING_HORIZON_DAYS:
+                    candidate = rolled
             return candidate
         except ValueError:
             return None

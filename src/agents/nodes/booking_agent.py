@@ -664,13 +664,25 @@ async def booking_agent(state: AgentState) -> dict[str, Any]:
         }
 
     target_date = date.fromisoformat(target_date_str)
-    if target_date < datetime.now(LOCAL_TZ).date():
+    today = datetime.now(LOCAL_TZ).date()
+    if target_date < today:
+        # Name the date. A bare "26/8" typed on 31/8 still reads as valid to the
+        # customer, so a generic rejection just sends them round the same loop.
+        # Offering the next-year spelling lets them say so instead of us guessing.
+        options = ["Ngày mai", "Cuối tuần này"]
+        try:
+            options.append(target_date.replace(year=today.year + 1).strftime("%d/%m/%Y"))
+        except ValueError:
+            pass  # 29/02 has no counterpart next year
         return {
             "current_property_id": prop_id,
             "phase": "AWAITING_DATE",
-            "response": "Ngày xem nhà phải từ hôm nay trở đi. Bạn chọn lại một ngày trong tương lai nhé.",
+            "response": (
+                f"Ngày {target_date.strftime('%d/%m/%Y')} đã qua rồi nên không đặt lịch được. "
+                "Bạn chọn giúp mình một ngày từ hôm nay trở đi nhé."
+            ),
             "current_agent": AgentType.RESPOND,
-            "suggested_actions": ["Hôm nay", "Ngày mai", "Cuối tuần này"],
+            "suggested_actions": options,
         }
 
     async with get_session_context() as session:
