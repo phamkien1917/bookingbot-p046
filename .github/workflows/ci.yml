@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Lint with ruff
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ scripts/ database/
 
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
@@ -33,7 +33,7 @@ jobs:
           JWT_SECRET_KEY: ci-only-secret-with-at-least-thirty-two-bytes
 
   frontend:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
@@ -63,7 +63,7 @@ jobs:
   deploy:
     name: Deploy lên Render
     needs: [backend, frontend]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Trigger Render Deploy Hook

@@ -1,0 +1,25 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# The gate is a ratchet, not the target. Coverage is 52.79% today and the standard
+# we are working to is 60%; the number here sits just under the current measure
+# so a change that drops coverage fails the build, and it moves up as tests land.
+# Raising it to 60 before the tests exist would only mean a red build, not a
+# better tested product.
+addopts = "--cov=src --cov-report=term-missing --cov-fail-under=52"
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "src/__init__.py",
+    "*/tests/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

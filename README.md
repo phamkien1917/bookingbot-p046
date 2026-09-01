@@ -3,7 +3,7 @@
 <div align="center">
 
 [![CI Pipeline](https://img.shields.io/badge/CI-Passing-brightgreen?style=flat-square&logo=githubactions)](.github/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/Tests-720%20Passed-success?style=flat-square&logo=pytest)](docs/evaluation.md)
+[![Tests Passing](https://img.shields.io/badge/Tests-844%20Passed-success?style=flat-square&logo=pytest)](docs/evaluation.md)
 [![Live Production](https://img.shields.io/badge/Live-nerahome.space-blue?style=flat-square&logo=vercel)](https://www.nerahome.space/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14%20App%20Router-black?style=flat-square&logo=next.js)](https://nextjs.org/)
@@ -39,7 +39,7 @@
 
 | # | Deliverable | Vị trí tài liệu trong Repository | Mô tả & Trạng thái |
 |:---:|:---|:---|:---|
-| **1** | **Source Code** | `src/`, `frontend/`, `database/` | Mã nguồn phân tầng rõ ràng, 720 tests pass |
+| **1** | **Source Code** | `src/`, `frontend/`, `database/` | Mã nguồn phân tầng rõ ràng, 844 tests pass |
 | **2** | **README.md** | [`README.md`](README.md) | Tài liệu hướng dẫn đầy đủ, có ảnh giao diện, bảng biến, bảng API |
 | **3** | **Architecture Diagram** | [`docs/architecture.md`](docs/architecture.md) | Sơ đồ Mermaid 4 tầng, luồng dữ liệu và quyết định thiết kế |
 | **4** | **AI Logs & Tracing** | [`docs/demo/LANGFUSE_OBSERVABILITY_DEMO.md`](docs/demo/LANGFUSE_OBSERVABILITY_DEMO.md) | Tích hợp Langfuse Tracing, đo lường token và ms từng node |
@@ -48,20 +48,142 @@
 | **7** | **Pitch Deck** | [`docs/pitch-deck.pdf`](docs/pitch-deck.pdf) | Slide Demo Day; kịch bản nói ở [`docs/SLIDE_THUYET_TRINH_NERA_DEMO_DAY.md`](docs/SLIDE_THUYET_TRINH_NERA_DEMO_DAY.md) |
 | **8** | **Development Journal** | [`docs/journal.md`](docs/journal.md) | Nhật ký phát triển 4 tuần, bài học kinh nghiệm và giải pháp |
 | **9** | **Worklog** | [`docs/worklog.md`](docs/worklog.md) | Lịch sử công việc chi tiết theo ngày của các thành viên |
-| **10**| **Evaluation Evidence**| [`docs/evaluation.md`](docs/evaluation.md) | 720 tests pass, coverage, bảng Grounding RAG, Cost/Job 5k |
+| **10**| **Evaluation Evidence**| [`docs/evaluation.md`](docs/evaluation.md) | 844 tests pass, coverage, bảng Grounding RAG, Cost/Job 5k |
 
 ---
 
 ## 👥 Đội ngũ Phát triển (Team P-046 / 046LTD)
 
-| Họ và tên | Vai trò chính | Trách nhiệm đảm nhiệm |
+Bốn thành viên, 244 commit trên 28 ngày làm việc trong 30 ngày. Con số ở mỗi ô
+dưới đây đều đọc được từ `git log`; bấm vào portfolio để xem minh chứng từng
+đầu việc.
+
+### Hai người dựng sản phẩm
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Vũ Thế Lực** — *Product Manager & AI Product Lead*<br>
+`102 commit`
+
+Trả lời câu hỏi **“làm sao biết con AI này đúng?”**
+
+- **Dữ liệu thật:** viết lại crawler Nhà Tốt cho toàn quốc, đưa kho từ **168 lên
+  3.796 căn / 27 tỉnh thành** — kiểm chứng được bằng một lệnh `curl` vào
+  production
+- **Đo được chi phí:** `src/services/token_usage.py` — trước đó chi phí mỗi lượt
+  chỉ là mô hình trên giấy, giờ là **13,9 đ/lượt đo thật**
+- **Eval Suite:** đưa 222 kịch bản golden vào CI, thêm 3 bộ test SEV-0 cho các
+  hành vi không được phép sai, kéo bộ test từ 253 lên **844**
+- **Observability:** tích hợp Langfuse, tách thời gian từng node khỏi thời gian
+  gọi bản đồ
+- **Kinh doanh:** khảo sát 20 môi giới, dựng Cost/Job và mức giá 300k/seat từ hai
+  hướng tính độc lập
+
+📄 [Portfolio đầy đủ](docs/PM_AI_PRODUCT_PORTFOLIO.md)
+
+</td>
+<td width="50%" valign="top">
+
+**Phạm Trung Kiên** — *Tech Lead & AI Core Engineer*<br>
+`126 commit`
+
+Trả lời câu hỏi **“làm sao nó chạy được thật?”**
+
+- **Multi-agent:** dựng `build_agent_graph()` — 6 node LangGraph với cổng duyệt
+  của con người nằm trên đường đi, không phải bọc ngoài
+- **Chống trùng lịch:** `PropertyHold` khoá bằng `pg_advisory_xact_lock` cộng
+  unique partial index — hai khách không thể giữ cùng một căn
+- **Bản đồ:** Goong Geocode + DistanceMatrix, gom lô 10 origin mỗi lần gọi, có
+  đường lui khi API lỗi
+- **Nền tảng:** FastAPI async, PostgreSQL 18 bảng, Redis có fallback bộ nhớ,
+  RBAC 4 vai trò trên cookie HttpOnly
+- **Giao diện:** Next.js 14 App Router, 25 route, deploy Vercel + Render đang
+  chạy thật
+
+📄 [Portfolio đầy đủ](docs/TECH_LEAD_AI_CORE_PORTFOLIO.md)
+
+</td>
+</tr>
+</table>
+
+### Cùng đóng góp
+
+| Thành viên | Vai trò | Đóng góp có trong git history |
 |:---|:---|:---|
-| **Vũ Thế Lực** | **Product Manager & AI Engineer** | Định vị sản phẩm, thiết kế Multi-Agent LangGraph, Data Pipeline (3.796 căn), Eval Suite (720 tests), Token Tracker, Monetization. Xem chi tiết: [`docs/PM_AI_PRODUCT_PORTFOLIO.md`](docs/PM_AI_PRODUCT_PORTFOLIO.md) |
-| **Phạm Trung Kiên** | **Tech Lead & Fullstack Engineer** | Kiến trúc hệ thống FastAPI, Frontend Next.js 14, Tích hợp Goong Maps, CSDL PostgreSQL & Redis Fallback. |
-| **Nguyễn Thế Anh** | **QA & Memory** | Test API và routing, đánh giá RAGAS, tích hợp Mem0. |
-| **Thạch Đạt** | **Prototype & Docs** | MOCKUI, tài liệu PRD/brief, cấu hình Redis. |
+| **Nguyễn Thế Anh** | QA & Memory Engineer | Bộ test API/routing và cấu hình coverage (nhánh `TheAnhTest`, đã được đưa về `develop`); tích hợp Mem0 tại `src/services/mem0_service.py`. 📄 [Portfolio](docs/QA_MEMORY_PORTFOLIO.md) |
+| **Lê Tiến Đạt** | Prototype & Docs Engineer | MOCKUI prototype, tài liệu PRD/brief giai đoạn đầu, cấu hình Redis, thiết lập AI log hooks. 📄 [Portfolio](docs/PROTOTYPE_DOCS_PORTFOLIO.md) |
 
 ---
+
+## 🏛️ Kiến trúc Hệ thống
+
+GitHub render Mermaid ngay trong README. Sơ đồ đầy đủ bốn tầng, luồng dữ liệu và
+các quyết định thiết kế nằm ở [`docs/architecture.md`](docs/architecture.md);
+riêng đồ thị tác tử ở [`docs/guide/architecture_diagram.md`](docs/guide/architecture_diagram.md).
+
+```mermaid
+graph LR
+    subgraph Client["Frontend · Next.js / Vercel"]
+        UI["/chat · /sale · /admin · /my-bookings"]
+    end
+
+    subgraph API["Backend · FastAPI / Render"]
+        Router["Router /api/v1"]
+        Auth["Auth & RBAC<br/>JWT + HttpOnly cookie"]
+        Hold["Hold Engine<br/>giữ chỗ 15 phút"]
+    end
+
+    subgraph Agent["Multi-Agent · LangGraph"]
+        SUP["supervisor"]
+        INV["inventory"]
+        BOK["booking"]
+        ASG["assignment"]
+        HIT["hitl"]
+        RSP["respond"]
+    end
+
+    subgraph Data["Dữ liệu"]
+        PG[("PostgreSQL<br/>18 bảng · 3.796 BĐS")]
+        RD[("Redis<br/>fallback bộ nhớ")]
+    end
+
+    subgraph Ext["Dịch vụ ngoài"]
+        LLM["OpenRouter"]
+        GOONG["Goong Maps"]
+        LF["Langfuse"]
+    end
+
+    UI -->|REST + SSE| Router
+    Router --> Auth --> PG
+    Router --> Hold --> PG
+    Router --> SUP
+
+    SUP --> INV --> RSP
+    SUP --> BOK
+    SUP --> ASG
+    BOK -->|chờ duyệt| HIT
+    ASG -->|chờ duyệt| HIT
+    HIT --> RSP
+
+    INV --> PG
+    INV --> GOONG
+    SUP --> LLM
+    RSP --> LLM
+    SUP -.-> RD
+    Agent -.->|trace| LF
+```
+
+Ba điểm đáng chú ý trong sơ đồ:
+
+- **Không có vector store.** Kết quả tìm kiếm đến từ câu lệnh SQL trên bảng
+  `properties` sau khi bộ trích xuất chốt ràng buộc cứng, nên mọi con số trong
+  câu trả lời đều truy ngược được về một bản ghi có thật.
+- **`hitl` là cổng chặn bắt buộc.** Một lịch hẹn chỉ chuyển sang `CONFIRMED` sau
+  khi nhân viên sale bấm duyệt; AI không tự chốt lịch.
+- **Redis có đường lui.** Redis chết thì trạng thái hội thoại rơi về bộ nhớ tiến
+  trình, phiên chat không đứt.
 
 ## ⚡ Hướng dẫn Cài đặt & Chạy ứng dụng
 
@@ -195,7 +317,7 @@ P-046/
 │   ├── src/app/                   # App routes (chat, properties, sale, admin, bookings)
 │   ├── src/components/            # UI components (PropertyCard, MapIframe, Typewriter)
 │   └── public/                    # Logo, Favicon, OG Image
-├── tests/                         # Bộ 720 Automated Tests
+├── tests/                         # Bộ 844 Automated Tests
 │   ├── test_golden_set.py         # Replay 222 kịch bản Golden Scenarios
 │   ├── test_geo_tool_failure.py   # Kiểm thử khi Goong Maps lỗi (SEV-0)
 │   ├── test_hitl_no_false_conf.py # Kiểm thử chống xác nhận giả HITL (SEV-0)
@@ -207,10 +329,10 @@ P-046/
 
 ---
 
-## 🧪 Chạy Bộ Kiểm Thử Tự Động (720 Tests)
+## 🧪 Chạy Bộ Kiểm Thử Tự Động (844 Tests)
 
 ```powershell
-# Chạy toàn bộ 720 tests
+# Chạy toàn bộ 844 tests
 .\.venv\Scripts\python.exe -m pytest tests/ -v
 
 # Chạy kiểm thử kèm đo lường Code Coverage

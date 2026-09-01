@@ -2,7 +2,7 @@
 
 > **Deliverable #8 — Ban Tổ Chức AI20K Build Phase (Cohort 3)**  
 > **Dự án:** Nera — AI Real Estate & O2O Booking Platform  
-> **Nhóm phát triển:** Vũ Thế Lực (PM & AI Product Lead) · Phạm Trung Kiên (Tech Lead)  
+> **Nhóm phát triển:** Vũ Thế Lực (PM & AI Product Lead) · Phạm Trung Kiên (Tech Lead & AI Core Engineer)  
 
 ---
 

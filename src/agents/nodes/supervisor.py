@@ -311,7 +311,9 @@ def _is_generic_geo_category_landmark(value: str | None) -> bool:
         "cong vien",
     ):
         remainder = remainder.replace(term, " ")
-    remainder = re.sub(r"\b(?:gan|va|hoac|cac|khu vuc|xung quanh)\b", " ", remainder)
+    # Stripping "gan" on its own left "day" behind, so the commonest phrasing of
+    # all — "cong vien gan day" — reached the geocoder as if it were a place name.
+    remainder = re.sub(r"\b(?:gan day|gan|va|hoac|cac|khu vuc|xung quanh|day)\b", " ", remainder)
     return not remainder.strip(" ,.-")
 
 
