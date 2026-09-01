@@ -194,10 +194,10 @@ class GeoService:
         dest_str = f"{destination[0]},{destination[1]}"
         result: dict[int, dict[str, float]] = {}
 
-        CHUNK_SIZE = 10
+        chunk_size = 10
         async with httpx.AsyncClient(timeout=self.settings.geo_timeout_seconds) as client:
-            for offset in range(0, len(origins), CHUNK_SIZE):
-                chunk = origins[offset:offset + CHUNK_SIZE]
+            for offset in range(0, len(origins), chunk_size):
+                chunk = origins[offset:offset + chunk_size]
                 origins_str = "|".join(f"{lat},{lon}" for lat, lon in chunk)
                 try:
                     response = await client.get(
