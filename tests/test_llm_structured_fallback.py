@@ -26,7 +26,9 @@ class _Model:
     def with_structured_output(self, schema: type, **kwargs: Any) -> _Model:
         return self
 
-    async def ainvoke(self, messages: list[Any]) -> Any:
+    async def ainvoke(self, messages: list[Any], **kwargs: Any) -> Any:
+        # Real chat models take a `config` with callbacks; the double has to
+        # accept it or it reports a signature failure as a model failure.
         self.tried = True
         if self._error:
             raise self._error

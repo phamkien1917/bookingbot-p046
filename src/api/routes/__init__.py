@@ -18,6 +18,7 @@ from src.api.routes.auth import get_current_user, get_optional_current_user
 from src.database import get_session
 from src.database.models import User, UserRole
 from src.models.schemas import ChatRequest, ChatResponse
+from src.services import token_usage
 from src.services.analytics_service import record_event
 from src.services.chat_state_service import normalize_text
 from src.services.conversation_service import (
@@ -135,6 +136,10 @@ async def _execute_chat_turn(
         if not allowed:
             raise HTTPException(status_code=429, detail="Bạn gửi tin nhắn quá nhanh. Vui lòng thử lại sau ít phút.")
 
+        # One turn fans out over several nodes and several model calls. Start the
+        # per-request counter here so every one of them lands in the same total.
+        token_usage.start()
+
         if not session_data and customer_id:
             session_data = await get_persistent_session(db, session_id, customer_id)
             if session_data:
@@ -218,6 +223,9 @@ async def _execute_chat_turn(
         stage_timings = {k: int(v) for k, v in (final_state.get("stage_timings") or {}).items()}
         if stage_timings:
             logger.info("Chat stage timings session=%s %s", session_id, stage_timings)
+        tokens = token_usage.snapshot()
+        if tokens["llm_calls"]:
+            logger.info("Chat token usage session=%s %s", session_id, tokens)
         auth_required = bool(final_state.get("auth_required"))
 
         # Save metadata and update state
@@ -305,6 +313,10 @@ async def _execute_chat_turn(
             ai_model=ai_model,
             ai_latency_ms=ai_latency_ms,
             stage_timings=stage_timings,
+            input_tokens=tokens["input_tokens"],
+            output_tokens=tokens["output_tokens"],
+            cached_input_tokens=tokens["cached_input_tokens"],
+            llm_calls=tokens["llm_calls"],
             ai_fallback_reason="provider_unavailable" if ai_mode == "fallback" else None,
         )
 
