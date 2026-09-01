@@ -10,10 +10,10 @@
 
 ## 1. Bảng Tổng hợp Kết quả Kiểm thử (Test Results)
 
-Hệ thống kiểm thử tự động của Nera gồm **720 test cases** chạy tự động qua `pytest`:
+Hệ thống kiểm thử tự động của Nera gồm **792 test cases** chạy tự động qua `pytest`:
 
 ```
-====================== 720 passed, 2 warnings in 10.71s =======================
+====================== 792 passed, 2 warnings in 7.69s ========================
 ```
 
 | Nhóm kiểm thử | File đại diện | Số lượng | Kết quả | Trọng tâm kiểm tra |
@@ -27,7 +27,12 @@ Hệ thống kiểm thử tự động của Nera gồm **720 test cases** chạ
 | **Agent Behavior & HITL** | `test_hitl_no_false_confirmation.py`, `test_rental_honesty.py` | **10** | 🟢 100% PASS | Không nói "đã xác nhận" khi Sale chưa duyệt, trung thực kho thuê |
 | **Observability & Token Tracker**| `test_token_usage.py`, `test_stage_timings.py` | **11** | 🟢 100% PASS | Trích xuất token usage từ API provider, đo mili-giây từng node |
 | **Các Unit & Flow khác** | `test_geo_service.py`, `test_route_optimizer.py`, ... | **356** | 🟢 100% PASS | Haversine distance, time utilities, JWT encryption, Pydantic validation |
-| **TỔNG CỘNG** | **43 file kiểm thử chuyên biệt** | **720** | 🟢 **100% PASS** | **Thời gian thực thi: 10.71 giây** |
+| **API & Endpoint Contract** | `test_api_health.py`, `test_api_chat.py` | **9** | 🟢 100% PASS | `/health`, `/`, `POST /chat`: shape phản hồi, 4 trường token, chặn input rỗng/quá dài, không lộ key khi provider lỗi |
+| **Conditional Routing** | `test_routing.py` | **13** | 🟢 100% PASS | `route_from_supervisor` và `_route_after_worker`; mọi đích đến phải tồn tại như một node |
+| **Graph Flow (end-to-end)** | `test_agent_graph.py` | **5** | 🟢 100% PASS | Một lượt đi hết graph, nhánh HITL, `stage_timings` ghi đủ node |
+| **Supervisor Node** | `test_agent_nodes.py` | **21** | 🟢 100% PASS | Intent nào giao cho worker nào, thu nhập không thành giá mua, provider chết vẫn có đường đi |
+| **Property Serialization** | `test_property_serialization.py` | **20** | 🟢 100% PASS | Decimal sang JSON, giá thiếu hiện "Liên hệ", tin cũ bị đánh dấu stale, ảnh bìa lên đầu |
+| **TỔNG CỘNG** | **49 file kiểm thử chuyên biệt** | **792** | 🟢 **100% PASS** | **Thời gian thực thi: 7,69 giây** |
 
 ---
 
@@ -42,12 +47,26 @@ Chạy đo lường toàn diện qua `pytest tests/ --cov=src --cov-report=term-
 | **Tối ưu Lộ trình (`src/services/route_optimizer.py`)** | 85 | **91%** | Rất cao |
 | **Trích xuất Tiêu chí Tìm kiếm (`src/services/search_criteria_service.py`)** | 233 | **89%** | Rất cao |
 | **Quản lý Trạng thái Hội thoại (`src/services/chat_state_service.py`)** | 95 | **86%** | Rất cao |
+| **Supervisor Node (`src/agents/nodes/supervisor.py`)** | 533 | **61%** | Đạt chuẩn (từ 23% sau khi bổ sung test node) |
 | **Tính toán Tài chính Vay mua (`src/services/affordability.py`)** | 143 | **78%** | Tốt |
 | **Quy trình Duyệt HITL (`src/services/hitl_service.py`)** | 45 | **78%** | Tốt |
 | **Đo lường Token & Chi phí (`src/services/token_usage.py`)** | 88 | **72%** | Tốt |
 | **Xác thực & Kết nối DB (`src/services/auth_service.py`, `connection.py`)** | 196 | **67%** | Đạt chuẩn |
 | **Router Chat & Gateway (`src/api/routes/__init__.py`, `chat.py`)** | 259 | **65%** | Đạt chuẩn |
-| **Toàn bộ Codebase (`src/`)** | **7.657** | **48%** | *(Core services đạt 72-100%, các nhánh query mở rộng đang tiếp tục bổ sung test)* |
+| **Toàn bộ Codebase (`src/`)** | **7.655** | **51%** | *(Chưa đạt mốc 60% BTC nêu — xem ghi chú bên dưới)* |
+
+**Khoảng cách tới mốc 60%.** Độ bao phủ tổng thể là 51%, dưới mốc tối thiểu 60%
+mà tài liệu BTC nêu. Phần thiếu tập trung ở ba module truy vấn PostgreSQL trực
+tiếp: `inventory_agent.py` (472 dòng chưa chạm), `booking_agent.py` (192) và
+`redis_service.py` (333). Chúng nhận `AsyncSession` và dựng câu lệnh SQLAlchemy
+ngay trong hàm, nên muốn test đúng thì cần một database test thật, không phải
+thêm một lớp mock nữa — mock `session.execute()` chỉ kiểm tra được rằng mock đã
+được gọi, không kiểm tra được câu truy vấn có đúng không.
+
+Cổng `--cov-fail-under` trong `pyproject.toml` đang đặt ở **50%**, thấp hơn mức
+đo được một điểm. Đây là chốt chặn chống tụt, không phải mục tiêu: một thay đổi
+làm giảm độ bao phủ sẽ làm hỏng build. Đặt thẳng 60% lúc này chỉ tạo ra build đỏ
+chứ không tạo ra sản phẩm được test tốt hơn.
 
 ---
 
@@ -62,6 +81,28 @@ Thay vì RAG tài liệu văn bản thuần túy, Nera là hệ thống **SQL & 
 | **Commute Grounding (Goong Maps)** | Tính toán khoảng cách & thời gian di chuyển bằng Goong Distance Matrix API, có badge và iframe minh chứng. | **100%** các ca lọc khoảng cách | > 90% | 🟢 **PASS** |
 | **Context Retention (Trí nhớ ngữ cảnh)** | Kế thừa tiêu chí cũ (quận, loại nhà, ngân sách) khi người dùng đổi diện tích hoặc số phòng ở lượt kế tiếp. | **100%** (82/82 ca golden criteria pass) | > 85% | 🟢 **PASS** |
 | **Concurrency Safety** | Không xảy ra tình trạng 2 khách đặt trùng cùng 1 khung giờ xem nhà của 1 căn. | **0% Double-booking** (PostgreSQL Lock) | 0% | 🟢 **PASS** |
+
+### Vì sao không dùng RAGAS
+
+Tài liệu BTC đề xuất RAGAS với bốn chỉ số. Hai trong số đó — **Context Precision**
+và **Context Recall** — đo chất lượng khâu truy hồi tài liệu văn bản: retriever
+có lấy đúng đoạn văn không, có xếp đúng thứ tự ưu tiên không. Nera không có khâu
+đó. Không có vector store, không có embedding, không có chunk văn bản;
+`src/services/knowledge_base.py` là bảng FAQ tra theo từ khoá chứ không phải
+retriever. Kết quả tìm kiếm đến từ câu lệnh SQL trên bảng `properties` sau khi
+bộ trích xuất chốt ràng buộc cứng. Chạy hai chỉ số này lên một hệ thống không có
+retriever sẽ ra một con số, nhưng con số đó không đo cái gì cả.
+
+Hai chỉ số còn lại **có** ý nghĩa, và được đo bằng cách xác định thay vì bằng
+LLM chấm LLM:
+
+| Chỉ số RAGAS | Cách Nera đo tương đương | Bằng chứng |
+|:---|:---|:---|
+| **Faithfulness** | Mọi trường BĐS trong câu trả lời phải truy được về một bản ghi CSDL; công cụ bản đồ lỗi thì nói chưa xác minh, không bịa số km | `tests/test_geo_tool_failure.py`, `tests/test_property_serialization.py` |
+| **Answer Relevance** | 222 kịch bản golden, phần single-turn chạy trong CI đối chiếu tiêu chí trích xuất với đáp án chuẩn | `tests/test_golden_set.py` |
+
+Cách này chạy trong mỗi lần push, không tốn token, và không có LLM nào tự chấm
+điểm cho chính mình.
 
 ---
 
