@@ -170,7 +170,7 @@ app.add_middleware(
 app.include_router(router, prefix="/api/v1")
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     """Readiness check covering the application and its primary database."""
     from sqlalchemy import text
