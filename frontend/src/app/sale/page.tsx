@@ -223,12 +223,6 @@ function SaleDashboardContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  async function handleLogout() {
-    await logout();
-    router.replace("/");
-    router.refresh();
-  }
-
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     try {
