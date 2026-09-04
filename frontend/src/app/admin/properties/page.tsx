@@ -16,13 +16,51 @@ interface PropertyItem {
   area_sqm: number;
   list_price: number | null;
   address: string;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
 }
+
+interface PropertyForm {
+  title: string;
+  property_kind: string;
+  area_sqm: number | string;
+  list_price: number | string;
+  address_line: string;
+  province: string;
+  district: string;
+  ward: string;
+  bedrooms: number | string;
+  bathrooms: number | string;
+  status: string;
+  description: string;
+}
+
+const defaultForm: PropertyForm = {
+  title: "",
+  property_kind: "APARTMENT",
+  area_sqm: "",
+  list_price: "",
+  address_line: "",
+  province: "Hà Nội",
+  district: "",
+  ward: "",
+  bedrooms: 2,
+  bathrooms: 1,
+  status: "AVAILABLE",
+  description: "",
+};
 
 export default function AdminPropertiesPage() {
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+
+  // Modal create/edit states
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<PropertyForm>(defaultForm);
+  const [submitting, setSubmitting] = useState(false);
   
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +94,101 @@ export default function AdminPropertiesPage() {
     }
   };
 
+  const handleOpenCreate = () => {
+    setEditingId(null);
+    setForm(defaultForm);
+    setModalOpen(true);
+  };
+
+  const handleOpenEdit = async (item: PropertyItem) => {
+    setEditingId(item.id);
+    setModalOpen(true);
+    setForm({
+      title: item.title,
+      property_kind: item.property_kind,
+      area_sqm: item.area_sqm,
+      list_price: item.list_price ? (item.list_price / 1e9).toFixed(2) : "",
+      address_line: item.address,
+      province: "Hà Nội",
+      district: "",
+      ward: "",
+      bedrooms: item.bedrooms ?? 2,
+      bathrooms: item.bathrooms ?? 1,
+      status: item.status,
+      description: "",
+    });
+
+    try {
+      const full = await apiFetch<Record<string, unknown>>(`/properties/${item.id}`);
+      if (full) {
+        setForm({
+          title: (full.title as string) || item.title,
+          property_kind: (full.property_kind as string) || item.property_kind,
+          area_sqm: (full.area_sqm as number) || item.area_sqm,
+          list_price: full.list_price ? ((full.list_price as number) / 1e9).toFixed(2) : (item.list_price ? (item.list_price / 1e9).toFixed(2) : ""),
+          address_line: (full.address_line as string) || item.address,
+          province: (full.province as string) || "Hà Nội",
+          district: (full.district as string) || "",
+          ward: (full.ward as string) || "",
+          bedrooms: (full.bedrooms as number) ?? 2,
+          bathrooms: (full.bathrooms as number) ?? 1,
+          status: (full.status as string) || item.status,
+          description: (full.description as string) || "",
+        });
+      }
+    } catch {
+      // Fallback already set
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) {
+      alert("Vui lòng nhập tên bất động sản");
+      return;
+    }
+    if (!form.area_sqm || Number(form.area_sqm) <= 0) {
+      alert("Vui lòng nhập diện tích hợp lệ");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const rawPrice = form.list_price ? Math.round(Number(form.list_price) * 1e9) : null;
+      const payload = {
+        title: form.title.trim(),
+        property_kind: form.property_kind,
+        area_sqm: Number(form.area_sqm),
+        list_price: rawPrice,
+        address_line: form.address_line.trim() || form.title.trim(),
+        province: form.province.trim() || "Hà Nội",
+        district: form.district.trim() || null,
+        ward: form.ward.trim() || null,
+        bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
+        bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
+        status: form.status,
+        description: form.description.trim() || null,
+      };
+
+      if (editingId) {
+        await apiFetch(`/admin/properties/${editingId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiFetch(`/admin/properties`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+      setModalOpen(false);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Lỗi khi lưu bất động sản");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <ProtectedPage roles={["ADMIN", "COORDINATOR"]}>
       <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] font-sans">
@@ -77,7 +210,10 @@ export default function AdminPropertiesPage() {
                   className="pl-9 pr-4 py-2.5 rounded-xl border border-black/10 w-full md:w-64 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)]"
                 />
               </div>
-              <button className="bg-[var(--forest)] text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity">
+              <button 
+                onClick={handleOpenCreate}
+                className="bg-[var(--forest)] text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+              >
                 <FaPlus /> Thêm mới
               </button>
             </div>
@@ -124,10 +260,14 @@ export default function AdminPropertiesPage() {
                         <Link href={`/properties/${item.id}`} target="_blank" className="p-2 text-[var(--muted)] hover:text-[var(--forest)] bg-[#fbfaf7] rounded-lg border border-black/5" title="Xem trên web">
                           <FaEye />
                         </Link>
-                        <button className="p-2 text-[var(--muted)] hover:text-blue-600 bg-[#fbfaf7] rounded-lg border border-black/5" title="Chỉnh sửa">
+                        <button 
+                          onClick={() => handleOpenEdit(item)}
+                          className="p-2 text-[var(--muted)] hover:text-blue-600 bg-[#fbfaf7] rounded-lg border border-black/5 hover:border-blue-300 cursor-pointer" 
+                          title="Chỉnh sửa BĐS"
+                        >
                           <FaEdit />
                         </button>
-                        <button onClick={() => toggleStatus(item)} className="p-2 text-[var(--muted)] hover:text-red-600 bg-[#fbfaf7] rounded-lg border border-black/5" title={item.status === 'HIDDEN' ? "Hiện" : "Ẩn"}>
+                        <button onClick={() => toggleStatus(item)} className="p-2 text-[var(--muted)] hover:text-red-600 bg-[#fbfaf7] rounded-lg border border-black/5 cursor-pointer" title={item.status === 'HIDDEN' ? "Hiện" : "Ẩn"}>
                           {item.status === 'HIDDEN' ? <FaEye /> : <FaEyeSlash />}
                         </button>
                       </div>
@@ -137,6 +277,224 @@ export default function AdminPropertiesPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Create / Edit Property Modal */}
+          {modalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs overflow-y-auto">
+              <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-black/10 my-8 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex justify-between items-start mb-5 pb-3 border-b border-black/5">
+                  <div>
+                    <h3 className="text-xl font-bold">{editingId ? "Chỉnh Sửa Bất Động Sản" : "Thêm Bất Động Sản Mới"}</h3>
+                    <p className="text-xs text-[var(--muted)] mt-0.5">
+                      {editingId ? "Cập nhật thông số kỹ thuật và trạng thái căn hộ" : "Thêm căn hộ mới vào kho hàng 3.796 BĐS"}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setModalOpen(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded-lg text-lg cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                      Tên / Tiêu đề BĐS <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text"
+                      required
+                      value={form.title}
+                      onChange={(e) => setForm({...form, title: e.target.value})}
+                      placeholder="VD: Căn hộ cao cấp Masteri Thảo Điền 2PN view sông"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Loại hình
+                      </label>
+                      <select 
+                        value={form.property_kind}
+                        onChange={(e) => setForm({...form, property_kind: e.target.value})}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm bg-white"
+                      >
+                        <option value="APARTMENT">Căn hộ (APARTMENT)</option>
+                        <option value="HOUSE">Nhà riêng (HOUSE)</option>
+                        <option value="VILLA">Biệt thự (VILLA)</option>
+                        <option value="TOWNHOUSE">Nhà phố (TOWNHOUSE)</option>
+                        <option value="LAND">Đất nền (LAND)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Giá bán (Tỷ VNĐ)
+                      </label>
+                      <input 
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.list_price}
+                        onChange={(e) => setForm({...form, list_price: e.target.value})}
+                        placeholder="VD: 3.85 (tương đương 3.85 tỷ)"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Diện tích (m²) <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        required
+                        value={form.area_sqm}
+                        onChange={(e) => setForm({...form, area_sqm: e.target.value})}
+                        placeholder="VD: 75.5"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Số phòng ngủ
+                      </label>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={form.bedrooms}
+                        onChange={(e) => setForm({...form, bedrooms: e.target.value})}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Số phòng tắm / WC
+                      </label>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={form.bathrooms}
+                        onChange={(e) => setForm({...form, bathrooms: e.target.value})}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Trạng thái
+                      </label>
+                      <select 
+                        value={form.status}
+                        onChange={(e) => setForm({...form, status: e.target.value})}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm bg-white"
+                      >
+                        <option value="AVAILABLE">AVAILABLE (Đang mở bán)</option>
+                        <option value="PENDING">PENDING (Đang giữ chỗ)</option>
+                        <option value="SOLD">SOLD (Đã bán)</option>
+                        <option value="HIDDEN">HIDDEN (Tạm ẩn)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Tỉnh / Thành phố
+                      </label>
+                      <input 
+                        type="text"
+                        value={form.province}
+                        onChange={(e) => setForm({...form, province: e.target.value})}
+                        placeholder="Hà Nội, TP Hồ Chí Minh..."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Quận / Huyện
+                      </label>
+                      <input 
+                        type="text"
+                        value={form.district}
+                        onChange={(e) => setForm({...form, district: e.target.value})}
+                        placeholder="VD: Cầu Giấy, Quận 7..."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                        Phường / Xã
+                      </label>
+                      <input 
+                        type="text"
+                        value={form.ward}
+                        onChange={(e) => setForm({...form, ward: e.target.value})}
+                        placeholder="VD: Dịch Vọng Hậu..."
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                      Địa chỉ chi tiết (Đường, số nhà, tòa chung cư)
+                    </label>
+                    <input 
+                      type="text"
+                      value={form.address_line}
+                      onChange={(e) => setForm({...form, address_line: e.target.value})}
+                      placeholder="VD: Số 123 đường Cầu Giấy, Tòa tháp Discovery Complex"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">
+                      Mô tả BĐS
+                    </label>
+                    <textarea 
+                      rows={3}
+                      value={form.description}
+                      onChange={(e) => setForm({...form, description: e.target.value})}
+                      placeholder="Mô tả nội thất, pháp lý, tiện ích xung quanh căn hộ..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] text-sm"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-black/5">
+                    <button
+                      type="button"
+                      onClick={() => setModalOpen(false)}
+                      className="px-4 py-2 text-sm rounded-xl border border-black/10 font-semibold hover:bg-black/5 transition-colors cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="px-5 py-2 text-sm bg-[var(--forest)] text-white rounded-xl font-semibold hover:opacity-90 transition-opacity flex items-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      {submitting ? <FaSpinner className="animate-spin" /> : editingId ? "Lưu thay đổi" : "Tạo bất động sản"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </ProtectedPage>

@@ -20,6 +20,7 @@ import {
   FaTimes,
   FaTimesCircle,
   FaUserCheck,
+  FaUserCircle,
 } from "react-icons/fa";
 import ProtectedPage from "@/components/ProtectedPage";
 import { useAuth } from "@/components/AuthProvider";
@@ -220,6 +221,13 @@ function SaleDashboardContent() {
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [verified, setVerified] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/");
+    router.refresh();
+  }
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -319,9 +327,41 @@ function SaleDashboardContent() {
             <p className="text-xs font-bold uppercase tracking-[.18em] text-[var(--coral)]">Sale Dashboard</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-[-.04em]">Xin chào {overview?.user.full_name ?? user?.full_name}</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold"><FaSyncAlt className={loading ? "animate-spin" : ""} /> Làm mới</button>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+            <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-black/5 transition-colors cursor-pointer">
+              <FaSyncAlt className={loading ? "animate-spin" : ""} /> Làm mới
+            </button>
             <NotificationBell />
+            {user && (
+              <div className="relative">
+                <button 
+                  onClick={() => setProfileMenuOpen((open) => !open)} 
+                  className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-[var(--muted)] hover:text-[var(--forest)] transition-colors cursor-pointer"
+                >
+                  <FaUserCircle className="text-lg" />
+                  <span className="max-w-32 truncate">{overview?.user?.full_name || user.full_name}</span>
+                </button>
+                {profileMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
+                    <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-black/5 bg-white p-2 shadow-[0_20px_60px_rgba(20,40,35,.16)]">
+                      <Link href="/profile" onClick={() => setProfileMenuOpen(false)} className="block w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium hover:bg-stone-50 text-[var(--ink)]">
+                        Cập nhật thông tin
+                      </Link>
+                      <Link href="/change-password" onClick={() => setProfileMenuOpen(false)} className="block w-full rounded-xl px-4 py-2.5 text-left text-sm font-medium hover:bg-stone-50 text-[var(--ink)]">
+                        Đổi mật khẩu
+                      </Link>
+                      <button 
+                        onClick={() => { setProfileMenuOpen(false); void handleLogout(); }} 
+                        className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 cursor-pointer"
+                      >
+                        <FaSignOutAlt /> Đăng xuất
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </header>
 
