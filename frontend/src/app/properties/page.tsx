@@ -21,7 +21,12 @@ function PropertiesContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<Filters>(() => ({ ...emptyFilters, keyword: searchParams.get("keyword") ?? "", district: searchParams.get("district") ?? "" }));
+  const [filters, setFilters] = useState<Filters>(() => ({
+    ...emptyFilters,
+    keyword: searchParams.get("keyword") ?? "",
+    district: searchParams.get("district") ?? "",
+    propertyKind: searchParams.get("property_kind") ?? searchParams.get("propertyKind") ?? "",
+  }));
   const [applied, setApplied] = useState(filters);
   const [properties, setProperties] = useState<Property[]>([]);
   const [total, setTotal] = useState(0);
